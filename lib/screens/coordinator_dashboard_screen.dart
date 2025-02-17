@@ -356,6 +356,72 @@ class CoordinatorDashboardScreen extends StatelessWidget {
               ),
             ),
           ),
+
+          // List of Mentees Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'List of Mentees',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // TODO: View all mentees
+                        },
+                        child: const Text('View All'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Mentee Status Legend
+                  Wrap(
+                    spacing: 16,
+                    children: [
+                      _buildStatusIndicator('Available', Colors.green),
+                      _buildStatusIndicator('Pending Request', Colors.orange),
+                      _buildStatusIndicator('Assigned', Colors.blue),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Mentee List
+                  _buildMenteeListItem(
+                    context,
+                    'Michael Brown',
+                    '1st Year, Computer Science',
+                    'Available',
+                    Colors.green,
+                  ),
+                  const Divider(),
+                  _buildMenteeListItem(
+                    context,
+                    'Lisa Chen',
+                    '2nd Year, Biology',
+                    'Pending Request from Sarah Martinez',
+                    Colors.orange,
+                  ),
+                  const Divider(),
+                  _buildMenteeListItem(
+                    context,
+                    'James Wilson',
+                    '1st Year, Psychology',
+                    'Available',
+                    Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -623,6 +689,159 @@ class CoordinatorDashboardScreen extends StatelessWidget {
               Icons.check_circle,
               color: Colors.green,
               size: 20,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenteeListItem(
+    BuildContext context,
+    String name,
+    String program,
+    String status,
+    Color statusColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            child: Text(name.substring(0, 1)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  program,
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (status == 'Available')
+            TextButton(
+              onPressed: () {
+                // TODO: Show mentor selection dialog
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Assign $name'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Choose an option:'),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: const Icon(Icons.person_add),
+                          title: const Text('Assign to Mentor'),
+                          subtitle: const Text('Select a mentor to assign'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            // TODO: Show mentor selection
+                          },
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.notifications_active),
+                          title: const Text('Make Available'),
+                          subtitle: const Text('Allow mentors to request this mentee'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            // TODO: Update mentee status
+                          },
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: const Text('Assign'),
+            ),
+          if (status.startsWith('Pending'))
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check_circle_outline),
+                  color: Colors.green,
+                  onPressed: () {
+                    // TODO: Approve mentor request
+                  },
+                  tooltip: 'Approve Request',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.cancel_outlined),
+                  color: Colors.red,
+                  onPressed: () {
+                    // TODO: Deny mentor request
+                  },
+                  tooltip: 'Deny Request',
+                ),
+              ],
             ),
         ],
       ),
