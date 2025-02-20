@@ -165,7 +165,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New Mentor-Mentee Assignment'),
+        title: const Text('Select New Mentee'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -176,7 +176,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
               ),
               items: mentors
                   .where((mentor) => mentor['mentees'].length < 3)
-                  .map((mentor) => DropdownMenuItem(
+                  .map((mentor) => DropdownMenuItem<String>(
                         value: mentor['name'],
                         child: Text(
                             '${mentor['name']} (${mentor['mentees'].length}/3 mentees)'),
@@ -191,7 +191,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 border: OutlineInputBorder(),
               ),
               items: unassignedMentees
-                  .map((mentee) => DropdownMenuItem(
+                  .map((mentee) => DropdownMenuItem<String>(
                         value: mentee['name'],
                         child: Text(
                             '${mentee['name']} - ${mentee['program']}'),
@@ -208,10 +208,10 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Implement assignment logic
+              // TODO: Implement direct assignment logic
               Navigator.pop(context);
             },
-            child: const Text('Assign'),
+            child: const Text('Confirm Selection'),
           ),
         ],
       ),

@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'chat_screen.dart';
 import 'schedule_meeting_screen.dart';
+import 'meeting_notes_screen.dart';
+import 'progress_reports_screen.dart';
+import 'resource_hub_screen.dart';
+import 'settings_screen.dart';
+import 'checklist_screen.dart';
+import '../services/mentor_service.dart';
 
 class MentorDashboardScreen extends StatelessWidget {
   const MentorDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final mentorService = Provider.of<MentorService>(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mentor Dashboard'),
@@ -27,9 +36,48 @@ class MentorDashboardScreen extends StatelessWidget {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(isMentor: true),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: () {
               // TODO: Show notifications
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Notifications'),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.notification_important, color: Colors.red),
+                        title: Text('New Progress Report Due'),
+                        subtitle: Text('Due in 2 days'),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.event, color: Colors.blue),
+                        title: Text('Upcoming Meeting'),
+                        subtitle: Text('Tomorrow at 2:00 PM'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('Close'),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
           IconButton(
@@ -71,10 +119,25 @@ class MentorDashboardScreen extends StatelessWidget {
                             subtitle: const Text('1st Year, Computer Science'),
                             trailing: ElevatedButton(
                               onPressed: () {
-                                // TODO: Request mentee
+                                mentorService.addMentee({
+                                  'name': 'Michael Brown',
+                                  'program': '1st Year, Computer Science',
+                                  'lastMeeting': 'Not met yet',
+                                  'progress': 0.0,
+                                  'assignedBy': 'You',
+                                  'goals': [],
+                                  'upcomingMeetings': [],
+                                  'actionItems': [],
+                                });
                                 Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('New mentee added successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
                               },
-                              child: const Text('Request'),
+                              child: const Text('Select'),
                             ),
                           ),
                           ListTile(
@@ -85,10 +148,25 @@ class MentorDashboardScreen extends StatelessWidget {
                             subtitle: const Text('2nd Year, Biology'),
                             trailing: ElevatedButton(
                               onPressed: () {
-                                // TODO: Request mentee
+                                mentorService.addMentee({
+                                  'name': 'Lisa Chen',
+                                  'program': '2nd Year, Biology',
+                                  'lastMeeting': 'Not met yet',
+                                  'progress': 0.0,
+                                  'assignedBy': 'You',
+                                  'goals': [],
+                                  'upcomingMeetings': [],
+                                  'actionItems': [],
+                                });
                                 Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('New mentee added successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
                               },
-                              child: const Text('Request'),
+                              child: const Text('Select'),
                             ),
                           ),
                         ],
@@ -103,29 +181,27 @@ class MentorDashboardScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.person_add),
-                label: const Text('Request Mentee'),
+                label: const Text('Select Mentee'),
               ),
             ],
           ),
           const SizedBox(height: 16),
           
           // Mentee Cards
-          _buildMenteeCard(
-            context,
-            'Alice Johnson',
-            '1st Year, Biology Major',
-            'Last meeting: 2 days ago',
-            0.6,
-          ),
-          const SizedBox(height: 12),
-          _buildMenteeCard(
-            context,
-            'Bob Wilson',
-            '2nd Year, Psychology Major',
-            'Last meeting: 1 week ago',
-            0.3,
-          ),
-          const SizedBox(height: 16),
+          ...mentorService.mentees.map((mentee) => Column(
+            children: [
+              _buildMenteeCard(
+                context,
+                mentee['name'],
+                mentee['program'],
+                mentee['lastMeeting'],
+                mentee['progress'],
+                mentee['assignedBy'],
+                mentorService,
+              ),
+              const SizedBox(height: 12),
+            ],
+          )).toList(),
 
           // Announcements Card
           Card(
@@ -146,24 +222,44 @@ class MentorDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: View all announcements
+                          // View all announcements
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('All Announcements'),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: mentorService.announcements.map((announcement) =>
+                                    _buildAnnouncementItem(
+                                      announcement['title'],
+                                      announcement['content'],
+                                      announcement['time'],
+                                    ),
+                                  ).toList(),
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                          );
                         },
                         child: const Text('View All'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  _buildAnnouncementItem(
-                    'Mentor Training Session',
-                    'Required training session for all mentors next Tuesday.',
-                    '1 hour ago',
-                  ),
-                  const Divider(),
-                  _buildAnnouncementItem(
-                    'End of Semester Review',
-                    'Please complete your mentee progress reports by next week.',
-                    '1 day ago',
-                  ),
+                  ...mentorService.announcements.take(2).map((announcement) =>
+                    _buildAnnouncementItem(
+                      announcement['title'],
+                      announcement['content'],
+                      announcement['time'],
+                    ),
+                  ).toList(),
                 ],
               ),
             ),
@@ -196,7 +292,12 @@ class MentorDashboardScreen extends StatelessWidget {
                 'Meeting Notes',
                 Icons.note_add,
                 () {
-                  // TODO: Open notes
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MeetingNotesScreen(),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(
@@ -204,7 +305,12 @@ class MentorDashboardScreen extends StatelessWidget {
                 'Resources Hub',
                 Icons.folder_shared,
                 () {
-                  // TODO: Open resources
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResourceHubScreen(),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(
@@ -212,7 +318,25 @@ class MentorDashboardScreen extends StatelessWidget {
                 'Progress Reports',
                 Icons.assessment,
                 () {
-                  // TODO: Open reports
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProgressReportsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildQuickActionCard(
+                context,
+                'Assign Check List',
+                Icons.checklist_rtl,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChecklistScreen(isMentor: true),
+                    ),
+                  );
                 },
               ),
             ],
@@ -239,26 +363,31 @@ class MentorDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: View full schedule
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScheduleMeetingScreen(isMentor: true),
+                            ),
+                          );
                         },
                         child: const Text('View All'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  _buildScheduleItem(
-                    context,
-                    'Weekly Check-in with Alice',
-                    '2:00 PM - 3:00 PM',
-                    true,
-                  ),
-                  const Divider(),
-                  _buildScheduleItem(
-                    context,
-                    'Progress Review with Bob',
-                    '4:00 PM - 5:00 PM',
-                    false,
-                  ),
+                  ...mentorService.mentees.expand((mentee) => 
+                    mentee['upcomingMeetings'].map((meeting) =>
+                      _buildScheduleItem(
+                        context,
+                        '${meeting['title']} with ${mentee['name']}',
+                        meeting['time'],
+                        meeting['isNext'],
+                        mentorService,
+                        mentee['name'],
+                        meeting['title'],
+                      ),
+                    ),
+                  ).toList(),
                 ],
               ),
             ),
@@ -281,19 +410,18 @@ class MentorDashboardScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _buildActionItem(
-                    context,
-                    'Review Alice\'s project proposal',
-                    'Due tomorrow',
-                    Icons.assignment,
-                  ),
-                  const Divider(),
-                  _buildActionItem(
-                    context,
-                    'Submit Bob\'s progress report',
-                    'Due in 3 days',
-                    Icons.assessment,
-                  ),
+                  ...mentorService.mentees.expand((mentee) =>
+                    mentee['actionItems'].where((item) => !item['completed']).map((item) =>
+                      _buildActionItem(
+                        context,
+                        item['task'],
+                        item['dueDate'],
+                        Icons.assignment,
+                        mentorService,
+                        mentee['name'],
+                      ),
+                    ),
+                  ).toList(),
                 ],
               ),
             ),
@@ -302,7 +430,43 @@ class MentorDashboardScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Quick action menu
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.add_task),
+                  title: const Text('Add Action Item'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Show add action item dialog
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.announcement),
+                  title: const Text('Create Announcement'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Show create announcement dialog
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.event_note),
+                  title: const Text('Schedule Meeting'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ScheduleMeetingScreen(isMentor: true),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
         },
         child: const Icon(Icons.add),
       ),
@@ -315,6 +479,8 @@ class MentorDashboardScreen extends StatelessWidget {
     String program,
     String lastMeeting,
     double progress,
+    String assignedBy,
+    MentorService mentorService,
   ) {
     return Card(
       child: Padding(
@@ -362,9 +528,7 @@ class MentorDashboardScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              name == 'Alice Johnson' 
-                                  ? 'Assigned by Clarissa Correa' 
-                                  : 'Mentee requested by you',
+                              assignedBy,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.green[700],
@@ -465,6 +629,9 @@ class MentorDashboardScreen extends StatelessWidget {
     String title,
     String time,
     bool isNext,
+    MentorService mentorService,
+    String menteeName,
+    String meetingTitle,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -561,6 +728,8 @@ class MentorDashboardScreen extends StatelessWidget {
     String title,
     String deadline,
     IconData icon,
+    MentorService mentorService,
+    String menteeName,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

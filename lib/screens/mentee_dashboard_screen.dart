@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
 import 'schedule_meeting_screen.dart';
+import 'resource_hub_screen.dart';
+import 'settings_screen.dart';
+import 'checklist_screen.dart';
 
 class MenteeDashboardScreen extends StatelessWidget {
   const MenteeDashboardScreen({super.key});
@@ -11,6 +14,18 @@ class MenteeDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mentee Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(isMentor: false),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: () {
@@ -175,7 +190,12 @@ class MenteeDashboardScreen extends StatelessWidget {
                 'Resources',
                 Icons.folder_open,
                 () {
-                  // TODO: Open resources
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResourceHubScreen(isMentor: false),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(
@@ -184,6 +204,19 @@ class MenteeDashboardScreen extends StatelessWidget {
                 Icons.note,
                 () {
                   // TODO: Open meeting notes
+                },
+              ),
+              _buildQuickActionCard(
+                context,
+                'Assign Check List',
+                Icons.checklist_rtl,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChecklistScreen(isMentor: false),
+                    ),
+                  );
                 },
               ),
             ],
