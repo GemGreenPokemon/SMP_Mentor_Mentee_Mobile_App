@@ -401,8 +401,9 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                     spacing: 16,
                     children: [
                       _buildStatusIndicator('Available', Colors.green),
-                      _buildStatusIndicator('Pending Request', Colors.orange),
                       _buildStatusIndicator('Assigned', Colors.blue),
+                      _buildStatusIndicator('Requested Mentor', Colors.orange),
+                      _buildStatusIndicator('Inactive', Colors.grey),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -419,7 +420,7 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                     context,
                     'Lisa Chen',
                     '2nd Year, Biology',
-                    'Pending Request from Sarah Martinez',
+                    'Requested Mentor: Sarah Martinez (4th Year, Biology)',
                     Colors.orange,
                   ),
                   const Divider(),
@@ -436,12 +437,6 @@ class CoordinatorDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Quick actions menu
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -721,11 +716,13 @@ class CoordinatorDashboardScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
           ),
         ),
       ],
@@ -776,11 +773,14 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: statusColor,
+                    Expanded(
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: statusColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -791,11 +791,10 @@ class CoordinatorDashboardScreen extends StatelessWidget {
           if (status == 'Available')
             TextButton(
               onPressed: () {
-                // TODO: Show mentor selection dialog
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text('Assign $name'),
+                    title: Text('Manage $name'),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -803,22 +802,23 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                         const Text('Choose an option:'),
                         const SizedBox(height: 16),
                         ListTile(
-                          leading: const Icon(Icons.person_add),
-                          title: const Text('Assign to Mentor'),
-                          subtitle: const Text('Select a mentor to assign'),
+                          leading: const Icon(Icons.person_off),
+                          title: const Text('Set as Inactive'),
+                          subtitle: const Text('Remove from available mentees list'),
                           onTap: () {
                             Navigator.pop(context);
-                            // TODO: Show mentor selection
-                          },
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.notifications_active),
-                          title: const Text('Make Available'),
-                          subtitle: const Text('Allow mentors to request this mentee'),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // TODO: Update mentee status
+                            // TODO: Update mentee status to inactive
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$name set as inactive'),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  onPressed: () {
+                                    // TODO: Revert status change
+                                  },
+                                ),
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -832,9 +832,9 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Assign'),
+              child: const Text('Manage'),
             ),
-          if (status.startsWith('Pending'))
+          if (status.startsWith('Requested'))
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -842,7 +842,12 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                   icon: const Icon(Icons.check_circle_outline),
                   color: Colors.green,
                   onPressed: () {
-                    // TODO: Approve mentor request
+                    // TODO: Approve mentee's mentor request
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Approved mentor request for $name'),
+                      ),
+                    );
                   },
                   tooltip: 'Approve Request',
                 ),
@@ -850,11 +855,31 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                   icon: const Icon(Icons.cancel_outlined),
                   color: Colors.red,
                   onPressed: () {
-                    // TODO: Deny mentor request
+                    // TODO: Deny mentee's mentor request, set back to available
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Denied mentor request for $name'),
+                      ),
+                    );
                   },
                   tooltip: 'Deny Request',
                 ),
               ],
+            ),
+          if (status == 'Inactive')
+            TextButton(
+              onPressed: () {
+                // TODO: Reactivate mentee
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$name is now available'),
+                  ),
+                );
+              },
+              child: const Text('Reactivate'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.green,
+              ),
             ),
         ],
       ),

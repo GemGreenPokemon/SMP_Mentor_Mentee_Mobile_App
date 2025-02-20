@@ -95,6 +95,20 @@ class MentorService extends ChangeNotifier {
     }
   }
 
+  void updateActionItem(String menteeName, String title, String description) {
+    final mentee = mentees.firstWhere((m) => m['name'] == menteeName);
+    final actionItem = mentee['actionItems'].firstWhere((item) => item['task'] == title);
+    actionItem['task'] = title;
+    actionItem['description'] = description;
+    notifyListeners();
+  }
+
+  void removeActionItem(String menteeName, String title) {
+    final mentee = mentees.firstWhere((m) => m['name'] == menteeName);
+    mentee['actionItems'].removeWhere((item) => item['task'] == title);
+    notifyListeners();
+  }
+
   void updateMenteeGoal(String menteeName, String goalTitle, double progress) {
     final mentee = mentees.firstWhere((m) => m['name'] == menteeName);
     final goal = mentee['goals'].firstWhere((g) => g['title'] == goalTitle);

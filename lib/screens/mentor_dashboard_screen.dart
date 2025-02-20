@@ -438,7 +438,7 @@ class MentorDashboardScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.add_task),
                   title: const Text('Add Action Item'),
-                  onPressed: () {
+                  onTap: () {
                     Navigator.pop(context);
                     // Show add action item dialog
                   },
@@ -446,7 +446,7 @@ class MentorDashboardScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.announcement),
                   title: const Text('Create Announcement'),
-                  onPressed: () {
+                  onTap: () {
                     Navigator.pop(context);
                     // Show create announcement dialog
                   },
@@ -454,7 +454,7 @@ class MentorDashboardScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.event_note),
                   title: const Text('Schedule Meeting'),
-                  onPressed: () {
+                  onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -760,11 +760,40 @@ class MentorDashboardScreen extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              // TODO: Open action item
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  _showEditItemDialog(
+                    context,
+                    title,
+                    '',
+                    (title, description) {
+                      mentorService.updateActionItem(
+                        menteeName,
+                        title,
+                        description,
+                      );
+                    },
+                  );
+                },
+                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
+                padding: EdgeInsets.zero,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () {
+                  mentorService.removeActionItem(
+                    menteeName,
+                    title,
+                  );
+                },
+                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
+                padding: EdgeInsets.zero,
+              ),
+            ],
           ),
         ],
       ),
@@ -804,6 +833,67 @@ class MentorDashboardScreen extends StatelessWidget {
               color: Colors.grey,
               fontSize: 12,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditItemDialog(
+    BuildContext context,
+    String currentTitle,
+    String currentDescription,
+    Function(String, String) onSave,
+  ) {
+    final _formKey = GlobalKey<FormState>();
+    final _titleController = TextEditingController(text: currentTitle);
+    final _descriptionController = TextEditingController(text: currentDescription);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Action Item'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Title'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Title cannot be empty';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Description cannot be empty';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                onSave(_titleController.text, _descriptionController.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),

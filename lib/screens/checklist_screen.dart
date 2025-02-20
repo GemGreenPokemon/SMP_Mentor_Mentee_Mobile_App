@@ -10,6 +10,15 @@ class ChecklistScreen extends StatefulWidget {
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
   String selectedMentee = 'All Mentees';
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,32 +170,202 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
   }
 
   void _showCreateChecklistDialog() {
+    List<Map<String, dynamic>> items = [];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create Custom Checklist'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Checklist Title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Checklist Items',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        _showAddItemDialog(context, (title, description) {
+                          setState(() {
+                            items.add({
+                              'title': title,
+                              'description': description,
+                              'completed': false,
+                            });
+                          });
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Item'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'No items added yet. Click "Add Item" to create your first checklist item.',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  )
+                else
+                  ...items.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text(item['title']),
+                        subtitle: Text(
+                          item['description'],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: SizedBox(
+                          width: 100,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () {
+                                  _showEditItemDialog(
+                                    context,
+                                    item['title'],
+                                    item['description'],
+                                    (title, description) {
+                                      setState(() {
+                                        items[index]['title'] = title;
+                                        items[index]['description'] = description;
+                                      });
+                                    },
+                                  );
+                                },
+                                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
+                                padding: EdgeInsets.zero,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () {
+                                  setState(() {
+                                    items.removeAt(index);
+                                  });
+                                },
+                                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _titleController.clear();
+                _descriptionController.clear();
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: items.isEmpty
+                  ? null
+                  : () {
+                      // Add the new checklist to customChecklists
+                      final newChecklist = {
+                        'title': _titleController.text,
+                        'description': _descriptionController.text,
+                        'progress': 0.0,
+                        'isCustom': true,
+                        'items': items,
+                      };
+                      setState(() {
+                        customChecklists.add(newChecklist);
+                      });
+                      _titleController.clear();
+                      _descriptionController.clear();
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Checklist created successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddItemDialog(
+    BuildContext context,
+    Function(String title, String description) onAdd,
+  ) {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create Custom Checklist'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Checklist Title',
-                  border: OutlineInputBorder(),
-                ),
+        title: const Text('Add Checklist Item'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'Item Title',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Item Description',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              // Add items section would go here
-            ],
-          ),
+              maxLines: 3,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -195,10 +374,65 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Save new checklist
-              Navigator.pop(context);
+              if (titleController.text.isNotEmpty) {
+                onAdd(titleController.text, descriptionController.text);
+                Navigator.pop(context);
+              }
             },
-            child: const Text('Create'),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditItemDialog(
+    BuildContext context,
+    String currentTitle,
+    String currentDescription,
+    Function(String title, String description) onEdit,
+  ) {
+    final titleController = TextEditingController(text: currentTitle);
+    final descriptionController = TextEditingController(text: currentDescription);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Checklist Item'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'Item Title',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Item Description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.isNotEmpty) {
+                onEdit(titleController.text, descriptionController.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
