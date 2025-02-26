@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
+import 'qualtrics_dashboard_screen.dart';
+import 'resource_hub_screen.dart';
 
 class CoordinatorDashboardScreen extends StatelessWidget {
   const CoordinatorDashboardScreen({super.key});
@@ -178,10 +180,15 @@ class CoordinatorDashboardScreen extends StatelessWidget {
               ),
               _buildQuickActionCard(
                 context,
-                'Survey Data',
+                'Qualtrics',
                 Icons.analytics,
                 () {
-                  // TODO: Open survey analytics
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QualtricsDataDashboardScreen(),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(
@@ -189,7 +196,12 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                 'Resources',
                 Icons.folder_shared,
                 () {
-                  // TODO: Open resource management
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResourceHubScreen(isMentor: false, isCoordinator: true),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(

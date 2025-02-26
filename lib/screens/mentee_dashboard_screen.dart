@@ -4,6 +4,9 @@ import 'schedule_meeting_screen.dart';
 import 'resource_hub_screen.dart';
 import 'settings_screen.dart';
 import 'checklist_screen.dart';
+import 'mentee_checklist_screen.dart';
+import 'checkin_checkout_screen.dart';
+import 'meeting_notes_screen.dart';
 
 class MenteeDashboardScreen extends StatelessWidget {
   const MenteeDashboardScreen({super.key});
@@ -179,10 +182,15 @@ class MenteeDashboardScreen extends StatelessWidget {
               ),
               _buildQuickActionCard(
                 context,
-                'View Checklist',
+                'My Checklist',
                 Icons.checklist,
                 () {
-                  // TODO: Open checklist
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MenteeChecklistScreen(),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(
@@ -203,18 +211,10 @@ class MenteeDashboardScreen extends StatelessWidget {
                 'Meeting Notes',
                 Icons.note,
                 () {
-                  // TODO: Open meeting notes
-                },
-              ),
-              _buildQuickActionCard(
-                context,
-                'Assign Check List',
-                Icons.checklist_rtl,
-                () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ChecklistScreen(isMentor: false),
+                      builder: (context) => const MeetingNotesScreen(isMentor: false),
                     ),
                   );
                 },
@@ -245,22 +245,16 @@ class MenteeDashboardScreen extends StatelessWidget {
                     subtitle: const Text('Tomorrow at 2:00 PM\nLocation: KL 109'),
                     trailing: ElevatedButton(
                       onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Meeting Attendance'),
-                              content: const Text('Please confirm with your mentor to complete the check-in/check-out process.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: const Text('Close'),
-                                ),
-                              ],
-                            );
-                          },
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CheckInCheckOutScreen(
+                              meetingTitle: 'Weekly Check-in',
+                              mentorName: 'Sarah Martinez',
+                              location: 'KL 109',
+                              scheduledTime: 'Tomorrow at 2:00 PM',
+                            ),
+                          ),
                         );
                       },
                       child: const Text('Check In'),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'checkin_checkout_screen.dart';
 
 class MeetingNotesScreen extends StatefulWidget {
   final bool isMentor;
@@ -100,308 +101,174 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
           
           // Meeting Notes List
           Expanded(
-            child: ListView.builder(
+            child: ListView(
               padding: const EdgeInsets.all(16.0),
-              itemCount: mockMeetingNotes.length,
-              itemBuilder: (context, index) {
-                final note = mockMeetingNotes[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ListTile(
-                        leading: CircleAvatar(
-                          child: Text(note['mentee'].substring(0, 1)),
-                        ),
-                        title: Text(note['mentee']),
-                        subtitle: Text(note['date']),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildMeetingTypeChip(note['type']),
-                            IconButton(
-                              icon: const Icon(Icons.more_vert),
-                              onPressed: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) => Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.edit),
-                                        title: const Text('Edit Notes'),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          _showEditNoteDialog(note);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.share),
-                                        title: const Text('Share with Coordinator'),
-                                        onTap: () {
-                                          // TODO: Implement sharing
-                                          Navigator.pop(context);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.delete),
-                                        title: const Text('Delete'),
-                                        onTap: () {
-                                          // TODO: Implement delete
-                                          Navigator.pop(context);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Discussion Topics:',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            ...note['topics'].map<Widget>((topic) => Padding(
-                              padding: const EdgeInsets.only(bottom: 4.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('• '),
-                                  Expanded(child: Text(topic)),
-                                ],
-                              ),
-                            )).toList(),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Action Items (For Me):',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            ...note['actionItems'].map<Widget>((item) => CheckboxListTile(
-                              title: Text(item['task']),
-                              subtitle: Text('Due: ${item['dueDate']}'),
-                              value: item['completed'],
-                              onChanged: (bool? value) {
-                                // TODO: Implement checkbox state
-                              },
-                            )).toList(),
-                            if (note['feedback'] != null) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                'Feedback:',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(note['feedback']),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              children: [
+                _buildMeetingNoteCard(
+                  'Weekly Check-in',
+                  'Feb 15, 2024',
+                  'Discussed progress on research project. Alice is making good progress but needs help with literature review.',
+                  'Alice Johnson',
+                  4, // Rating out of 5
+                  true, // Has shared notes
+                ),
+                _buildMeetingNoteCard(
+                  'Career Planning Session',
+                  'Feb 10, 2024',
+                  'Explored internship opportunities and updated resume. Bob is interested in software engineering roles.',
+                  'Bob Wilson',
+                  5,
+                  false,
+                ),
+                _buildMeetingNoteCard(
+                  'Academic Support',
+                  'Feb 5, 2024',
+                  'Reviewed midterm preparation strategies. Alice is struggling with calculus concepts.',
+                  'Alice Johnson',
+                  3,
+                  true,
+                ),
+              ],
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddNoteDialog(),
-        label: const Text('New Note'),
-        icon: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.isMentor ? FloatingActionButton(
+        onPressed: () {
+          // TODO: Add new meeting note
+        },
+        child: const Icon(Icons.add),
+      ) : null,
     );
   }
 
-  Widget _buildMeetingTypeChip(String type) {
-    Color chipColor;
-    switch (type.toLowerCase()) {
-      case 'weekly check-in':
-        chipColor = Colors.blue;
-        break;
-      case 'progress review':
-        chipColor = Colors.green;
-        break;
-      case 'urgent meeting':
-        chipColor = Colors.red;
-        break;
-      default:
-        chipColor = Colors.grey;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: Chip(
-        label: Text(
-          type,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
-        backgroundColor: chipColor,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    );
-  }
-
-  void _showAddNoteDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Meeting Note'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Mentee',
-                  border: OutlineInputBorder(),
+  Widget _buildMeetingNoteCard(
+    String title,
+    String date,
+    String content,
+    String mentee,
+    int rating,
+    bool hasSharedNotes,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                items: ['Alice Johnson', 'Bob Wilson']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (_) {},
+                Text(
+                  date,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person, size: 16, color: Colors.blue),
+                const SizedBox(width: 8),
+                Text(
+                  mentee,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.star, size: 16, color: Colors.amber),
+                const SizedBox(width: 8),
+                Text(
+                  'Meeting Rating: $rating/5',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            const Text(
+              'Mentor Notes:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(content),
+            if (hasSharedNotes) ...[
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Meeting Type',
-                  border: OutlineInputBorder(),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
                 ),
-                items: ['Weekly Check-in', 'Progress Review', 'Urgent Meeting']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Discussion Topics',
-                  border: OutlineInputBorder(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.share, size: 16, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          'Mentee Shared Notes:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'I found the discussion about research methods very helpful. I\'ll follow up on the resources you suggested and prepare a draft for our next meeting.',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ],
                 ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Action Items (For Me)',
-                  hintText: 'What do I need to do to help my mentee?',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Feedback',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    // View full details
+                  },
+                  icon: const Icon(Icons.visibility),
+                  label: const Text('View Full Details'),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement save logic
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
-
-  void _showEditNoteDialog(Map<String, dynamic> note) {
-    // Similar to _showAddNoteDialog but pre-filled with note data
-    // TODO: Implement edit dialog
-  }
-
-  // Mock data
-  final List<Map<String, dynamic>> mockMeetingNotes = [
-    {
-      'mentee': 'Alice Johnson',
-      'date': 'Feb 15, 2024',
-      'type': 'Weekly Check-in',
-      'topics': [
-        'Discussed progress in Biology coursework',
-        'Shared my experience with similar Biology classes',
-        'Talked about balancing coursework with campus activities'
-      ],
-      'actionItems': [
-        {
-          'task': 'Share my old study guides for BIO201',
-          'dueDate': 'Feb 20, 2024',
-          'completed': false,
-        },
-        {
-          'task': 'Connect Alice with my Biology study group',
-          'dueDate': 'Feb 18, 2024',
-          'completed': true,
-        }
-      ],
-      'feedback': 'Alice is adapting well to university life. She reminds me of myself in my first year.',
-    },
-    {
-      'mentee': 'Bob Wilson',
-      'date': 'Feb 14, 2024',
-      'type': 'Progress Review',
-      'topics': [
-        'Discussed his transition into Psychology program',
-        'Shared my experience with research assistant positions',
-        'Talked about joining Psychology Student Association'
-      ],
-      'actionItems': [
-        {
-          'task': 'Introduce Bob to Dr. Smith from my research lab',
-          'dueDate': 'Feb 28, 2024',
-          'completed': false,
-        },
-        {
-          'task': 'Send Bob the link to PSA membership application',
-          'dueDate': 'Feb 16, 2024',
-          'completed': false,
-        }
-      ],
-      'feedback': 'Bob shows the same enthusiasm for research that I developed in my second year. Excited to help him explore opportunities.',
-    },
-    {
-      'mentee': 'Alice Johnson',
-      'date': 'Feb 8, 2024',
-      'type': 'Urgent Meeting',
-      'topics': [
-        'Discussed concerns about group project deadline',
-        'Shared my experience with similar group projects',
-        'Helped create a workable timeline'
-      ],
-      'actionItems': [
-        {
-          'task': 'Share my group project management template',
-          'dueDate': 'Feb 9, 2024',
-          'completed': true,
-        },
-        {
-          'task': 'Review Alice\'s part of project before group meeting',
-          'dueDate': 'Feb 12, 2024',
-          'completed': true,
-        }
-      ],
-      'feedback': 'Alice is handling the situation well. Glad I could share my experience with similar group project challenges.',
-    },
-  ];
 } 
