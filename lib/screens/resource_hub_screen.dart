@@ -423,7 +423,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
           _buildSection(
             'From Your Mentor',
             mockDocuments
-                .where((doc) => doc['uploadedBy'] == 'Your Mentor')
+                .where((doc) => doc['audience'] == 'Mentees' || doc['audience'] == 'All')
                 .map((doc) => _buildDocumentCard(doc))
                 .toList(),
           ),
@@ -432,8 +432,8 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
             'General Resources',
             mockDocuments
                 .where((doc) => 
-                    doc['uploadedBy'] == 'Program Coordinator' && 
-                    doc['category'] != 'Mentor Materials')
+                    doc['category'] != 'Mentor Materials' && 
+                    (doc['audience'] == 'All' || doc['audience'] == 'Mentees'))
                 .map((doc) => _buildDocumentCard(doc))
                 .toList(),
           ),
@@ -695,14 +695,14 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
           color: _getFileColor(doc['type']),
           size: 32,
         ),
-        title: Text(doc['name']),
+        title: Text(doc['title']),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(doc['description']),
             const SizedBox(height: 4),
             Text(
-              'Uploaded by ${doc['uploadedBy']} • ${doc['date']}',
+              'Added: ${doc['dateAdded']}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -710,26 +710,16 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.isMentor && doc['uploadedBy'] == 'You')
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => _showEditDocumentDialog(doc),
+        trailing: IconButton(
+          icon: const Icon(Icons.download),
+          onPressed: () {
+            // TODO: Implement download
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Downloading ${doc['title']}...'),
               ),
-            IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () {
-                // TODO: Implement download
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.drive_folder_upload),
-              tooltip: 'Export to Google Drive',
-              onPressed: () => _showDriveExportDialog(doc),
-            ),
-          ],
+            );
+          },
         ),
         isThreeLine: true,
       ),

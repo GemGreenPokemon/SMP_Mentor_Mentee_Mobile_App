@@ -6,38 +6,35 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // App Logo/Icon
-                const Icon(
-                  Icons.people_outline,
-                  size: 100,
-                  color: Color(0xFF2196F3),
-                ),
-                const SizedBox(height: 24),
-                // App Title
-                const Text(
-                  'SMP Mentor-Mentee',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2196F3),
+                const SizedBox(height: 40),
+                // App Logo
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Image.asset(
+                    'assets/images/My_SMP_Logo.png',
+                    width: MediaQuery.of(context).size.width * 0.75,
+                    fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 48),
+                // Subtitle
                 const Text(
                   'Select your role to continue',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey,
+                    color: Color(0xFF6B7280), // Slightly darker grey for better readability
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 40),
                 // Role Selection Buttons
                 _buildRoleButton(
                   context,
@@ -84,21 +81,24 @@ class LoginScreen extends StatelessWidget {
   ) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 52, // Slightly shorter for better proportion
       child: ElevatedButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon),
+        icon: Icon(icon, size: 20), // Smaller icon size
         label: Text(text),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2196F3),
+          backgroundColor: const Color(0xFF005487), // Deep Sky Blue
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8), // Less rounded corners
           ),
+          elevation: 0, // Flat design
           textStyle: const TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
+            letterSpacing: 0.3, // Slight letter spacing for better readability
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
     );

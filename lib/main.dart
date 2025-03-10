@@ -28,15 +28,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2196F3),
-          primary: const Color(0xFF2196F3),
-          secondary: const Color(0xFF64B5F6),
+          seedColor: const Color(0xFF0F2D52),
+          primary: const Color(0xFF0F2D52),
+          secondary: const Color(0xFF2B4970),
           background: Colors.white,
         ),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF2196F3),
+          backgroundColor: Color(0xFF0F2D52),
           foregroundColor: Colors.white,
           elevation: 0,
         ),
