@@ -8,6 +8,8 @@ import 'resource_hub_screen.dart';
 import 'settings_screen.dart';
 import 'checklist_screen.dart';
 import '../services/mentor_service.dart';
+import 'checkin_checkout_screen.dart';
+import 'newsletter_screen.dart';
 
 class MentorDashboardScreen extends StatelessWidget {
   const MentorDashboardScreen({super.key});
@@ -270,7 +272,7 @@ class MentorDashboardScreen extends StatelessWidget {
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: 3,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             children: [
@@ -339,6 +341,19 @@ class MentorDashboardScreen extends StatelessWidget {
                   );
                 },
               ),
+              _buildQuickActionCard(
+                context,
+                'Newsletters',
+                Icons.newspaper_rounded,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NewsletterScreen(isMentor: true),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           
@@ -394,38 +409,6 @@ class MentorDashboardScreen extends StatelessWidget {
           ),
           
           const SizedBox(height: 16),
-          
-          // Action Items Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pending Actions',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...mentorService.mentees.expand((mentee) =>
-                    mentee['actionItems'].where((item) => !item['completed']).map((item) =>
-                      _buildActionItem(
-                        context,
-                        item['task'],
-                        item['dueDate'],
-                        Icons.assignment,
-                        mentorService,
-                        mentee['name'],
-                      ),
-                    ),
-                  ).toList(),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -435,14 +418,6 @@ class MentorDashboardScreen extends StatelessWidget {
             builder: (context) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.add_task),
-                  title: const Text('Add Action Item'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Show add action item dialog
-                  },
-                ),
                 ListTile(
                   leading: const Icon(Icons.announcement),
                   title: const Text('Create Announcement'),
@@ -599,23 +574,26 @@ class MentorDashboardScreen extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 32,
+                size: 28,
                 color: Theme.of(context).primaryColor,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -679,122 +657,23 @@ class MentorDashboardScreen extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text('Meeting Check-In/Out'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Please verify:'),
-                              const SizedBox(height: 8),
-                              const Text('• You are with your mentee'),
-                              const Text('• You are at the correct location'),
-                              const Text('• The meeting is starting/ending now'),
-                            ],
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                // TODO: Record check-in/out time
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Confirm'),
-                            ),
-                          ],
-                        );
-                      },
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CheckInCheckOutScreen(
+                          meetingTitle: meetingTitle,
+                          mentorName: 'You',
+                          location: 'KL 109',
+                          scheduledTime: time,
+                          isMentor: true,
+                        ),
+                      ),
                     );
                   },
                   child: const Text('Check In/Out'),
                 ),
               ],
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionItem(
-    BuildContext context,
-    String title,
-    String deadline,
-    IconData icon,
-    MentorService mentorService,
-    String menteeName,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: Theme.of(context).primaryColor,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  deadline,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  _showEditItemDialog(
-                    context,
-                    title,
-                    '',
-                    (title, description) {
-                      mentorService.updateActionItem(
-                        menteeName,
-                        title,
-                        description,
-                      );
-                    },
-                  );
-                },
-                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
-                padding: EdgeInsets.zero,
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  mentorService.removeActionItem(
-                    menteeName,
-                    title,
-                  );
-                },
-                constraints: const BoxConstraints(minWidth: 40, maxWidth: 40),
-                padding: EdgeInsets.zero,
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -833,67 +712,6 @@ class MentorDashboardScreen extends StatelessWidget {
               color: Colors.grey,
               fontSize: 12,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditItemDialog(
-    BuildContext context,
-    String currentTitle,
-    String currentDescription,
-    Function(String, String) onSave,
-  ) {
-    final _formKey = GlobalKey<FormState>();
-    final _titleController = TextEditingController(text: currentTitle);
-    final _descriptionController = TextEditingController(text: currentDescription);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Action Item'),
-        content: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Title cannot be empty';
-                  }
-                  return null;
-                },
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Description cannot be empty';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                onSave(_titleController.text, _descriptionController.text);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
           ),
         ],
       ),

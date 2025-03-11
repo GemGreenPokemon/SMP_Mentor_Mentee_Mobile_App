@@ -10,60 +10,66 @@ class LoginScreen extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
                 // App Logo
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                SizedBox(
+                  width: double.infinity,
                   child: Image.asset(
                     'assets/images/My_SMP_Logo.png',
-                    width: MediaQuery.of(context).size.width * 0.75,
+                    height: 300,
                     fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 48),
-                // Subtitle
-                const Text(
-                  'Select your role to continue',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Color(0xFF6B7280), // Slightly darker grey for better readability
-                    fontWeight: FontWeight.w400,
+                const SizedBox(height: 60),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    children: [
+                      // Subtitle
+                      const Text(
+                        'Select your role to continue',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF6B7280), // Slightly darker grey for better readability
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      // Role Selection Buttons
+                      _buildRoleButton(
+                        context,
+                        'Login as Mentee',
+                        Icons.school,
+                        () {
+                          debugPrint('Mentee button pressed');
+                          Navigator.pushReplacementNamed(context, '/mentee');
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildRoleButton(
+                        context,
+                        'Login as Mentor',
+                        Icons.psychology,
+                        () {
+                          debugPrint('Mentor button pressed');
+                          Navigator.pushReplacementNamed(context, '/mentor');
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildRoleButton(
+                        context,
+                        'Login as Coordinator',
+                        Icons.admin_panel_settings,
+                        () {
+                          debugPrint('Coordinator button pressed');
+                          Navigator.pushReplacementNamed(context, '/coordinator');
+                        },
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 40),
-                // Role Selection Buttons
-                _buildRoleButton(
-                  context,
-                  'Login as Mentee',
-                  Icons.school,
-                  () {
-                    debugPrint('Mentee button pressed');
-                    Navigator.pushReplacementNamed(context, '/mentee');
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildRoleButton(
-                  context,
-                  'Login as Mentor',
-                  Icons.psychology,
-                  () {
-                    debugPrint('Mentor button pressed');
-                    Navigator.pushReplacementNamed(context, '/mentor');
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildRoleButton(
-                  context,
-                  'Login as Coordinator',
-                  Icons.admin_panel_settings,
-                  () {
-                    debugPrint('Coordinator button pressed');
-                    Navigator.pushReplacementNamed(context, '/coordinator');
-                  },
                 ),
               ],
             ),

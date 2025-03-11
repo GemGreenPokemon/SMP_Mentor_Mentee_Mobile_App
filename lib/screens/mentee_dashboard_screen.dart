@@ -7,6 +7,7 @@ import 'checklist_screen.dart';
 import 'mentee_checklist_screen.dart';
 import 'checkin_checkout_screen.dart';
 import 'meeting_notes_screen.dart';
+import 'newsletter_screen.dart';
 
 class MenteeDashboardScreen extends StatelessWidget {
   const MenteeDashboardScreen({super.key});
@@ -163,7 +164,7 @@ class MenteeDashboardScreen extends StatelessWidget {
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
+            crossAxisCount: 3,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             children: [
@@ -214,7 +215,23 @@ class MenteeDashboardScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const MeetingNotesScreen(isMentor: false),
+                      builder: (context) => const MeetingNotesScreen(
+                        isMentor: false,
+                        mentorName: 'Sarah Martinez',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              _buildQuickActionCard(
+                context,
+                'Newsletters',
+                Icons.newspaper_rounded,
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NewsletterScreen(isMentor: false),
                     ),
                   );
                 },
@@ -318,23 +335,26 @@ class MenteeDashboardScreen extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 32,
+                size: 28,
                 color: Theme.of(context).primaryColor,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

@@ -17,12 +17,12 @@ class ResourceHubScreen extends StatefulWidget {
 class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTickerProviderStateMixin {
   String selectedCategory = 'All Resources';
   late TabController _tabController;
-  final List<String> _tabTitles = ['General Resources', 'Documents', 'Newsletter'];
+  final List<String> _tabTitles = ['General Resources', 'Documents'];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       setState(() {}); // Rebuild when tab changes
     });
@@ -37,7 +37,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text(_tabTitles[_tabController.index]),
@@ -46,7 +46,6 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
             tabs: const [
               Tab(text: 'General'),
               Tab(text: 'Documents'),
-              Tab(text: 'Newsletter'),
             ],
           ),
           actions: [
@@ -84,9 +83,6 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
             
             // Documents Tab (filtered based on role)
             _buildDocumentsTab(),
-            
-            // Newsletter Tab (available to all)
-            _buildNewsletterTab(),
           ],
         ),
         floatingActionButton: widget.isCoordinator ? FloatingActionButton(
@@ -495,64 +491,6 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildNewsletterTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: mockNewsletters.length,
-      itemBuilder: (context, index) {
-        final newsletter = mockNewsletters[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ListTile(
-                title: Text(newsletter['title']),
-                subtitle: Text(newsletter['date']),
-                trailing: IconButton(
-                  icon: const Icon(Icons.download),
-                  onPressed: () {
-                    // TODO: Implement download
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(newsletter['description']),
-              ),
-              if (newsletter['highlights'] != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Highlights:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...newsletter['highlights'].map<Widget>((highlight) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('• '),
-                            Expanded(child: Text(highlight)),
-                          ],
-                        ),
-                      )).toList(),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -1705,42 +1643,6 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'audience': 'Mentors',
       'url': 'assets/documents/best-practices.pdf',
     },
-  ];
-
-  final List<Map<String, dynamic>> mockNewsletters = [
-    {
-      'title': 'February 2024 SMP Newsletter',
-      'date': 'Feb 15, 2024',
-      'description': 'Important updates and upcoming events for SMP mentees.',
-      'highlights': [
-        'Academic Success Workshop - Feb 20 at Student Center',
-        'Peer Study Groups forming for Biology and Chemistry',
-        'Career Development Series starting next month',
-        'New tutoring hours available at Learning Commons'
-      ]
-    },
-    {
-      'title': 'January 2024 SMP Newsletter',
-      'date': 'Jan 15, 2024',
-      'description': 'Welcome back! Here\'s what\'s happening in the Student Mentorship Program.',
-      'highlights': [
-        'Welcome Social - Meet other mentees on Jan 25',
-        'Time Management Workshop Series - Starting Feb 1',
-        'New Study Resources available in the Resource Hub',
-        'Student Success Stories: Meet last semester\'s top achievers'
-      ]
-    },
-    {
-      'title': 'December 2023 SMP Newsletter',
-      'date': 'Dec 1, 2023',
-      'description': 'End of semester updates and preparation for finals.',
-      'highlights': [
-        'Finals Week Study Sessions - Schedule and Locations',
-        'Stress Management Workshop - Dec 5',
-        'Holiday Social Event - Dec 8',
-        'Spring Semester Program Preview'
-      ]
-    }
   ];
 
   void _showAddDocumentDialog() {

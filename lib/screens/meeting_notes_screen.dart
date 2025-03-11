@@ -3,7 +3,13 @@ import 'checkin_checkout_screen.dart';
 
 class MeetingNotesScreen extends StatefulWidget {
   final bool isMentor;
-  const MeetingNotesScreen({super.key, this.isMentor = true});
+  final String? mentorName;
+  
+  const MeetingNotesScreen({
+    super.key, 
+    this.isMentor = true,
+    this.mentorName,
+  });
 
   @override
   State<MeetingNotesScreen> createState() => _MeetingNotesScreenState();
@@ -12,6 +18,8 @@ class MeetingNotesScreen extends StatefulWidget {
 class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
   String selectedMentee = 'All Mentees';
   String selectedMonth = 'All Time';
+  
+  String get mentorName => widget.mentorName ?? 'Sarah Martinez';
 
   @override
   Widget build(BuildContext context) {
@@ -45,31 +53,33 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
             ),
             child: Row(
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Mentee',
-                      border: OutlineInputBorder(),
+                if (widget.isMentor)
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Mentee',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: selectedMentee,
+                      items: [
+                        'All Mentees',
+                        'Alice Johnson',
+                        'Bob Wilson',
+                      ].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedMentee = value!;
+                        });
+                      },
                     ),
-                    value: selectedMentee,
-                    items: [
-                      'All Mentees',
-                      'Alice Johnson',
-                      'Bob Wilson',
-                    ].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedMentee = value!;
-                      });
-                    },
                   ),
-                ),
-                const SizedBox(width: 16),
+                if (widget.isMentor)
+                  const SizedBox(width: 16),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     decoration: const InputDecoration(
@@ -103,32 +113,61 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16.0),
-              children: [
-                _buildMeetingNoteCard(
-                  'Weekly Check-in',
-                  'Feb 15, 2024',
-                  'Discussed progress on research project. Alice is making good progress but needs help with literature review.',
-                  'Alice Johnson',
-                  4, // Rating out of 5
-                  true, // Has shared notes
-                ),
-                _buildMeetingNoteCard(
-                  'Career Planning Session',
-                  'Feb 10, 2024',
-                  'Explored internship opportunities and updated resume. Bob is interested in software engineering roles.',
-                  'Bob Wilson',
-                  5,
-                  false,
-                ),
-                _buildMeetingNoteCard(
-                  'Academic Support',
-                  'Feb 5, 2024',
-                  'Reviewed midterm preparation strategies. Alice is struggling with calculus concepts.',
-                  'Alice Johnson',
-                  3,
-                  true,
-                ),
-              ],
+              children: widget.isMentor 
+                ? [
+                    // Mentor view - show all mentees
+                    _buildMeetingNoteCard(
+                      'Weekly Check-in',
+                      'Feb 15, 2024',
+                      'Discussed progress on research project. Alice is making good progress but needs help with literature review.',
+                      'Alice Johnson',
+                      4, // Rating out of 5
+                      true, // Has shared notes
+                    ),
+                    _buildMeetingNoteCard(
+                      'Career Planning Session',
+                      'Feb 10, 2024',
+                      'Explored internship opportunities and updated resume. Bob is interested in software engineering roles.',
+                      'Bob Wilson',
+                      5,
+                      false,
+                    ),
+                    _buildMeetingNoteCard(
+                      'Academic Support',
+                      'Feb 5, 2024',
+                      'Reviewed midterm preparation strategies. Alice is struggling with calculus concepts.',
+                      'Alice Johnson',
+                      3,
+                      true,
+                    ),
+                  ]
+                : [
+                    // Mentee view - show meetings with the mentee's mentor
+                    _buildMeetingNoteCard(
+                      'Weekly Check-in',
+                      'Feb 15, 2024',
+                      'Discussed progress on research project and academic goals.',
+                      mentorName,
+                      4, // Rating out of 5
+                      true, // Has shared notes
+                    ),
+                    _buildMeetingNoteCard(
+                      'Career Planning Session',
+                      'Feb 10, 2024',
+                      'Explored internship opportunities and updated resume.',
+                      mentorName,
+                      5,
+                      false,
+                    ),
+                    _buildMeetingNoteCard(
+                      'Academic Support',
+                      'Feb 5, 2024',
+                      'Reviewed midterm preparation strategies and study techniques.',
+                      mentorName,
+                      3,
+                      true,
+                    ),
+                  ],
             ),
           ),
         ],
@@ -146,7 +185,7 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
     String title,
     String date,
     String content,
-    String mentee,
+    String personName,
     int rating,
     bool hasSharedNotes,
   ) {
@@ -184,7 +223,7 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
                 const Icon(Icons.person, size: 16, color: Colors.blue),
                 const SizedBox(width: 8),
                 Text(
-                  mentee,
+                  personName,
                   style: const TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.w500,
@@ -207,50 +246,65 @@ class _MeetingNotesScreenState extends State<MeetingNotesScreen> {
               ],
             ),
             const Divider(height: 24),
-            const Text(
-              'Mentor Notes:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+            if (widget.isMentor) ...[
+              const Text(
+                'Mentor Notes:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(content),
-            if (hasSharedNotes) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.share, size: 16, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text(
-                          'Mentee Shared Notes:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+              const SizedBox(height: 8),
+              Text(content),
+              if (hasSharedNotes) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.share, size: 16, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text(
+                            'Mentee Shared Notes:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'I found the discussion about research methods very helpful. I\'ll follow up on the resources you suggested and prepare a draft for our next meeting.',
-                      style: TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.blue,
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'I found the discussion about research methods very helpful. I\'ll follow up on the resources you suggested and prepare a draft for our next meeting.',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ] else ...[
+              const Text(
+                'Your Notes:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'I found the discussion about research methods very helpful. I\'ll follow up on the resources you suggested and prepare a draft for our next meeting.',
+                style: TextStyle(height: 1.5),
               ),
             ],
             const SizedBox(height: 16),
