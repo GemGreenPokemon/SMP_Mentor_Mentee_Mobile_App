@@ -83,6 +83,24 @@ class MentorService extends ChangeNotifier {
       'content': 'Please complete your mentee progress reports by next week.',
       'time': '1 day ago',
       'priority': 'medium',
+    },
+    {
+      'title': 'Upcoming Workshop',
+      'content': 'Join us for a career development workshop next week.',
+      'time': '2 days ago',
+      'priority': 'low',
+    },
+    {
+      'title': 'Program Update',
+      'content': 'New resources have been added to the resource hub.',
+      'time': '3 days ago',
+      'priority': 'none',
+    },
+    {
+      'title': 'Mentorship Fair',
+      'content': 'The annual mentorship fair will be held in the main hall on March 15.',
+      'time': '4 days ago',
+      'priority': 'none',
     }
   ];
 

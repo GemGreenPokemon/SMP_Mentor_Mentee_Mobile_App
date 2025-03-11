@@ -10,6 +10,7 @@ import 'checklist_screen.dart';
 import '../services/mentor_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'newsletter_screen.dart';
+import 'announcement_screen.dart';
 
 class MentorDashboardScreen extends StatelessWidget {
   const MentorDashboardScreen({super.key});
@@ -224,29 +225,11 @@ class MentorDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // View all announcements
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('All Announcements'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: mentorService.announcements.map((announcement) =>
-                                    _buildAnnouncementItem(
-                                      announcement['title'],
-                                      announcement['content'],
-                                      announcement['time'],
-                                    ),
-                                  ).toList(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
-                                ),
-                              ],
+                          // Navigate to the AnnouncementScreen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AnnouncementScreen(isCoordinator: false),
                             ),
                           );
                         },
@@ -260,6 +243,7 @@ class MentorDashboardScreen extends StatelessWidget {
                       announcement['title'],
                       announcement['content'],
                       announcement['time'],
+                      announcement['priority'],
                     ),
                   ).toList(),
                 ],
@@ -679,7 +663,32 @@ class MentorDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAnnouncementItem(String title, String content, String time) {
+  Widget _buildAnnouncementItem(String title, String content, String time, String? priority) {
+    // Set priority color and text based on priority value
+    Color priorityColor = Colors.blue;
+    String priorityText = '';
+    bool hasPriority = priority != null && priority != 'none';
+    
+    if (hasPriority) {
+      switch (priority) {
+        case 'high':
+          priorityColor = Colors.red;
+          priorityText = 'HIGH';
+          break;
+        case 'medium':
+          priorityColor = Colors.orange;
+          priorityText = 'MEDIUM';
+          break;
+        case 'low':
+          priorityColor = Colors.green;
+          priorityText = 'LOW';
+          break;
+        default:
+          priorityColor = Colors.blue;
+          priorityText = '';
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -687,15 +696,47 @@ class MentorDashboardScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.campaign, color: Color(0xFF2196F3)),
+              Icon(
+                hasPriority ? Icons.priority_high : Icons.campaign, 
+                color: hasPriority ? priorityColor : const Color(0xFF2196F3)
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    if (hasPriority)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6.0,
+                          vertical: 2.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4.0),
+                          border: Border.all(
+                            color: priorityColor,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          priorityText,
+                          style: TextStyle(
+                            color: priorityColor,
+                            fontSize: 10.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

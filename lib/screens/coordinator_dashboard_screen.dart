@@ -3,12 +3,17 @@ import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'qualtrics_dashboard_screen.dart';
 import 'resource_hub_screen.dart';
+import 'announcement_screen.dart';
+import '../services/mentor_service.dart';
+import 'package:provider/provider.dart';
 
 class CoordinatorDashboardScreen extends StatelessWidget {
   const CoordinatorDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final mentorService = Provider.of<MentorService>(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -209,7 +214,12 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                 'Announcements',
                 Icons.campaign,
                 () {
-                  // TODO: Open announcements
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AnnouncementScreen(isCoordinator: true),
+                    ),
+                  );
                 },
               ),
             ],
