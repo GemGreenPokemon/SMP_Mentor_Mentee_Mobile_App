@@ -4,6 +4,7 @@ import 'settings_screen.dart';
 import 'qualtrics_dashboard_screen.dart';
 import 'resource_hub_screen.dart';
 import 'announcement_screen.dart';
+import 'manage_events_screen.dart';
 import '../services/mentor_service.dart';
 import 'package:provider/provider.dart';
 
@@ -180,7 +181,12 @@ class CoordinatorDashboardScreen extends StatelessWidget {
                 'Manage Events',
                 Icons.event,
                 () {
-                  // TODO: Open event management
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ManageEventsScreen(),
+                    ),
+                  );
                 },
               ),
               _buildQuickActionCard(

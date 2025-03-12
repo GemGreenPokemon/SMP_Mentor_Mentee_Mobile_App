@@ -104,6 +104,37 @@ class MentorService extends ChangeNotifier {
     }
   ];
 
+  // Events
+  List<Map<String, dynamic>> events = [
+    {
+      'title': 'Mentor Training Workshop',
+      'date': '2024-03-15',
+      'time': '2:00 PM - 4:00 PM',
+      'location': 'KL 109',
+      'description': 'Required training session for all mentors.',
+      'audience': 'mentors', // Can be 'mentors', 'mentees', or 'both'
+      'registeredCount': 24,
+    },
+    {
+      'title': 'Group Mentoring Session',
+      'date': '2024-03-17',
+      'time': '3:00 PM - 5:00 PM',
+      'location': 'KL 201',
+      'description': 'Group mentoring session for all mentees.',
+      'audience': 'both',
+      'registeredCount': 18,
+    },
+    {
+      'title': 'Career Development Workshop',
+      'date': '2024-03-20',
+      'time': '1:00 PM - 3:00 PM',
+      'location': 'KL 305',
+      'description': 'Workshop on resume building and interview skills.',
+      'audience': 'mentees',
+      'registeredCount': 32,
+    },
+  ];
+
   // Methods to update data
   void updateMenteeProgress(String menteeName, double progress) {
     final menteeIndex = mentees.indexWhere((m) => m['name'] == menteeName);
@@ -156,5 +187,24 @@ class MentorService extends ChangeNotifier {
     final meeting = mentee['upcomingMeetings'].firstWhere((m) => m['title'] == meetingTitle);
     meeting['checkedIn'] = true;
     notifyListeners();
+  }
+
+  void addEvent(Map<String, dynamic> event) {
+    events.add(event);
+    notifyListeners();
+  }
+
+  void updateEvent(int index, Map<String, dynamic> updatedEvent) {
+    if (index >= 0 && index < events.length) {
+      events[index] = updatedEvent;
+      notifyListeners();
+    }
+  }
+
+  void deleteEvent(int index) {
+    if (index >= 0 && index < events.length) {
+      events.removeAt(index);
+      notifyListeners();
+    }
   }
 } 
