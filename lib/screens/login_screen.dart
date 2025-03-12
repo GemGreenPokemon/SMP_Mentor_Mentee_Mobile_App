@@ -30,18 +30,18 @@ class LoginScreen extends StatelessWidget {
                     children: [
                       // Subtitle
                       const Text(
-                        'Select your role to continue',
+                        'Login as a...',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Color(0xFF6B7280), // Slightly darker grey for better readability
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 30),
                       // Role Selection Buttons
                       _buildRoleButton(
                         context,
-                        'Login as Mentee',
+                        'Mentee',
                         Icons.school,
                         () {
                           debugPrint('Mentee button pressed');
@@ -51,7 +51,7 @@ class LoginScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildRoleButton(
                         context,
-                        'Login as Mentor',
+                        'Mentor',
                         Icons.psychology,
                         () {
                           debugPrint('Mentor button pressed');
@@ -61,7 +61,7 @@ class LoginScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildRoleButton(
                         context,
-                        'Login as Coordinator',
+                        'Coordinator',
                         Icons.admin_panel_settings,
                         () {
                           debugPrint('Coordinator button pressed');
