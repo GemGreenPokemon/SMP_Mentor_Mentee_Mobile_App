@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'settings_screen.dart';
+import 'package:provider/provider.dart';
+import '../services/mentor_service.dart';
 
 class ResourceHubScreen extends StatefulWidget {
   final bool isMentor;
@@ -483,11 +485,49 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16.0),
-            children: mockDocuments
-                .where((doc) => selectedCategory == 'All Resources' || 
-                              doc['category'] == selectedCategory)
-                .map((doc) => _buildDocumentCard(doc))
-                .toList(),
+            children: [
+              // For mentors, add a section showing resources assigned to mentees
+              if (widget.isMentor) ...[
+                const Text(
+                  'Resources Assigned to Mentees',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Resources you have assigned to specific mentees',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...mockDocuments
+                    .where((doc) => (doc['assignedTo'] as List).isNotEmpty)
+                    .map((doc) => _buildDocumentCard(doc))
+                    .toList(),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'All Resources',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              
+              // Filtered resources based on selected category
+              ...mockDocuments
+                  .where((doc) => selectedCategory == 'All Resources' || 
+                                doc['category'] == selectedCategory)
+                  .map((doc) => _buildDocumentCard(doc))
+                  .toList(),
+            ],
           ),
         ),
       ],
@@ -627,39 +667,154 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
   Widget _buildDocumentCard(Map<String, dynamic> doc) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(
-          _getFileIcon(doc['type']),
-          color: _getFileColor(doc['type']),
-          size: 32,
-        ),
-        title: Text(doc['title']),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(doc['description']),
-            const SizedBox(height: 4),
-            Text(
-              'Added: ${doc['dateAdded']}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Document icon based on type
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getFileColor(doc['type']).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getFileIcon(doc['type']),
+                    color: _getFileColor(doc['type']),
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Document details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc['title'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        doc['description'],
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Display assigned mentees if this is a mentor view and document is assigned to mentees
+                      if (widget.isMentor && doc['assignedTo'] != null && (doc['assignedTo'] as List).isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Assigned to: ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: (doc['assignedTo'] as List).map<Widget>((mentee) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.green.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.person,
+                                    size: 12,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    mentee,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green.shade800,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Added: ${doc['dateAdded']}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.download),
+                  onPressed: () {
+                    // TODO: Implement download
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Downloading ${doc['title']}...'),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
+            // Add Assign to Mentee button for mentors
+            if (widget.isMentor)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showAssignToMenteesDialog(doc),
+                      icon: const Icon(Icons.person_add, size: 16),
+                      label: const Text('Assign to Mentee'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.download),
-          onPressed: () {
-            // TODO: Implement download
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Downloading ${doc['title']}...'),
-              ),
-            );
-          },
-        ),
-        isThreeLine: true,
       ),
     );
   }
@@ -749,6 +904,48 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
                           ),
                         ],
                       ),
+                      // Show assignment information if this is a mentor view and document is assigned to mentees
+                      if (widget.isMentor && document['assignedTo'] != null && (document['assignedTo'] as List).isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Assigned to:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: (document['assignedTo'] as List).map<Widget>((mentee) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      mentee,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -780,24 +977,42 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
                     color: Colors.grey.shade600,
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement document download/view
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Opening ${document['title']}'),
+                Row(
+                  children: [
+                    if (widget.isMentor)
+                      TextButton.icon(
+                        onPressed: () => _showAssignToMenteesDialog(document),
+                        icon: const Icon(Icons.person_add, size: 16),
+                        label: const Text('Assign to Mentees'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.download, size: 16),
-                  label: const Text('Download'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: Implement document download/view
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Opening ${document['title']}'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('Download'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
                     ),
-                    textStyle: const TextStyle(fontSize: 12),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -834,66 +1049,143 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
   }
 
   void _showUploadDialog() {
+    String? selectedCategory;
+    
+    // Get the MentorService to access the list of mentees
+    final mentorService = Provider.of<MentorService>(context, listen: false);
+    
+    // Create a map to track which mentees are selected
+    Map<String, bool> selectedMentees = {};
+    
+    // Initialize all mentees as unselected
+    for (var mentee in mentorService.mentees) {
+      selectedMentees[mentee['name']] = false;
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Upload Resource'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'Study Materials',
-                  'Program Documents',
-                  'Templates',
-                  'Worksheets',
-                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (_) {},
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Upload Resource'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'Study Materials',
+                      'Program Documents',
+                      'Templates',
+                      'Worksheets',
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (value) {
+                      selectedCategory = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement file picker
+                    },
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text('Choose File'),
+                  ),
+                  
+                  // Only show mentee assignment section for mentors
+                  if (widget.isMentor) ...[
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Assign to Mentee',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...mentorService.mentees.map((mentee) {
+                      String menteeName = mentee['name'];
+                      return CheckboxListTile(
+                        title: Text(menteeName),
+                        subtitle: Text(mentee['program']),
+                        value: selectedMentees[menteeName] ?? false,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            selectedMentees[menteeName] = value ?? false;
+                          });
+                        },
+                        secondary: const CircleAvatar(
+                          child: Icon(Icons.person),
+                        ),
+                        dense: true,
+                      );
+                    }).toList(),
+                  ],
+                ],
               ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
+              ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement file picker
+                  // TODO: Implement upload
+                  
+                  // Create list of assigned mentees
+                  List<String> assignedMentees = [];
+                  if (widget.isMentor) {
+                    selectedMentees.forEach((mentee, isSelected) {
+                      if (isSelected) {
+                        assignedMentees.add(mentee);
+                      }
+                    });
+                  }
+                  
+                  Navigator.pop(context);
+                  
+                  // Show confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        assignedMentees.isEmpty
+                            ? 'Resource uploaded successfully'
+                            : 'Resource uploaded and assigned to ${assignedMentees.length} mentee(s): ${assignedMentees.join(', ')}',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Choose File'),
+                child: const Text('Upload'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement upload
-              Navigator.pop(context);
-            },
-            child: const Text('Upload'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -902,103 +1194,182 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
     String? selectedCategory = document['category'];
     String? selectedType = document['type'];
     
+    // Get the MentorService to access the list of mentees
+    final mentorService = Provider.of<MentorService>(context, listen: false);
+    
+    // Create a map to track which mentees are selected
+    Map<String, bool> selectedMentees = {};
+    
+    // Initialize with current assignments
+    for (var mentee in mentorService.mentees) {
+      String menteeName = mentee['name'];
+      selectedMentees[menteeName] = (document['assignedTo'] as List).contains(menteeName);
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Document'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                value: selectedCategory,
-                items: [
-                  'Program Documents',
-                  'Templates',
-                  'Worksheets',
-                  'Study Materials',
-                  'Mentor Materials',
-                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (value) {
-                  selectedCategory = value;
-                },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Edit Document'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: selectedCategory,
+                    items: [
+                      'Program Documents',
+                      'Templates',
+                      'Worksheets',
+                      'Study Materials',
+                      'Mentor Materials',
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (value) {
+                      selectedCategory = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Document Title',
+                      border: OutlineInputBorder(),
+                    ),
+                    controller: TextEditingController(text: document['title']),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    controller: TextEditingController(text: document['description']),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Document Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: selectedType,
+                    items: [
+                      'PDF',
+                      'DOCX',
+                      'XLSX',
+                      'Link',
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (value) {
+                      selectedType = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement file picker
+                    },
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text('Replace File'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Target Audience',
+                      border: OutlineInputBorder(),
+                      hintText: 'All, Mentors, Mentees, or specific groups',
+                    ),
+                    controller: TextEditingController(text: document['audience'] ?? 'All'),
+                  ),
+                  
+                  // Only show mentee assignment section for mentors
+                  if (widget.isMentor) ...[
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Assign to Specific Mentees',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Select mentees to assign this resource to:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    ...mentorService.mentees.map((mentee) {
+                      String menteeName = mentee['name'];
+                      return CheckboxListTile(
+                        title: Text(menteeName),
+                        subtitle: Text(mentee['program']),
+                        value: selectedMentees[menteeName] ?? false,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            selectedMentees[menteeName] = value ?? false;
+                          });
+                        },
+                        dense: true,
+                      );
+                    }).toList(),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Note: Assigned resources will appear in the "From Your Mentor" section of the mentee\'s Resource Hub.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Document Title',
-                  border: OutlineInputBorder(),
-                ),
-                controller: TextEditingController(text: document['title']),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                controller: TextEditingController(text: document['description']),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Document Type',
-                  border: OutlineInputBorder(),
-                ),
-                value: selectedType,
-                items: [
-                  'PDF',
-                  'DOCX',
-                  'XLSX',
-                  'Link',
-                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (value) {
-                  selectedType = value;
-                },
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
+              ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement file picker
+                  // TODO: Implement document update
+                  
+                  // Update assigned mentees
+                  List<String> assignedMentees = [];
+                  if (widget.isMentor) {
+                    selectedMentees.forEach((mentee, isSelected) {
+                      if (isSelected) {
+                        assignedMentees.add(mentee);
+                      }
+                    });
+                    document['assignedTo'] = assignedMentees;
+                  }
+                  
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        assignedMentees.isEmpty
+                            ? 'Document updated successfully'
+                            : 'Document updated and assigned to ${assignedMentees.length} mentee(s)',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Replace File'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Target Audience',
-                  border: OutlineInputBorder(),
-                  hintText: 'All, Mentors, Mentees, or specific groups',
-                ),
-                controller: TextEditingController(text: document['audience'] ?? 'All'),
+                child: const Text('Save Changes'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement document update
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Document updated successfully'),
-                ),
-              );
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1561,6 +1932,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Jan 15, 2023',
       'audience': 'All',
       'url': 'assets/documents/handbook.pdf',
+      'assignedTo': [], // Empty array means not assigned to specific mentees
     },
     {
       'title': 'Mentorship Agreement Template',
@@ -1570,6 +1942,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Feb 3, 2023',
       'audience': 'Mentors',
       'url': 'assets/documents/agreement.docx',
+      'assignedTo': ['Alice Johnson'], // Assigned to specific mentee
     },
     {
       'title': 'Monthly Progress Report',
@@ -1579,6 +1952,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Feb 10, 2023',
       'audience': 'Mentors',
       'url': 'assets/documents/progress.xlsx',
+      'assignedTo': [],
     },
     {
       'title': 'Goal Setting Worksheet',
@@ -1588,6 +1962,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Mar 5, 2023',
       'audience': 'Mentees',
       'url': 'assets/documents/goals.pdf',
+      'assignedTo': ['Alice Johnson', 'Bob Wilson'], // Assigned to multiple mentees
     },
     {
       'title': 'Effective Communication Guide',
@@ -1597,6 +1972,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Apr 12, 2023',
       'audience': 'All',
       'url': 'assets/documents/communication.pdf',
+      'assignedTo': [],
     },
     {
       'title': 'Mentor Training Slides',
@@ -1606,6 +1982,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'May 20, 2023',
       'audience': 'Mentors',
       'url': 'assets/documents/training.pdf',
+      'assignedTo': [],
     },
     {
       'title': 'Conflict Resolution Strategies',
@@ -1615,6 +1992,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Jun 8, 2023',
       'audience': 'All',
       'url': 'assets/documents/conflict.pdf',
+      'assignedTo': [],
     },
     {
       'title': 'Program Evaluation Form',
@@ -1624,6 +2002,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Jul 15, 2023',
       'audience': 'All',
       'url': 'assets/documents/evaluation.pdf',
+      'assignedTo': [],
     },
     {
       'title': 'Career Development Resources',
@@ -1633,6 +2012,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Aug 22, 2023',
       'audience': 'Mentees',
       'url': 'https://example.com/career-resources',
+      'assignedTo': ['Bob Wilson'], // Assigned to specific mentee
     },
     {
       'title': 'Mentorship Best Practices',
@@ -1642,6 +2022,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       'dateAdded': 'Sep 10, 2023',
       'audience': 'Mentors',
       'url': 'assets/documents/best-practices.pdf',
+      'assignedTo': [],
     },
   ];
 
@@ -1649,98 +2030,177 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
     String? selectedCategory;
     String? selectedType;
     
+    // Get the MentorService to access the list of mentees
+    final mentorService = Provider.of<MentorService>(context, listen: false);
+    
+    // Create a map to track which mentees are selected
+    Map<String, bool> selectedMentees = {};
+    
+    // Initialize all mentees as unselected
+    for (var mentee in mentorService.mentees) {
+      selectedMentees[mentee['name']] = false;
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Document'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'Program Documents',
-                  'Templates',
-                  'Worksheets',
-                  'Study Materials',
-                  'Mentor Materials',
-                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (value) {
-                  selectedCategory = value;
-                },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add New Document'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'Program Documents',
+                      'Templates',
+                      'Worksheets',
+                      'Study Materials',
+                      'Mentor Materials',
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (value) {
+                      selectedCategory = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Document Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Document Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'PDF',
+                      'DOCX',
+                      'XLSX',
+                      'Link',
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (value) {
+                      selectedType = value;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement file picker
+                    },
+                    icon: const Icon(Icons.attach_file),
+                    label: const Text('Choose File'),
+                  ),
+                  const SizedBox(height: 16),
+                  const TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Target Audience',
+                      border: OutlineInputBorder(),
+                      hintText: 'All, Mentors, Mentees, or specific groups',
+                    ),
+                  ),
+                  
+                  // Only show mentee assignment section for mentors
+                  if (widget.isMentor) ...[
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Assign to Specific Mentees',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Select mentees to assign this resource to:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    ...mentorService.mentees.map((mentee) {
+                      String menteeName = mentee['name'];
+                      return CheckboxListTile(
+                        title: Text(menteeName),
+                        subtitle: Text(mentee['program']),
+                        value: selectedMentees[menteeName] ?? false,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            selectedMentees[menteeName] = value ?? false;
+                          });
+                        },
+                        secondary: const CircleAvatar(
+                          child: Icon(Icons.person),
+                        ),
+                      );
+                    }).toList(),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Note: Assigned resources will appear in the "From Your Mentor" section of the mentee\'s Resource Hub.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Document Title',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Document Type',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'PDF',
-                  'DOCX',
-                  'XLSX',
-                  'Link',
-                ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (value) {
-                  selectedType = value;
-                },
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
+              ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement file picker
+                  // TODO: Implement document addition
+                  
+                  // Create list of assigned mentees
+                  List<String> assignedMentees = [];
+                  if (widget.isMentor) {
+                    selectedMentees.forEach((mentee, isSelected) {
+                      if (isSelected) {
+                        assignedMentees.add(mentee);
+                      }
+                    });
+                  }
+                  
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        assignedMentees.isEmpty
+                            ? 'Document added successfully'
+                            : 'Document added and assigned to ${assignedMentees.length} mentee(s): ${assignedMentees.join(', ')}',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 },
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Choose File'),
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Target Audience',
-                  border: OutlineInputBorder(),
-                  hintText: 'All, Mentors, Mentees, or specific groups',
-                ),
+                child: const Text('Add Document'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement document addition
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Document added successfully'),
-                ),
-              );
-            },
-            child: const Text('Add Document'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1758,5 +2218,145 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
       default:
         return Icons.insert_drive_file;
     }
+  }
+
+  void _showAssignToMenteesDialog(Map<String, dynamic> document) {
+    // Get the MentorService to access the list of mentees
+    final mentorService = Provider.of<MentorService>(context, listen: false);
+    
+    // Create a map to track which mentees are selected
+    Map<String, bool> selectedMentees = {};
+    
+    // Initialize with current assignments
+    for (var mentee in mentorService.mentees) {
+      String menteeName = mentee['name'];
+      selectedMentees[menteeName] = (document['assignedTo'] as List).contains(menteeName);
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Assign Resource to Specific Mentees'),
+                const SizedBox(height: 4),
+                Text(
+                  document['title'],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select which mentees should have access to this resource:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  ...mentorService.mentees.map((mentee) {
+                    String menteeName = mentee['name'];
+                    return CheckboxListTile(
+                      title: Text(menteeName),
+                      subtitle: Text(mentee['program']),
+                      value: selectedMentees[menteeName] ?? false,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          selectedMentees[menteeName] = value ?? false;
+                        });
+                      },
+                      secondary: const CircleAvatar(
+                        child: Icon(Icons.person),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.blue.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Assigned resources will appear in the "From Your Mentor" section of each mentee\'s Resource Hub.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Save Assignments'),
+                onPressed: () {
+                  // Update the document's assignedTo list
+                  List<String> assignedMentees = [];
+                  selectedMentees.forEach((mentee, isSelected) {
+                    if (isSelected) {
+                      assignedMentees.add(mentee);
+                    }
+                  });
+                  
+                  // Update the document
+                  document['assignedTo'] = assignedMentees;
+                  
+                  // Close the dialog
+                  Navigator.pop(context);
+                  
+                  // Show confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        assignedMentees.isEmpty
+                            ? 'Resource unassigned from all mentees'
+                            : 'Resource assigned to ${assignedMentees.length} mentee(s): ${assignedMentees.join(', ')}',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  
+                  // Refresh the UI
+                  setState(() {});
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 } 
