@@ -45,6 +45,8 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> with SingleTicker
           title: Text(_tabTitles[_tabController.index]),
           bottom: TabBar(
             controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
             tabs: const [
               Tab(text: 'General'),
               Tab(text: 'Documents'),

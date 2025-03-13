@@ -383,6 +383,16 @@ class _ProgressReportsScreenState extends State<ProgressReportsScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
+          OutlinedButton(
+            onPressed: () {
+              // TODO: Implement save draft logic
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Report saved as draft')),
+              );
+            },
+            child: const Text('Save Draft'),
+          ),
           ElevatedButton(
             onPressed: () {
               // TODO: Implement save logic
