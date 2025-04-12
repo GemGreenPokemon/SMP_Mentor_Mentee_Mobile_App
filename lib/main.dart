@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/login_screen.dart';
-import 'screens/mentee_dashboard_screen.dart';
-import 'screens/mentor_dashboard_screen.dart';
-import 'screens/coordinator_dashboard_screen.dart';
-import 'screens/qualtrics_dashboard_screen.dart';
-import 'services/mentor_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import './screens/login_screen.dart';
+import './screens/web_login_screen.dart';
+import './screens/mentee_dashboard_screen.dart';
+import './screens/web_mentee_dashboard_screen.dart';
+import './screens/mentor_dashboard_screen.dart';
+import './screens/web_mentor_dashboard_screen.dart';
+import './screens/coordinator_dashboard_screen.dart';
+import './screens/qualtrics_dashboard_screen.dart';
+import './services/mentor_service.dart';
+import './utils/responsive.dart';
 
 void main() {
   runApp(
@@ -43,9 +48,15 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginScreen(),
-        '/mentee': (context) => const MenteeDashboardScreen(),
-        '/mentor': (context) => const MentorDashboardScreen(),
+        '/': (context) => Responsive.isWeb() 
+            ? const WebLoginScreen() 
+            : const LoginScreen(),
+        '/mentee': (context) => Responsive.isWeb()
+            ? const WebMenteeDashboardScreen()
+            : const MenteeDashboardScreen(),
+        '/mentor': (context) => Responsive.isWeb()
+            ? const WebMentorDashboardScreen()
+            : const MentorDashboardScreen(),
         '/coordinator': (context) => const CoordinatorDashboardScreen(),
         '/qualtrics': (context) => const QualtricsDataDashboardScreen(),
       },
