@@ -16,8 +16,10 @@ CREATE TABLE users (
   id TEXT PRIMARY KEY,                       -- Firebase UID or UUID
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('mentor', 'mentee', 'coordinator')),
-  display_id TEXT UNIQUE,                    -- Human-readable handle
+  userType TEXT NOT NULL CHECK(userType IN ('mentor', 'mentee', 'coordinator')),
+  student_id TEXT UNIQUE,                    -- Human-readable unique identifier
+  mentor TEXT,                               -- Mentor's student_id (for mentees)
+  mentee TEXT,                               -- JSON array of mentee student_ids (for mentors, up to 3)
   created_at INTEGER NOT NULL
 );
 ```
@@ -130,4 +132,4 @@ CREATE TABLE meeting_ratings (
   FOREIGN KEY (meeting_id) REFERENCES meetings(id),
   FOREIGN KEY (mentee_id) REFERENCES users(id)
 );
-``` 
+```

@@ -8,6 +8,7 @@ import './screens/web_mentee_dashboard_screen.dart';
 import './screens/mentor_dashboard_screen.dart';
 import './screens/web_mentor_dashboard_screen.dart';
 import './screens/coordinator_dashboard_screen.dart';
+import './screens/web_coordinator_dashboard_screen.dart';
 import './screens/qualtrics_dashboard_screen.dart';
 import './services/mentor_service.dart';
 import './utils/responsive.dart';
@@ -57,7 +58,9 @@ class MyApp extends StatelessWidget {
         '/mentor': (context) => Responsive.isWeb()
             ? const WebMentorDashboardScreen()
             : const MentorDashboardScreen(),
-        '/coordinator': (context) => const CoordinatorDashboardScreen(),
+        '/coordinator': (context) => Responsive.isWeb()
+            ? const WebCoordinatorDashboardScreen()
+            : const CoordinatorDashboardScreen(),
         '/qualtrics': (context) => const QualtricsDataDashboardScreen(),
       },
     );
