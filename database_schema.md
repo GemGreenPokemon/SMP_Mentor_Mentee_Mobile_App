@@ -132,4 +132,4 @@ CREATE TABLE meeting_ratings (
   FOREIGN KEY (meeting_id) REFERENCES meetings(id),
   FOREIGN KEY (mentee_id) REFERENCES users(id)
 );
-```
+``` 
