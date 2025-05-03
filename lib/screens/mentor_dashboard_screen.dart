@@ -11,6 +11,7 @@ import '../services/mentor_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'newsletter_screen.dart';
 import 'announcement_screen.dart';
+import '../utils/developer_session.dart';
 
 class MentorDashboardScreen extends StatelessWidget {
   const MentorDashboardScreen({super.key});
@@ -259,6 +260,8 @@ class MentorDashboardScreen extends StatelessWidget {
             crossAxisCount: 3,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
+            // Increase height for dev labels to avoid overflow
+            childAspectRatio: DeveloperSession.isActive ? 0.8 : 1.0,
             children: [
               _buildQuickActionCard(
                 context,
@@ -499,6 +502,10 @@ class MentorDashboardScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                // TODO: Retrieve and sync mentee list from Firestore via MentorService before caching locally.
+                // TODO: Persist basic mentee info (name and unique ID) locally via MentorService (e.g., SQLite) for offline quick-access.
+                // TODO: Ensure each mentee model includes an index or UUID to map to chat threads.
+                // TODO: On tap, pass menteeID and menteeName to ChatScreen to load the correct conversation.
                 IconButton(
                   icon: const Icon(Icons.message),
                   onPressed: () {
@@ -579,6 +586,14 @@ class MentorDashboardScreen extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (DeveloperSession.isActive) ...[
+                const SizedBox(height: 4),
+                const Text(
+                  'Coming Soon',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
             ],
           ),
         ),

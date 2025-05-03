@@ -10,6 +10,7 @@ import './screens/web_mentor_dashboard_screen.dart';
 import './screens/coordinator_dashboard_screen.dart';
 import './screens/web_coordinator_dashboard_screen.dart';
 import './screens/qualtrics_dashboard_screen.dart';
+import './screens/developer_home_screen.dart';
 import './services/mentor_service.dart';
 import './utils/responsive.dart';
 
@@ -52,6 +53,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => Responsive.isWeb() 
             ? const WebLoginScreen() 
             : const LoginScreen(),
+        '/dev': (context) => const DeveloperHomeScreen(),
         '/mentee': (context) => Responsive.isWeb()
             ? const WebMenteeDashboardScreen()
             : const MenteeDashboardScreen(),

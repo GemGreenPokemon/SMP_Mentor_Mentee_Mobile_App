@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
+import '../utils/developer_session.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,8 +27,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() {
+    DeveloperSession.isActive = false;
     // In development mode, only check if a role is selected
     if (_devMode) {
+      if (_selectedRole == 'Developer') {
+        DeveloperSession.isActive = true;
+      }
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a role')),
@@ -66,6 +71,9 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
       case 'Coordinator':
         Navigator.pushReplacementNamed(context, '/coordinator');
+        break;
+      case 'Developer':
+        Navigator.pushReplacementNamed(context, '/dev');
         break;
     }
   }
@@ -198,6 +206,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           Icons.admin_panel_settings,
                           _selectedRole == 'Coordinator',
                         ),
+                        if (_devMode) ...[
+                          const SizedBox(height: 12),
+                          _buildRoleButton(
+                            context,
+                            'Developer',
+                            Icons.developer_mode,
+                            _selectedRole == 'Developer',
+                          ),
+                        ],
                         
                         const SizedBox(height: 30),
                         

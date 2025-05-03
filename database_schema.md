@@ -23,6 +23,7 @@ CREATE TABLE users (
   created_at INTEGER NOT NULL
 );
 ```
+**Note:** In Firestore, the document ID for each user will be the same as this `id` (often referred to as `index_id`), allowing direct `.doc(index_id)` lookups without scanning the collection.
 
 ### 🔹 mentorships
 ```sql

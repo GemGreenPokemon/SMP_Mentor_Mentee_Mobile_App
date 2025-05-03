@@ -256,6 +256,13 @@ class _QualtricsDataDashboardScreenState extends State<QualtricsDataDashboardScr
             },
             tooltip: 'Refresh Data',
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/');
+            },
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {

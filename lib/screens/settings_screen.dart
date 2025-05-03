@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';  // optional retains kDebugMode if needed
+import '../utils/developer_session.dart';
+import 'firestore_manager_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isMentor;
@@ -145,6 +148,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          if (DeveloperSession.isActive) ...[
+            const Divider(),
+            _buildSection(
+              'Developer Tools',
+              [
+                ListTile(
+                  title: const Text('Local DB Manager'),
+                  trailing: const Icon(Icons.storage),
+                  onTap: () {
+                    // TODO: Implement local database UI
+                  },
+                ),
+                ListTile(
+                  title: const Text('Firestore Manager'),
+                  trailing: const Icon(Icons.cloud),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FirestoreManagerScreen(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  title: const Text('Messaging Loopback Test'),
+                  trailing: const Icon(Icons.message),
+                  onTap: () {
+                    // TODO: Implement messaging loopback test UI
+                  },
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -290,4 +327,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-} 
+}
