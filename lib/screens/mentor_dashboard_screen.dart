@@ -365,14 +365,50 @@ class MentorDashboardScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ScheduleMeetingScreen(isMentor: true),
-                            ),
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext dialogContext) {
+                              final service = Provider.of<MentorService>(dialogContext, listen: false);
+                              final todaysMeetings = service.mentees
+                                  .expand((mentee) => (mentee['upcomingMeetings'] as List).map((meeting) => {
+                                        ...meeting,
+                                        'menteeName': mentee['name']
+                                      }))
+                                  .where((meeting) => meeting['date'] == 'Today') // Filter for 'Today'
+                                  .toList();
+
+                              return AlertDialog(
+                                title: const Text("Today's Meetings"),
+                                content: SizedBox(
+                                  width: double.maxFinite,
+                                  child: todaysMeetings.isEmpty
+                                      ? const Text('No meetings scheduled for today.')
+                                      : ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: todaysMeetings.length,
+                                          itemBuilder: (context, index) {
+                                            final meeting = todaysMeetings[index];
+                                            return ListTile(
+                                              leading: const Icon(Icons.event_available, color: Color(0xFF005487)),
+                                              title: Text('${meeting['title']} with ${meeting['menteeName']}'),
+                                              subtitle: Text('${meeting['time']} at ${meeting['location']}'),
+                                            );
+                                          },
+                                        ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(dialogContext).pop(); // Close the dialog
+                                    },
+                                    child: const Text('Close'),
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
-                        child: const Text('View All'),
+                        child: const Text('View Full Schedule'), // Keep label, functionality changed
                       ),
                     ],
                   ),

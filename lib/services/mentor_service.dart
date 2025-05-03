@@ -29,6 +29,13 @@ class MentorService extends ChangeNotifier {
           'date': 'Tomorrow',
           'time': '2:00 PM - 3:00 PM',
           'location': 'KL 109',
+          'isNext': false,
+        },
+        {
+          'title': 'Project Brainstorm',
+          'date': 'Today',
+          'time': '10:00 AM - 11:00 AM',
+          'location': 'Library Room 3',
           'isNext': true,
         }
       ],

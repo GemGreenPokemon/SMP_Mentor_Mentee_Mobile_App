@@ -42,7 +42,7 @@ CREATE TABLE mentorships (
 ```sql
 CREATE TABLE availability (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,                     -- Mentor ID
+  mentor_id TEXT NOT NULL,                     -- Mentor ID
   day TEXT NOT NULL,                         -- 'Monday', 'Tuesday', etc.
   slot_start TEXT NOT NULL,                  -- '13:00'
   slot_end TEXT,                             -- Nullable
@@ -135,4 +135,154 @@ CREATE TABLE meeting_ratings (
   FOREIGN KEY (meeting_id) REFERENCES meetings(id),
   FOREIGN KEY (mentee_id) REFERENCES users(id)
 );
-``` 
+```
+
+### 🔹 checklists
+```sql
+CREATE TABLE checklists (
+  id TEXT PRIMARY KEY,                         -- Unique ID for the checklist item
+  user_id TEXT NOT NULL,                     -- User ID this checklist item belongs to
+  title TEXT NOT NULL,                       -- The title or description of the task.
+  isCompleted INTEGER DEFAULT 0,             -- Status of the task (0=false, 1=true).
+  dueDate TEXT,                              -- Optional due date (ISO 8601 format or similar).
+  assignedBy TEXT,                           -- Optional ID of the user who assigned the task.
+  category TEXT,                             -- Optional category (e.g., "Onboarding", "Semester Goals", "Admin").
+  createdAt INTEGER,                         -- Timestamp (Unix epoch) when the item was created.
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+### 🔹 newsletters
+```sql
+CREATE TABLE newsletters (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+  FOREIGN KEY (mentee_id) REFERENCES users(id)
+);
+```
+
+## Firestore Schema
+
+Describes the collections and data structure in Firestore. **Note:** This mirrors the local SQLite schema, which is the source of truth for synchronization.
+
+1.  **`users`**
+    - Description: Stores user profile information synchronized from the local SQLite database.
+    - **Document ID**: User's unique ID (`id` field from SQLite, typically Firebase Auth UID or a generated UUID).
+    - **Fields**: (Mirrors the `users` table in SQLite)
+      - `id`: (String) Primary Key, same as Document ID.
+      - `name`: (String) User's full name.
+      - `email`: (String) User's email address (unique).
+      - `userType`: (String) Role: 'mentor', 'mentee', or 'coordinator'.
+      - `student_id`: (String) Human-readable unique identifier (unique, optional).
+      - `mentor`: (String) Mentor's `student_id` (for mentees, optional).
+      - `mentee`: (String) JSON string representing an array of mentee `student_id`s (for mentors, optional).
+      - `created_at`: (Timestamp) Timestamp of account creation (mirrors SQLite INTEGER timestamp).
+
+      #### Subcollections of users:
+
+      - **`checklists`**: Stores individual checklist items assigned to or created by the user (mirrors `checklists` table in SQLite).
+        - **Document ID**: Auto-generated unique ID (matches `id` in SQLite `checklists` table).
+        - **Fields**: (Mirrors the `checklists` table in SQLite)
+          - `id`: (String) Unique ID for the checklist item (same as Document ID).
+          - `user_id`: (String/Reference) User ID this checklist item belongs to.
+          - `title`: (String) The title or description of the task.
+          - `isCompleted`: (Boolean) Status of the task (true/false).
+          - `dueDate`: (Timestamp/String) Optional due date for the task.
+          - `assignedBy`: (String) Optional `student_id` of the user who assigned the task.
+          - `category`: (String) Optional category (e.g., "Onboarding", "Semester Goals", "Admin").
+          - `createdAt`: (Timestamp) Timestamp when the item was created.
+      - **`availability`**: Stores availability slots for the user (mirrors `availability` table in SQLite).
+        - **Document ID**: Auto-generated unique ID (matches `id` in SQLite `availability` table).
+        - **Note**: Optionally, the Document ID can be constructed as `<userName>_<role>_<date>` (e.g., `TommyDickson_mentor_10_12_2025`) for readability and uniqueness.
+        - **Fields**: (Mirrors the `availability` table)
+          - `id`: (String) Unique ID for the availability slot.
+          - `mentor_id`: (String/Reference) ID of the mentor.
+          - `day`: (String) Day of the week (e.g., 'Monday').
+          - `slot_start`: (String) Start time of availability (e.g., '13:00').
+          - `slot_end`: (String) End time of availability (optional).
+          - `is_booked`: (Boolean) Whether this slot is booked.
+          - `mentee_id`: (String/Reference, optional) ID of the mentee who booked this slot.
+          - `synced`: (Boolean) Flag indicating if the record is synced from Firestore to local DB.
+          - `updated_at`: (Timestamp) Timestamp when the slot was last updated in the local DB.
+
+      - **`requestedMeetings`**: Stores meeting requests made by or for the user.
+        - **Document ID**: Auto-generated unique ID.
+        - **Fields**:
+          - `id`: (String) Unique ID for the meeting request.
+          - `mentorId`: (String/Reference) ID of the mentor.
+          - `menteeId`: (String/Reference) ID of the mentee.
+          - `startTime`: (Timestamp) Requested start time.
+          - `endTime`: (Timestamp) Requested end time.
+          - `topic`: (String) Topic of the requested meeting.
+          - `status`: (String) Status of the request ('pending', 'accepted', 'rejected').
+          - `createdAt`: (Timestamp) When the request was created.
+      - **`messages`**: Stores conversation threads for the user.
+        #### Subcollections:
+        - **`{otherUserId}`**: Document ID equal to the other participant's ID (e.g., `mentor__mentee`). Represents a chat thread.
+          #### Subcollections:
+          - **`history`**: Stores individual messages in this conversation (mirrors `messages` table in SQLite).
+            - **Document ID**: Unique message `id`.
+            - **Fields**:
+              - `id`: (String) Unique ID for the message.
+              - `chat_id`: (String) Chat identifier (e.g., `mentor__mentee`).
+              - `sender_id`: (String/Reference) ID of the sender.
+              - `message`: (String) Message content.
+              - `sent_at`: (Timestamp) When the message was sent.
+              - `synced`: (Boolean) Flag indicating if the record has been synced from local DB.
+      - **`notes`**: Stores personal notes attached to the user.
+            #### Subcolletions for messages: 
+            
+        - **Document ID**: Auto-generated unique ID.
+        - **Fields**:
+          - `id`: (String) Unique ID for the note.
+          - `content`: (String) Note content.
+          - `createdAt`: (Timestamp) When the note was created.
+          - `updatedAt`: (Timestamp) When the note was last updated.
+      - **`ratings`**: Stores ratings associated with the user.
+        - **Document ID**: Auto-generated unique ID.
+        - **Fields**:
+          - `id`: (String) Unique ID for the rating.
+          - `raterId`: (String/Reference) ID of the user who gave the rating.
+          - `rateeId`: (String/Reference) ID of the user who received the rating.
+          - `rating`: (Integer) Rating value (1-5).
+          - `feedback`: (String) Optional feedback text.
+          - `createdAt`: (Timestamp) When the rating was created.
+
+2.  **`meetings`**
+    - Description: Stores meeting information between mentors and mentees.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `mentorId`: (String/Reference) ID of the mentor
+      - `menteeId`: (String/Reference) ID of the mentee
+      - `startTime`: (Timestamp) Start time of the meeting
+      - `endTime`: (Timestamp) End time of the meeting
+      - `topic`: (String) Topic of the meeting
+      - `status`: (String) Status of the meeting ('pending', 'accepted', 'rejected')
+      - `availabilityId`: (String/Reference) Optional reference to the availability slot
+      - `synced`: (Boolean) Flag indicating if the meeting is synced with the local database
+      - `createdAt`: (Timestamp) Timestamp when the meeting was created
+
+    #### Subcollections:
+
+    - **`notes`**: Stores meeting notes for each meeting.
+      - **Document ID**: Auto-generated unique ID
+      - **Fields**:
+        - `authorId`: (String/Reference) ID of the author (mentor or mentee)
+        - `isShared`: (Boolean) Flag indicating if the note is shared
+        - `isMentor`: (Boolean) Flag indicating if the author is a mentor
+        - `rawNote`: (String) Raw text of the note
+        - `organizedNote`: (String) Organized text of the note (using Gemini Pro formatting)
+        - `isAiGenerated`: (Boolean) Flag indicating if the note was generated by AI
+        - `createdAt`: (Timestamp) Timestamp when the note was created
+        - `updatedAt`: (Timestamp) Timestamp when the note was last updated
+
+    - **`ratings`**: Stores meeting ratings for each meeting.
+      - **Document ID**: Auto-generated unique ID
+      - **Fields**:
+        - `menteeId`: (String/Reference) ID of the mentee who rated the meeting
+        - `rating`: (Integer) Rating given by the mentee (1-5)
+        - `feedback`: (String) Feedback given by the mentee
+        - `createdAt`: (Timestamp) Timestamp when the rating was created
