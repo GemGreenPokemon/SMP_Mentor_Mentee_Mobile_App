@@ -47,11 +47,13 @@ CREATE TABLE availability (
   slot_start TEXT NOT NULL,                  -- '13:00'
   slot_end TEXT,                             -- Nullable
   is_booked INTEGER DEFAULT 0,
+  mentee_id TEXT,                            -- ID of mentee who has booked this slot
   synced INTEGER DEFAULT 0,
   updated_at INTEGER,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 ```
+**Note:** In Firestore, each availability document under `users/{mentorId}/availability` includes `user_id`, `day`, `slot_start`, `slot_end`, `is_booked`, and `mentee_id` when a mentee has booked that slot.
 
 ### 🔹 meetings
 ```sql

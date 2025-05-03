@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';  // optional retains kDebugMode if needed
 import '../utils/developer_session.dart';
 import 'firestore_manager_screen.dart';
+import 'local_db_manager_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isMentor;
@@ -157,7 +158,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Local DB Manager'),
                   trailing: const Icon(Icons.storage),
                   onTap: () {
-                    // TODO: Implement local database UI
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LocalDbManagerScreen(),
+                      ),
+                    );
                   },
                 ),
                 ListTile(

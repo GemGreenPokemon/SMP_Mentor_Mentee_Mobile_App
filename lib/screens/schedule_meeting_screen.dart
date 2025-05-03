@@ -62,21 +62,25 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     'Library Study Room',
   ];
 
+  // For adding custom location input
+  TextEditingController _customLocationController = TextEditingController();
+  bool _addingLocation = false;
+
   List<MentorTimeSlot> getAvailableTimeSlots() {
+    final dateKey = selectedDate.toString().split(' ')[0];
+    // For mentors, initialize default slots if none exist
     if (widget.isMentor) {
-      return [
+      mentorAvailability.putIfAbsent(dateKey, () => [
         MentorTimeSlot('9:00 AM', 'Available'),
         MentorTimeSlot('10:00 AM', 'Available'),
         MentorTimeSlot('11:00 AM', 'Available'),
         MentorTimeSlot('2:00 PM', 'Available'),
         MentorTimeSlot('3:00 PM', 'Available'),
         MentorTimeSlot('4:00 PM', 'Available'),
-      ];
-    } else {
-      // For mentees, show mentor's availability for the selected date
-      final dateKey = selectedDate.toString().split(' ')[0];
-      return mentorAvailability[dateKey] ?? [];
+      ]);
     }
+    // Return slots for the date (mentors use map, mentees see mentor's slots)
+    return mentorAvailability[dateKey] ?? [];
   }
 
   Color getTimeSlotColor(String status) {
@@ -301,6 +305,22 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       );
                     }).toList(),
                   ),
+                  if (!widget.isMentor) ...[
+                    ElevatedButton.icon(
+                      onPressed: _addCustomTime,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Propose Custom Time'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (widget.isMentor) ...[
+                    ElevatedButton.icon(
+                      onPressed: _addCustomTime,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Custom Time'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ],
               ),
             ),
@@ -341,6 +361,32 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                         });
                       }
                     },
+                  ),
+                  const SizedBox(height: 8),
+                  if (_addingLocation) ...[
+                    TextField(
+                      controller: _customLocationController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Custom Location',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => setState(() => _addingLocation = !_addingLocation),
+                        child: Text(_addingLocation ? 'Cancel' : 'Add Location'),
+                      ),
+                      if (_addingLocation) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _addCustomLocation,
+                          child: const Text('Save Location'),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -468,6 +514,35 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       dates.add(selectedDate.add(Duration(days: 7 * i)));
     }
     return dates;
+  }
+
+  // Show time picker to add a custom time slot
+  Future<void> _addCustomTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      final key = selectedDate.toString().split(' ')[0];
+      setState(() {
+        mentorAvailability.putIfAbsent(key, () => []);
+        mentorAvailability[key]!
+            .add(MentorTimeSlot(picked.format(context), 'Available'));
+      });
+    }
+  }
+
+  // Save new custom location
+  void _addCustomLocation() {
+    final newLoc = _customLocationController.text.trim();
+    if (newLoc.isNotEmpty) {
+      setState(() {
+        availableLocations.add(newLoc);
+        selectedLocation = newLoc;
+        _addingLocation = false;
+        _customLocationController.clear();
+      });
+    }
   }
 }
 
