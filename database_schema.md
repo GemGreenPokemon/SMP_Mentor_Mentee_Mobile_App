@@ -164,6 +164,22 @@ CREATE TABLE newsletters (
 );
 ```
 
+### 🔹 announcements
+```sql
+CREATE TABLE announcements (
+  id TEXT PRIMARY KEY,                       -- Unique identifier for the announcement
+  title TEXT NOT NULL,                       -- Announcement title
+  content TEXT NOT NULL,                     -- Main announcement content
+  time TEXT NOT NULL,                        -- When the announcement was posted (human-readable format)
+  priority TEXT CHECK(priority IN ('high', 'medium', 'low', 'none')),  -- Priority level matching dashboard UI
+  target_audience TEXT CHECK(target_audience IN ('mentors', 'mentees', 'both')),  -- Who should see this announcement
+  created_at INTEGER NOT NULL,               -- Timestamp for sorting and filtering
+  created_by TEXT,                           -- User ID of announcement creator
+  synced INTEGER DEFAULT 0,                  -- Flag for synchronization status
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+```
+
 ## Firestore Schema
 
 Describes the collections and data structure in Firestore. **Note:** This mirrors the local SQLite schema, which is the source of truth for synchronization.
@@ -286,3 +302,17 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
         - `rating`: (Integer) Rating given by the mentee (1-5)
         - `feedback`: (String) Feedback given by the mentee
         - `createdAt`: (Timestamp) Timestamp when the rating was created
+
+3.  **`announcements`**
+    - Description: Stores announcement information for mentors, mentees, or both.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `id`: (String) Primary Key, same as Document ID.
+      - `title`: (String) Announcement title.
+      - `content`: (String) Main announcement content.
+      - `time`: (String) Human-readable time format (e.g., "2 hours ago").
+      - `priority`: (String) Priority level: 'high', 'medium', 'low', or 'none'.
+      - `target_audience`: (String) Who should see this: 'mentors', 'mentees', or 'both'.
+      - `created_at`: (Timestamp) When the announcement was created.
+      - `created_by`: (String/Reference) Reference to the user who created the announcement.
+      - `synced`: (Boolean) Flag indicating if the announcement is synced with the local database.
