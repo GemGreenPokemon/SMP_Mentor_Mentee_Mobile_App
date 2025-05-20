@@ -180,6 +180,46 @@ CREATE TABLE announcements (
 );
 ```
 
+### 🔹 progress_reports
+```sql
+CREATE TABLE progress_reports (
+  id TEXT PRIMARY KEY,                       -- Unique identifier for the report
+  mentee_id TEXT NOT NULL,                   -- ID of the mentee this report is for
+  mentor_id TEXT NOT NULL,                   -- ID of the mentor who created/reviews this report
+  report_period TEXT NOT NULL,               -- e.g., "Spring 2024", "Month 3", etc.
+  status TEXT NOT NULL CHECK(status IN ('draft', 'submitted', 'reviewed', 'approved')),
+  overall_score INTEGER,                     -- Optional numerical assessment (e.g., 1-5)
+  submission_date INTEGER,                   -- When the report was submitted
+  review_date INTEGER,                       -- When the report was reviewed
+  synced INTEGER DEFAULT 0,                  -- Sync status flag
+  created_at INTEGER NOT NULL,               -- Report creation timestamp
+  updated_at INTEGER,                        -- Last update timestamp
+  FOREIGN KEY (mentee_id) REFERENCES users(id),
+  FOREIGN KEY (mentor_id) REFERENCES users(id)
+);
+```
+
+### 🔹 events
+```sql
+CREATE TABLE events (
+  id TEXT PRIMARY KEY,                       -- Unique identifier for the event
+  title TEXT NOT NULL,                       -- Event title
+  description TEXT,                          -- Detailed description
+  location TEXT,                             -- Physical location or virtual meeting link
+  start_time INTEGER NOT NULL,               -- Event start time (timestamp)
+  end_time INTEGER,                          -- Event end time (timestamp)
+  created_by TEXT NOT NULL,                  -- User who created the event
+  event_type TEXT CHECK(event_type IN ('workshop', 'meeting', 'social', 'training', 'other')),
+  target_audience TEXT CHECK(target_audience IN ('mentors', 'mentees', 'both', 'coordinators', 'all')),
+  max_participants INTEGER,                  -- Optional capacity limit
+  required_registration INTEGER DEFAULT 0,   -- Whether registration is required (0/1)
+  synced INTEGER DEFAULT 0,                  -- Sync status flag
+  created_at INTEGER NOT NULL,               -- Creation timestamp
+  updated_at INTEGER,                        -- Last update timestamp
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+```
+
 ## Firestore Schema
 
 Describes the collections and data structure in Firestore. **Note:** This mirrors the local SQLite schema, which is the source of truth for synchronization.
@@ -316,3 +356,36 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `created_at`: (Timestamp) When the announcement was created.
       - `created_by`: (String/Reference) Reference to the user who created the announcement.
       - `synced`: (Boolean) Flag indicating if the announcement is synced with the local database.
+      
+4.  **`progress_reports`**
+    - Description: Stores progress report information for mentees.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `menteeId`: (String/Reference) ID of the mentee this report is for
+      - `mentorId`: (String/Reference) ID of the mentor who created/reviews this report
+      - `reportPeriod`: (String) The period this report covers (e.g., "Spring 2024", "Month 3")
+      - `status`: (String) Status of the report ('draft', 'submitted', 'reviewed', 'approved')
+      - `overallScore`: (Number) Optional numerical assessment
+      - `submissionDate`: (Timestamp) When the report was submitted
+      - `reviewDate`: (Timestamp) When the report was reviewed
+      - `synced`: (Boolean) Flag indicating if the report is synced with local DB
+      - `createdAt`: (Timestamp) When the report was created
+      - `updatedAt`: (Timestamp) When the report was last updated
+
+5.  **`events`**
+    - Description: Stores events for mentors, mentees, or both.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `title`: (String) Event title
+      - `description`: (String) Detailed description
+      - `location`: (String) Physical location or virtual meeting link
+      - `startTime`: (Timestamp) Event start time
+      - `endTime`: (Timestamp) Event end time
+      - `createdBy`: (String/Reference) User who created the event
+      - `eventType`: (String) Type of event ('workshop', 'meeting', 'social', 'training', 'other')
+      - `targetAudience`: (String) Who should see this: 'mentors', 'mentees', 'both', 'coordinators', 'all'
+      - `maxParticipants`: (Number) Optional capacity limit
+      - `requiredRegistration`: (Boolean) Whether registration is required
+      - `synced`: (Boolean) Flag indicating if the event is synced with local DB
+      - `createdAt`: (Timestamp) When the event was created
+      - `updatedAt`: (Timestamp) When the event was last updated
