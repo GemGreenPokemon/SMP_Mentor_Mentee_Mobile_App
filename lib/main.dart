@@ -11,6 +11,8 @@ import './screens/coordinator_dashboard_screen.dart';
 import './screens/web_coordinator_dashboard_screen.dart';
 import './screens/qualtrics_dashboard_screen.dart';
 import './screens/developer_home_screen.dart';
+import './screens/register_screen.dart';
+import './screens/mentee_acknowledgment_screen.dart';
 import './services/mentor_service.dart';
 import './utils/responsive.dart';
 
@@ -64,6 +66,8 @@ class MyApp extends StatelessWidget {
             ? const WebCoordinatorDashboardScreen()
             : const CoordinatorDashboardScreen(),
         '/qualtrics': (context) => const QualtricsDataDashboardScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/mentee_acknowledgment': (context) => const MenteeAcknowledgmentScreen(),
       },
     );
   }

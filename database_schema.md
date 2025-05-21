@@ -20,6 +20,7 @@ CREATE TABLE users (
   student_id TEXT UNIQUE,                    -- Human-readable unique identifier
   mentor TEXT,                               -- Mentor's student_id (for mentees)
   mentee TEXT,                               -- JSON array of mentee student_ids (for mentors, up to 3)
+  acknowledgment_signed TEXT CHECK(acknowledgment_signed IN ('yes', 'no', 'not_applicable')) DEFAULT 'not_applicable', -- For mentees only: 'yes', 'no', 'not_applicable' for non-mentees
   created_at INTEGER NOT NULL
 );
 ```
@@ -235,6 +236,7 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `student_id`: (String) Human-readable unique identifier (unique, optional).
       - `mentor`: (String) Mentor's `student_id` (for mentees, optional).
       - `mentee`: (String) JSON string representing an array of mentee `student_id`s (for mentors, optional).
+      - `acknowledgment_signed`: (String) For mentees only: 'yes', 'no', or 'not_applicable' for non-mentees.
       - `created_at`: (Timestamp) Timestamp of account creation (mirrors SQLite INTEGER timestamp).
 
       #### Subcollections of users:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'mentee_acknowledgment_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -253,12 +254,11 @@ class _MenteeRegistrationFormState extends State<MenteeRegistrationForm> {
     
     // TODO: Implement registration with Firebase
     
-    // Show success message and navigate back to login
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration successful! Please login.')),
+    // Navigate to mentee acknowledgment screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MenteeAcknowledgmentScreen()),
     );
-    
-    Navigator.popUntil(context, (route) => route.isFirst);
   }
 
   @override
@@ -429,7 +429,7 @@ class _MenteeRegistrationFormState extends State<MenteeRegistrationForm> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('REGISTER'),
+                      child: const Text('NEXT'),
                     ),
                   ),
                 ],
@@ -651,7 +651,7 @@ class _MentorRegistrationFormState extends State<MentorRegistrationForm> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('REGISTER'),
+                      child: const Text('NEXT'),
                     ),
                   ),
                 ],
@@ -886,7 +886,7 @@ class _CoordinatorRegistrationFormState extends State<CoordinatorRegistrationFor
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('REQUEST ACCESS'),
+                      child: const Text('NEXT'),
                     ),
                   ),
                 ],
