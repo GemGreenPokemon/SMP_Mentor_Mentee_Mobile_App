@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'register_screen.dart';
+import 'web_register_screen.dart';
 import '../utils/responsive.dart';
+import '../utils/developer_session.dart';
 
 class WebLoginScreen extends StatefulWidget {
   const WebLoginScreen({super.key});
@@ -27,8 +28,12 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
   }
 
   void _login() {
+    DeveloperSession.isActive = false;
     // In development mode, only check if a role is selected
     if (_devMode) {
+      if (_selectedRole == 'Developer') {
+        DeveloperSession.isActive = true;
+      }
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a role')),
@@ -67,6 +72,9 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
         break;
       case 'Coordinator':
         Navigator.pushReplacementNamed(context, '/coordinator');
+        break;
+      case 'Developer':
+        Navigator.pushReplacementNamed(context, '/dev');
         break;
     }
   }
@@ -328,34 +336,47 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                 Container(
                                   width: double.infinity,
                                   child: isDesktop || isTablet
-                                      ? Row(
+                                      ? Column(
                                           children: [
-                                            Expanded(
-                                              child: _buildRoleButton(
-                                                context,
-                                                'Mentee',
-                                                Icons.school,
-                                                _selectedRole == 'Mentee',
-                                              ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: _buildRoleButton(
+                                                    context,
+                                                    'Mentee',
+                                                    Icons.school,
+                                                    _selectedRole == 'Mentee',
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: _buildRoleButton(
+                                                    context,
+                                                    'Mentor',
+                                                    Icons.psychology,
+                                                    _selectedRole == 'Mentor',
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: _buildRoleButton(
+                                                    context,
+                                                    'Coordinator',
+                                                    Icons.admin_panel_settings,
+                                                    _selectedRole == 'Coordinator',
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: _buildRoleButton(
+                                            if (_devMode) ...[
+                                              const SizedBox(height: 12),
+                                              _buildRoleButton(
                                                 context,
-                                                'Mentor',
-                                                Icons.psychology,
-                                                _selectedRole == 'Mentor',
+                                                'Developer',
+                                                Icons.developer_mode,
+                                                _selectedRole == 'Developer',
                                               ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: _buildRoleButton(
-                                                context,
-                                                'Coordinator',
-                                                Icons.admin_panel_settings,
-                                                _selectedRole == 'Coordinator',
-                                              ),
-                                            ),
+                                            ],
                                           ],
                                         )
                                       : Column(
@@ -380,6 +401,15 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                               Icons.admin_panel_settings,
                                               _selectedRole == 'Coordinator',
                                             ),
+                                            if (_devMode) ...[
+                                              const SizedBox(height: 12),
+                                              _buildRoleButton(
+                                                context,
+                                                'Developer',
+                                                Icons.developer_mode,
+                                                _selectedRole == 'Developer',
+                                              ),
+                                            ],
                                           ],
                                         ),
                                 ),
@@ -418,7 +448,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                       Navigator.push(
                                         context, 
                                         MaterialPageRoute(
-                                          builder: (context) => const RegisterScreen(),
+                                          builder: (context) => const WebRegisterScreen(),
                                         ),
                                       );
                                     },
