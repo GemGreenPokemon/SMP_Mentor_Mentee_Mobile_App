@@ -10,6 +10,7 @@ class DeveloperHomeScreen extends StatelessWidget {
       {'label': 'Mentor',     'route': '/mentor'},
       {'label': 'Coordinator','route': '/coordinator'},
       {'label': 'Qualtrics',  'route': '/qualtrics'},
+      {'label': 'Settings',   'route': '/settings'},
     ];
 
     return Scaffold(

@@ -4,7 +4,7 @@ import 'chat_screen.dart';
 import 'schedule_meeting_screen.dart';
 import 'progress_reports_screen.dart';
 import 'resource_hub_screen.dart';
-import 'settings_screen.dart';
+import 'web_settings_screen.dart';
 import 'announcement_screen.dart';
 import 'newsletter_screen.dart';
 import '../services/mentor_service.dart';
@@ -178,7 +178,7 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const SettingsScreen(isMentor: false),
+                                    builder: (context) => const WebSettingsScreen(isMentor: false),
                                   ),
                                 );
                                 break;

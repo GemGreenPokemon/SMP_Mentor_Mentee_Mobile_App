@@ -5,7 +5,7 @@ import 'schedule_meeting_screen.dart';
 import 'meeting_notes_screen.dart';
 import 'progress_reports_screen.dart';
 import 'resource_hub_screen.dart';
-import 'settings_screen.dart';
+import 'web_settings_screen.dart';
 import 'checklist_screen.dart';
 import '../services/mentor_service.dart';
 import 'checkin_checkout_screen.dart';
@@ -177,7 +177,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const SettingsScreen(isMentor: true),
+                                  builder: (context) => const WebSettingsScreen(isMentor: true),
                                 ),
                               );
                             }

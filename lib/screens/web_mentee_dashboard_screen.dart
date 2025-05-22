@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'chat_screen.dart';
 import 'schedule_meeting_screen.dart';
 import 'resource_hub_screen.dart';
-import 'settings_screen.dart';
+import 'web_settings_screen.dart';
 import 'mentee_checklist_screen.dart';
 import 'checkin_checkout_screen.dart';
 import 'meeting_notes_screen.dart';
@@ -174,7 +174,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const SettingsScreen(isMentor: false),
+                                  builder: (context) => const WebSettingsScreen(isMentor: false),
                                 ),
                               );
                             }
