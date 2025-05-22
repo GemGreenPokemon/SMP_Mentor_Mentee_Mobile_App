@@ -87,20 +87,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
     
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF0F2D52).withOpacity(0.1),
-              Colors.white,
-              Colors.white,
-              const Color(0xFF0F2D52).withOpacity(0.1),
-            ],
-          ),
-        ),
-        child: SafeArea(
+      body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               child: Row(
@@ -126,11 +113,11 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                         padding: const EdgeInsets.all(32),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Image.asset(
                               'assets/images/My_SMP_Logo.png',
-                              height: 120,
+                              height: 180,
                               fit: BoxFit.contain,
                             ),
                             const SizedBox(height: 40),
@@ -141,6 +128,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 24),
                             const Text(
@@ -149,6 +137,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                 color: Colors.white70,
                                 fontSize: 18,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 40),
                             Container(
@@ -158,7 +147,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     '✓ Access resources and materials',
@@ -472,7 +461,6 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 
