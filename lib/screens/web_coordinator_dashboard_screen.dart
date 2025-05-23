@@ -6,7 +6,7 @@ import 'progress_reports_screen.dart';
 import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
 import 'announcement_screen.dart';
-import 'newsletter_screen.dart';
+import 'web_newsletter_screen.dart';
 import '../services/mentor_service.dart';
 import '../utils/responsive.dart';
 
@@ -186,7 +186,7 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const NewsletterScreen(isMentor: false),
+                                    builder: (context) => const WebNewsletterScreen(isMentor: false, isCoordinator: true),
                                   ),
                                 );
                                 break;

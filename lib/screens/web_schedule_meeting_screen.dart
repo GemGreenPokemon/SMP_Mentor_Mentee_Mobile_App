@@ -19,6 +19,9 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   DateTime? _selectedTime;
+  List<DateTime> _selectedAvailabilitySlots = []; // For setting multiple availability slots
+  bool _isCustomTimeRequest = false;
+  bool _isSettingAvailability = true; // For mentors: toggle between setting availability and scheduling meetings
   
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -37,6 +40,25 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   final List<String> mentors = [
     'Sarah Martinez - 3rd Year, Computer Science Major',
   ];
+  
+  // Mock mentor availability data
+  final Map<String, List<TimeSlot>> mentorAvailability = {
+    '2024-02-14': [
+      TimeSlot('2:00 PM', 'Available'),
+      TimeSlot('3:00 PM', 'Pending'),
+      TimeSlot('4:00 PM', 'Booked'),
+    ],
+    '2024-02-15': [
+      TimeSlot('9:00 AM', 'Available'),
+      TimeSlot('10:00 AM', 'Available'),
+      TimeSlot('2:00 PM', 'Booked'),
+    ],
+    '2024-02-16': [
+      TimeSlot('11:00 AM', 'Available'),
+      TimeSlot('2:00 PM', 'Available'),
+      TimeSlot('3:00 PM', 'Pending'),
+    ],
+  };
 
   @override
   void initState() {
@@ -59,10 +81,52 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Schedule Meeting'),
+        title: Text(widget.isMentor 
+          ? (_isSettingAvailability ? 'Set Your Availability' : 'Schedule Meeting with Mentee')
+          : 'Request Meeting with Mentor'),
         backgroundColor: const Color(0xFF0F2D52),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: widget.isMentor ? [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: true,
+                  label: Text('Set Availability'),
+                  icon: Icon(Icons.calendar_today),
+                ),
+                ButtonSegment(
+                  value: false,
+                  label: Text('Schedule Meeting'),
+                  icon: Icon(Icons.event),
+                ),
+              ],
+              selected: {_isSettingAvailability},
+              onSelectionChanged: (Set<bool> newSelection) {
+                setState(() {
+                  _isSettingAvailability = newSelection.first;
+                  // Reset selections when switching modes
+                  _selectedTime = null;
+                  _selectedMenteeOrMentor = null;
+                  _titleController.clear();
+                  _descriptionController.clear();
+                  _locationController.clear();
+                });
+              },
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return Colors.white.withOpacity(0.2);
+                  }
+                  return Colors.transparent;
+                }),
+                foregroundColor: MaterialStateProperty.all(Colors.white),
+              ),
+            ),
+          ),
+        ] : null,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -152,30 +216,145 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
+                            if (_selectedDay != null && !_isSettingAvailability) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          widget.isMentor ? 'Your Availability' : 'Mentor Availability',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      widget.isMentor 
+                                        ? 'Green slots show your available times. You can schedule meetings during these times or add new ones.'
+                                        : 'Green slots show when your mentor is available. You can also request a custom time if needed.',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        _buildLegend('Available', Colors.green),
+                                        const SizedBox(width: 16),
+                                        _buildLegend('Pending', Colors.orange),
+                                        const SizedBox(width: 16),
+                                        _buildLegend('Booked', Colors.red),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: _generateTimeSlots().map((time) {
-                                final isSelected = _selectedTime?.hour == time.hour && 
-                                                 _selectedTime?.minute == time.minute;
-                                return ChoiceChip(
-                                  label: Text(
-                                    _formatTime(time),
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : Colors.black,
-                                    ),
+                              children: [
+                                if (widget.isMentor && _isSettingAvailability) ...[
+                                  // Multiple selection for availability
+                                  ..._generateTimeSlots().map((time) {
+                                    final isSelected = _selectedAvailabilitySlots.any(
+                                      (slot) => slot.hour == time.hour && slot.minute == time.minute
+                                    );
+                                    return FilterChip(
+                                      label: Text(_formatTime(time)),
+                                      selected: isSelected,
+                                      selectedColor: Colors.green,
+                                      checkmarkColor: Colors.white,
+                                      onSelected: (selected) {
+                                        setState(() {
+                                          if (selected) {
+                                            _selectedAvailabilitySlots.add(time);
+                                          } else {
+                                            _selectedAvailabilitySlots.removeWhere(
+                                              (slot) => slot.hour == time.hour && slot.minute == time.minute
+                                            );
+                                          }
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ] else ...[
+                                  // Single selection for scheduling
+                                  ..._getTimeSlots().map((slot) {
+                                    final isSelected = _selectedTime != null && 
+                                                     _formatTime(_selectedTime!) == slot.time &&
+                                                     !_isCustomTimeRequest;
+                                    final color = _getSlotColor(slot.status);
+                                    final textColor = _getSlotTextColor(slot.status);
+                                    final isAvailable = slot.status == 'Available';
+                                    
+                                    return ChoiceChip(
+                                      label: Text(
+                                        slot.time,
+                                        style: TextStyle(
+                                          color: isSelected ? Colors.white : textColor,
+                                        ),
+                                      ),
+                                      selected: isSelected,
+                                      selectedColor: color,
+                                      backgroundColor: color.withOpacity(0.2),
+                                      onSelected: isAvailable || widget.isMentor ? (selected) {
+                                        setState(() {
+                                          _selectedTime = selected ? _parseTime(slot.time) : null;
+                                          _isCustomTimeRequest = false;
+                                        });
+                                      } : null,
+                                    );
+                                  }).toList(),
+                                ],
+                                if (!widget.isMentor) ...[
+                                  const SizedBox(width: 16),
+                                  ActionChip(
+                                    avatar: const Icon(Icons.add, size: 18),
+                                    label: const Text('Request Custom Time'),
+                                    backgroundColor: _isCustomTimeRequest ? 
+                                      Colors.purple.withOpacity(0.2) : null,
+                                    onPressed: () => _selectCustomTime(),
                                   ),
-                                  selected: isSelected,
-                                  selectedColor: const Color(0xFF0F2D52),
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedTime = selected ? time : null;
-                                    });
-                                  },
-                                );
-                              }).toList(),
+                                ],
+                              ],
                             ),
+                            if (_isCustomTimeRequest && _selectedTime != null) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.schedule, size: 16, color: Colors.purple),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Custom time request: ${_formatTime(_selectedTime!)}',
+                                      style: const TextStyle(
+                                        color: Colors.purple,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -195,114 +374,161 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Meeting Details',
-                              style: TextStyle(
+                            Text(
+                              widget.isMentor && _isSettingAvailability 
+                                ? 'Availability Details'
+                                : 'Meeting Details',
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 24),
                             
-                            // Meeting title
-                            TextField(
-                              controller: _titleController,
-                              decoration: const InputDecoration(
-                                labelText: 'Meeting Title',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.title),
+                            // Show different fields based on mode
+                            if (widget.isMentor && _isSettingAvailability) ...[
+                              // For setting availability
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                                        const SizedBox(width: 8),
+                                        const Expanded(
+                                          child: Text(
+                                            'Set your available time slots for mentees to book meetings',
+                                            style: TextStyle(
+                                              color: Colors.blue,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Selected slots: ${_getSelectedSlotsCount()} time slots',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
+                            ] else ...[
+                              // For scheduling meetings
+                              TextField(
+                                controller: _titleController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Meeting Title',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.title),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              
+                              // Select mentee/mentor
+                              DropdownButtonFormField<String>(
+                                value: _selectedMenteeOrMentor,
+                                decoration: InputDecoration(
+                                  labelText: widget.isMentor ? 'Select Mentee' : 'Select Mentor',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.person),
+                                ),
+                                items: (widget.isMentor ? mentees : mentors).map((person) {
+                                  return DropdownMenuItem(
+                                    value: person,
+                                    child: Text(person),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedMenteeOrMentor = value;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             
-                            // Select mentee/mentor
-                            DropdownButtonFormField<String>(
-                              value: _selectedMenteeOrMentor,
-                              decoration: InputDecoration(
-                                labelText: widget.isMentor ? 'Select Mentee' : 'Select Mentor',
-                                border: const OutlineInputBorder(),
-                                prefixIcon: const Icon(Icons.person),
+                            // Only show meeting details for actual meetings, not availability
+                            if (!widget.isMentor || !_isSettingAvailability) ...[
+                              // Meeting type
+                              const Text(
+                                'Meeting Type',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                              items: (widget.isMentor ? mentees : mentors).map((person) {
-                                return DropdownMenuItem(
-                                  value: person,
-                                  child: Text(person),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedMenteeOrMentor = value;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Meeting type
-                            const Text(
-                              'Meeting Type',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: RadioListTile<String>(
-                                    title: const Text('In-Person'),
-                                    value: 'in-person',
-                                    groupValue: _meetingType,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _meetingType = value!;
-                                      });
-                                    },
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: RadioListTile<String>(
+                                      title: const Text('In-Person'),
+                                      value: 'in-person',
+                                      groupValue: _meetingType,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _meetingType = value!;
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: RadioListTile<String>(
-                                    title: const Text('Virtual'),
-                                    value: 'virtual',
-                                    groupValue: _meetingType,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _meetingType = value!;
-                                      });
-                                    },
+                                  Expanded(
+                                    child: RadioListTile<String>(
+                                      title: const Text('Virtual'),
+                                      value: 'virtual',
+                                      groupValue: _meetingType,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _meetingType = value!;
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Location
-                            TextField(
-                              controller: _locationController,
-                              decoration: InputDecoration(
-                                labelText: _meetingType == 'in-person' ? 'Location' : 'Meeting Link',
-                                border: const OutlineInputBorder(),
-                                prefixIcon: Icon(
-                                  _meetingType == 'in-person' ? Icons.location_on : Icons.link,
-                                ),
-                                hintText: _meetingType == 'in-person' 
-                                  ? 'e.g., Library Room 201' 
-                                  : 'e.g., Zoom link',
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Description
-                            TextField(
-                              controller: _descriptionController,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: 'Description (Optional)',
-                                border: OutlineInputBorder(),
-                                alignLabelWithHint: true,
+                              const SizedBox(height: 16),
+                              
+                              // Location
+                              TextField(
+                                controller: _locationController,
+                                decoration: InputDecoration(
+                                  labelText: _meetingType == 'in-person' ? 'Location' : 'Meeting Link',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: Icon(
+                                    _meetingType == 'in-person' ? Icons.location_on : Icons.link,
+                                  ),
+                                  hintText: _meetingType == 'in-person' 
+                                    ? 'e.g., Library Room 201' 
+                                    : 'e.g., Zoom link',
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
+                              
+                              // Description
+                              TextField(
+                                controller: _descriptionController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: 'Description (Optional)',
+                                  border: OutlineInputBorder(),
+                                  alignLabelWithHint: true,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             
                             // Repeat options
                             const Text(
@@ -395,7 +621,13 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                     ),
-                                    child: const Text('Schedule Meeting'),
+                                    child: Text(widget.isMentor 
+                                      ? (_isSettingAvailability 
+                                        ? 'Set Availability' 
+                                        : 'Schedule Meeting')
+                                      : (_isCustomTimeRequest 
+                                        ? 'Request Custom Meeting Time' 
+                                        : 'Request Meeting')),
                                   ),
                                 ),
                               ],
@@ -414,6 +646,21 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     );
   }
 
+  List<TimeSlot> _getTimeSlots() {
+    if (widget.isMentor) {
+      // For mentors, show all time slots as available
+      return _generateTimeSlots().map((time) => 
+        TimeSlot(_formatTime(time), 'Available')).toList();
+    } else {
+      // For mentees, show mentor's availability
+      if (_selectedDay != null) {
+        final dateKey = _selectedDay!.toString().split(' ')[0];
+        return mentorAvailability[dateKey] ?? [];
+      }
+      return [];
+    }
+  }
+
   List<DateTime> _generateTimeSlots() {
     List<DateTime> slots = [];
     final now = DateTime.now();
@@ -427,6 +674,91 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     }
     
     return slots;
+  }
+
+  int _getSelectedSlotsCount() {
+    return _selectedAvailabilitySlots.length;
+  }
+
+  Widget _buildLegend(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Color _getSlotColor(String status) {
+    switch (status) {
+      case 'Available':
+        return Colors.green;
+      case 'Pending':
+        return Colors.orange;
+      case 'Booked':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _getSlotTextColor(String status) {
+    switch (status) {
+      case 'Available':
+        return Colors.green[700]!;
+      case 'Pending':
+        return Colors.orange[700]!;
+      case 'Booked':
+        return Colors.red[700]!;
+      default:
+        return Colors.grey[700]!;
+    }
+  }
+
+  DateTime _parseTime(String timeStr) {
+    // Parse time string like "2:00 PM" to DateTime
+    final parts = timeStr.split(' ');
+    final timeParts = parts[0].split(':');
+    var hour = int.parse(timeParts[0]);
+    final minute = int.parse(timeParts[1]);
+    final isPM = parts[1] == 'PM';
+    
+    if (isPM && hour != 12) hour += 12;
+    if (!isPM && hour == 12) hour = 0;
+    
+    final now = _selectedDay ?? DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute);
+  }
+
+  void _selectCustomTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      helpText: 'Select a custom time to request',
+    );
+    
+    if (picked != null) {
+      setState(() {
+        final now = _selectedDay ?? DateTime.now();
+        _selectedTime = DateTime(
+          now.year, now.month, now.day, 
+          picked.hour, picked.minute
+        );
+        _isCustomTimeRequest = true;
+      });
+    }
   }
 
   String _formatTime(DateTime time) {
@@ -449,75 +781,145 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   }
 
   void _scheduleMeeting() {
-    // Validate inputs
-    if (_titleController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a meeting title')),
-      );
-      return;
-    }
-    
-    if (_selectedMenteeOrMentor == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.isMentor 
-              ? 'Please select a mentee' 
-              : 'Please select a mentor'
+    // Different validation for availability vs meeting
+    if (widget.isMentor && _isSettingAvailability) {
+      // Validate availability setting
+      if (_selectedDay == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a date')),
+        );
+        return;
+      }
+      
+      if (_selectedAvailabilitySlots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one time slot')),
+        );
+        return;
+      }
+    } else {
+      // Validate meeting scheduling
+      if (_titleController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a meeting title')),
+        );
+        return;
+      }
+      
+      if (_selectedMenteeOrMentor == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.isMentor 
+                ? 'Please select a mentee' 
+                : 'Please select a mentor'
+            ),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
+      
+      if (_selectedDay == null || _selectedTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select date and time')),
+        );
+        return;
+      }
     }
     
-    if (_selectedDay == null || _selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select date and time')),
-      );
-      return;
-    }
-    
-    if (_locationController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _meetingType == 'in-person' 
-              ? 'Please enter a location' 
-              : 'Please enter a meeting link'
+    if (!widget.isMentor || !_isSettingAvailability) {
+      if (_locationController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _meetingType == 'in-person' 
+                ? 'Please enter a location' 
+                : 'Please enter a meeting link'
+            ),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
     }
     
     // TODO: Save meeting to database
     
     // Show success dialog
+    final String dialogTitle = widget.isMentor 
+      ? (_isSettingAvailability ? 'Availability Set' : 'Meeting Scheduled')
+      : (_isCustomTimeRequest ? 'Meeting Request Sent' : 'Meeting Scheduled');
+    
+    final IconData dialogIcon = widget.isMentor || !_isCustomTimeRequest
+      ? Icons.check_circle 
+      : Icons.schedule_send;
+    
+    final Color dialogColor = widget.isMentor || !_isCustomTimeRequest
+      ? Colors.green 
+      : Colors.orange;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 8),
-            Text('Meeting Scheduled'),
+            Icon(dialogIcon, color: dialogColor, size: 28),
+            const SizedBox(width: 8),
+            Text(dialogTitle),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _titleController.text,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            if (widget.isMentor && _isSettingAvailability) ...[
+              Text(
+                'Availability set for ${_formatDate(_selectedDay!)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text('With: $_selectedMenteeOrMentor'),
-            Text('Date: ${_formatDate(_selectedDay!)}'),
-            Text('Time: ${_formatTime(_selectedTime!)}'),
+              const SizedBox(height: 12),
+              Text('Time slots: ${_selectedAvailabilitySlots.length}'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: _selectedAvailabilitySlots.map((slot) => 
+                  Chip(
+                    label: Text(
+                      _formatTime(slot),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    backgroundColor: Colors.green.withOpacity(0.2),
+                  )
+                ).toList(),
+              ),
+            ] else ...[
+              Text(
+                _titleController.text,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('With: $_selectedMenteeOrMentor'),
+              Text('Date: ${_formatDate(_selectedDay!)}'),
+              Text('Time: ${_formatTime(_selectedTime!)}'),
+            ],
+            if (_isCustomTimeRequest && !widget.isMentor) ...[
+              const SizedBox(height: 4),
+              const Text(
+                '(Custom time - pending approval)',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 4),
             Text(
               'Location: ${_locationController.text}',
               style: const TextStyle(fontWeight: FontWeight.w500),
@@ -530,6 +932,28 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                   style: const TextStyle(fontStyle: FontStyle.italic),
                 ),
               ),
+            if (!widget.isMentor && _isCustomTimeRequest) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your mentor will be notified of this custom time request and will confirm availability.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -544,4 +968,11 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       ),
     );
   }
+}
+
+class TimeSlot {
+  final String time;
+  final String status;
+  
+  TimeSlot(this.time, this.status);
 }

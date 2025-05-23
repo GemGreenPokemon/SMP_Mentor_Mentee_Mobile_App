@@ -9,7 +9,7 @@ import 'web_settings_screen.dart';
 import 'checklist_screen.dart';
 import '../services/mentor_service.dart';
 import 'checkin_checkout_screen.dart';
-import 'newsletter_screen.dart';
+import 'web_newsletter_screen.dart';
 import 'announcement_screen.dart';
 import '../utils/responsive.dart';
 
@@ -335,7 +335,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 if (_selectedIndex == 6) // Newsletters
                   Expanded(
                     child: Scaffold(
-                      body: NewsletterScreen(isMentor: true),
+                      body: WebNewsletterScreen(isMentor: true),
                     ),
                   ),
                 

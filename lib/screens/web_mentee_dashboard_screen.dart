@@ -6,7 +6,7 @@ import 'web_settings_screen.dart';
 import 'mentee_checklist_screen.dart';
 import 'checkin_checkout_screen.dart';
 import 'meeting_notes_screen.dart';
-import 'newsletter_screen.dart';
+import 'web_newsletter_screen.dart';
 import 'announcement_screen.dart';
 import '../services/mentor_service.dart';
 import '../utils/responsive.dart';
@@ -286,7 +286,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                 if (_selectedIndex == 5) // Newsletters
                   Expanded(
                     child: Scaffold(
-                      body: NewsletterScreen(isMentor: false),
+                      body: WebNewsletterScreen(isMentor: false),
                     ),
                   ),
                 
@@ -764,7 +764,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NewsletterScreen(isMentor: false),
+                                builder: (context) => const WebNewsletterScreen(isMentor: false),
                               ),
                             );
                           },
