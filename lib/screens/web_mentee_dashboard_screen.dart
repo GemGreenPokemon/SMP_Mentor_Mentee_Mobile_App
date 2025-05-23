@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'chat_screen.dart';
-import 'schedule_meeting_screen.dart';
-import 'resource_hub_screen.dart';
+import 'web_chat_screen.dart';
+import 'web_schedule_meeting_screen.dart';
+import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
 import 'mentee_checklist_screen.dart';
 import 'checkin_checkout_screen.dart';
@@ -246,10 +246,55 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                   ),
                 ),
                 
-                // Main content - Dashboard only
+                // Main content based on selected sidebar item
                 if (_selectedIndex == 0) // Dashboard
                   Expanded(
                     child: _buildDashboardContent(context, mentorService),
+                  ),
+                
+                if (_selectedIndex == 1) // Schedule
+                  Expanded(
+                    child: Scaffold(
+                      body: WebScheduleMeetingScreen(isMentor: false),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 2) // Resources
+                  Expanded(
+                    child: Scaffold(
+                      body: WebResourceHubScreen(isMentor: false),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 3) // Checklist
+                  Expanded(
+                    child: Scaffold(
+                      body: MenteeChecklistScreen(),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 4) // Meeting Notes
+                  Expanded(
+                    child: Scaffold(
+                      body: MeetingNotesScreen(
+                        isMentor: false,
+                        mentorName: 'Sarah Martinez',
+                      ),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 5) // Newsletters
+                  Expanded(
+                    child: Scaffold(
+                      body: NewsletterScreen(isMentor: false),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 6) // Announcements
+                  Expanded(
+                    child: Scaffold(
+                      body: AnnouncementScreen(isCoordinator: false),
+                    ),
                   ),
               ],
             ),
@@ -332,7 +377,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => const ChatScreen(
+                                                builder: (context) => const WebChatScreen(
                                                   recipientName: 'Sarah Martinez',
                                                   recipientRole: '3rd Year, Computer Science Major',
                                                 ),
@@ -352,7 +397,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => const ScheduleMeetingScreen(isMentor: false),
+                                                builder: (context) => const WebScheduleMeetingScreen(isMentor: false),
                                               ),
                                             );
                                           },
@@ -690,7 +735,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ResourceHubScreen(isMentor: false),
+                                builder: (context) => const WebResourceHubScreen(isMentor: false),
                               ),
                             );
                           },
@@ -732,7 +777,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ScheduleMeetingScreen(isMentor: false),
+                                builder: (context) => const WebScheduleMeetingScreen(isMentor: false),
                               ),
                             );
                           },

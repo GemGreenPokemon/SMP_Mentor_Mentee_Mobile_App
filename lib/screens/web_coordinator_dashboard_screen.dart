@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'chat_screen.dart';
 import 'schedule_meeting_screen.dart';
 import 'progress_reports_screen.dart';
-import 'resource_hub_screen.dart';
+import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
 import 'announcement_screen.dart';
 import 'newsletter_screen.dart';
@@ -202,7 +202,7 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const ResourceHubScreen(isCoordinator: true),
+                                    builder: (context) => const WebResourceHubScreen(isCoordinator: true),
                                   ),
                                 );
                                 break;

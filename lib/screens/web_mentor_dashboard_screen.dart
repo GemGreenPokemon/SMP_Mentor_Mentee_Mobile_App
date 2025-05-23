@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'chat_screen.dart';
-import 'schedule_meeting_screen.dart';
+import 'web_chat_screen.dart';
+import 'web_schedule_meeting_screen.dart';
 import 'meeting_notes_screen.dart';
-import 'progress_reports_screen.dart';
-import 'resource_hub_screen.dart';
+import 'web_progress_reports_screen.dart';
+import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
 import 'checklist_screen.dart';
 import '../services/mentor_service.dart';
@@ -229,7 +229,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const ChatScreen(
+                              builder: (context) => const WebChatScreen(
                                 recipientName: 'Clarissa Correa',
                                 recipientRole: 'SMP Program Coordinator',
                               ),
@@ -302,6 +302,48 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 if (_selectedIndex == 1) // Mentees
                   Expanded(
                     child: _buildMenteesContent(context, mentorService),
+                  ),
+                
+                if (_selectedIndex == 2) // Schedule
+                  Expanded(
+                    child: Scaffold(
+                      body: WebScheduleMeetingScreen(isMentor: true),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 3) // Reports
+                  Expanded(
+                    child: Scaffold(
+                      body: WebProgressReportsScreen(),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 4) // Resources
+                  Expanded(
+                    child: Scaffold(
+                      body: WebResourceHubScreen(isMentor: true),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 5) // Checklist
+                  Expanded(
+                    child: Scaffold(
+                      body: ChecklistScreen(isMentor: true),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 6) // Newsletters
+                  Expanded(
+                    child: Scaffold(
+                      body: NewsletterScreen(isMentor: true),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 7) // Announcements
+                  Expanded(
+                    child: Scaffold(
+                      body: AnnouncementScreen(isCoordinator: false),
+                    ),
                   ),
               ],
             ),
@@ -693,7 +735,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ChatScreen(
+                      builder: (context) => WebChatScreen(
                         recipientName: name,
                         recipientRole: program,
                       ),
@@ -987,8 +1029,682 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
 
   // Mentees content
   Widget _buildMenteesContent(BuildContext context, MentorService mentorService) {
-    return const Center(
-      child: Text('Mentees Content Coming Next'),
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Search and filter bar
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search mentees...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  DropdownButton<String>(
+                    value: 'All',
+                    items: const [
+                      DropdownMenuItem(value: 'All', child: Text('All Mentees')),
+                      DropdownMenuItem(value: 'Active', child: Text('Active')),
+                      DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                    ],
+                    onChanged: (value) {
+                      // TODO: Filter mentees
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Add Mentee'),
+                    onPressed: () {
+                      _showAddMenteeDialog(context, mentorService);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F2D52),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Mentees grid/list
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: Responsive.isDesktop(context) ? 3 : 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: mentorService.mentees.length,
+              itemBuilder: (context, index) {
+                final mentee = mentorService.mentees[index];
+                return _buildMenteeCard(context, mentee, mentorService);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMenteeCard(BuildContext context, Map<String, dynamic> mentee, MentorService mentorService) {
+    final totalGoals = mentee['goals']?.length ?? 0;
+    final completedGoals = mentee['goals']?.where((g) => g['completed'] == true).length ?? 0;
+    final goalProgress = totalGoals > 0 ? completedGoals / totalGoals : 0.0;
+    
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () => _showMenteeDetailsDialog(context, mentee, mentorService),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: const Color(0xFF0F2D52),
+                    child: Text(
+                      mentee['name'].substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mentee['name'],
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          mentee['program'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'message':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => WebChatScreen(
+                                recipientName: mentee['name'],
+                                recipientRole: mentee['program'],
+                              ),
+                            ),
+                          );
+                          break;
+                        case 'schedule':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WebScheduleMeetingScreen(isMentor: true),
+                            ),
+                          );
+                          break;
+                        case 'remove':
+                          _confirmRemoveMentee(context, mentee, mentorService);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'message',
+                        child: Row(
+                          children: [
+                            Icon(Icons.message, size: 20),
+                            SizedBox(width: 8),
+                            Text('Send Message'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'schedule',
+                        child: Row(
+                          children: [
+                            Icon(Icons.event, size: 20),
+                            SizedBox(width: 8),
+                            Text('Schedule Meeting'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'remove',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_remove, size: 20, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Remove Mentee', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Assignment info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Colors.green[700],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      mentee['assignedBy'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Last meeting
+              Row(
+                children: [
+                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Last meeting: ${mentee['lastMeeting']}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Progress indicators
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Overall Progress',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: mentee['progress'],
+                                  minHeight: 6,
+                                  backgroundColor: const Color(0xFFE0E0E0),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F2D52)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(mentee['progress'] * 100).toInt()}%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Goals Completed',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: goalProgress,
+                                  minHeight: 6,
+                                  backgroundColor: const Color(0xFFE0E0E0),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$completedGoals/$totalGoals',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              
+              // Action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.message, size: 16),
+                    label: const Text('Message'),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WebChatScreen(
+                            recipientName: mentee['name'],
+                            recipientRole: mentee['program'],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.info_outline, size: 16),
+                    label: const Text('Details'),
+                    onPressed: () => _showMenteeDetailsDialog(context, mentee, mentorService),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _showMenteeDetailsDialog(BuildContext context, Map<String, dynamic> mentee, MentorService mentorService) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 600,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: const Color(0xFF0F2D52),
+                    child: Text(
+                      mentee['name'].substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mentee['name'],
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          mentee['program'],
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Goals section
+              const Text(
+                'Goals',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (mentee['goals'] != null && mentee['goals'].isNotEmpty)
+                ...mentee['goals'].map<Widget>((goal) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        goal['completed'] ? Icons.check_circle : Icons.circle_outlined,
+                        color: goal['completed'] ? Colors.green : Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          goal['goal'],
+                          style: TextStyle(
+                            decoration: goal['completed'] ? TextDecoration.lineThrough : null,
+                            color: goal['completed'] ? Colors.grey : Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList()
+              else
+                const Text('No goals set yet'),
+              
+              const SizedBox(height: 24),
+              
+              // Upcoming meetings section
+              const Text(
+                'Upcoming Meetings',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (mentee['upcomingMeetings'] != null && mentee['upcomingMeetings'].isNotEmpty)
+                ...mentee['upcomingMeetings'].map<Widget>((meeting) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.event,
+                      color: meeting['isNext'] ? Colors.green : Colors.blue,
+                    ),
+                    title: Text(meeting['title']),
+                    subtitle: Text('${meeting['date']} at ${meeting['time']} - ${meeting['location']}'),
+                    trailing: meeting['isNext'] 
+                      ? const Chip(
+                          label: Text('Next', style: TextStyle(fontSize: 12)),
+                          backgroundColor: Colors.green,
+                          labelPadding: EdgeInsets.symmetric(horizontal: 4),
+                        )
+                      : null,
+                  ),
+                )).toList()
+              else
+                const Text('No upcoming meetings scheduled'),
+              
+              const SizedBox(height: 24),
+              
+              // Action items section
+              const Text(
+                'Action Items',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (mentee['actionItems'] != null && mentee['actionItems'].isNotEmpty)
+                ...mentee['actionItems'].map<Widget>((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.assignment, size: 20, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item['item'],
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              'Due: ${item['dueDate']}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList()
+              else
+                const Text('No action items'),
+              
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.message),
+                    label: const Text('Send Message'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WebChatScreen(
+                            recipientName: mentee['name'],
+                            recipientRole: mentee['program'],
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F2D52),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _showAddMenteeDialog(BuildContext context, MentorService mentorService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Available Mentees'),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.person),
+                ),
+                title: const Text('Michael Brown'),
+                subtitle: const Text('1st Year, Computer Science'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    mentorService.addMentee({
+                      'name': 'Michael Brown',
+                      'program': '1st Year, Computer Science',
+                      'lastMeeting': 'Not met yet',
+                      'progress': 0.0,
+                      'assignedBy': 'You',
+                      'goals': [],
+                      'upcomingMeetings': [],
+                      'actionItems': [],
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('New mentee added successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('Select'),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.person),
+                ),
+                title: const Text('Lisa Chen'),
+                subtitle: const Text('2nd Year, Biology'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    mentorService.addMentee({
+                      'name': 'Lisa Chen',
+                      'program': '2nd Year, Biology',
+                      'lastMeeting': 'Not met yet',
+                      'progress': 0.0,
+                      'assignedBy': 'You',
+                      'goals': [],
+                      'upcomingMeetings': [],
+                      'actionItems': [],
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('New mentee added successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('Select'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _confirmRemoveMentee(BuildContext context, Map<String, dynamic> mentee, MentorService mentorService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Mentee'),
+        content: Text('Are you sure you want to remove ${mentee['name']} from your mentee list?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              mentorService.mentees.remove(mentee);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${mentee['name']} has been removed'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
     );
   }
 } 
