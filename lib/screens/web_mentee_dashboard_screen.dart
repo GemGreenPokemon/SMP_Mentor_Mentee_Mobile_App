@@ -3,7 +3,7 @@ import 'web_chat_screen.dart';
 import 'web_schedule_meeting_screen.dart';
 import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
-import 'mentee_checklist_screen.dart';
+import 'web_mentee_checklist_screen.dart';
 import 'checkin_checkout_screen.dart';
 import 'meeting_notes_screen.dart';
 import 'web_newsletter_screen.dart';
@@ -269,7 +269,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                 if (_selectedIndex == 3) // Checklist
                   Expanded(
                     child: Scaffold(
-                      body: MenteeChecklistScreen(),
+                      body: WebMenteeChecklistScreen(),
                     ),
                   ),
                 
@@ -722,7 +722,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const MenteeChecklistScreen(),
+                                builder: (context) => const WebMenteeChecklistScreen(),
                               ),
                             );
                           },

@@ -6,7 +6,7 @@ import 'meeting_notes_screen.dart';
 import 'web_progress_reports_screen.dart';
 import 'web_resource_hub_screen.dart';
 import 'web_settings_screen.dart';
-import 'checklist_screen.dart';
+import 'web_checklist_screen.dart';
 import '../services/mentor_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'web_newsletter_screen.dart';
@@ -318,7 +318,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 if (_selectedIndex == 5) // Checklist
                   Expanded(
                     child: Scaffold(
-                      body: ChecklistScreen(isMentor: true),
+                      body: WebChecklistScreen(isMentor: true),
                     ),
                   ),
                 
