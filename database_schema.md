@@ -391,3 +391,56 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `synced`: (Boolean) Flag indicating if the event is synced with local DB
       - `createdAt`: (Timestamp) When the event was created
       - `updatedAt`: (Timestamp) When the event was last updated
+
+## Hierarchical State/City/Campus Structure
+
+To ensure scalability and support multiple institutions across California, the Firestore database will be organized using a three-tier hierarchical structure: State → City → Campus.
+
+### Structure: `{State}/{City}/{Campus}/[schema collections]`
+
+**Example Structure:**
+```
+Firestore Root
+├── California/                         (State Collection)
+│   ├── Merced/                        (City Collection)
+│   │   ├── UC_Merced/                 (Campus - Primary implementation)
+│   │   │   ├── users/
+│   │   │   ├── meetings/
+│   │   │   ├── announcements/
+│   │   │   ├── progress_reports/
+│   │   │   ├── events/
+│   │   │   └── [all other collections as defined in schema above]
+│   │   ├── Merced_College/            (Another campus in same city)
+│   │   │   └── [same schema structure]
+│   │   └── _metadata/                 (Optional: city-level information)
+│   ├── Fresno/
+│   │   ├── Fresno_State/
+│   │   │   └── [same schema structure]
+│   │   └── Fresno_City_College/
+│   │       └── [same schema structure]
+│   ├── Berkeley/
+│   │   ├── UC_Berkeley/
+│   │   │   └── [same schema structure]
+│   │   └── Berkeley_City_College/
+│   │       └── [same schema structure]
+│   ├── Los_Angeles/
+│   │   ├── UCLA/
+│   │   ├── USC/
+│   │   └── LA_City_College/
+│   └── _metadata/                     (Optional: state-level information)
+```
+
+### Benefits:
+- **State-Level Organization**: Ready for potential expansion beyond California
+- **City-Level Aggregation**: Enables city-wide analytics and coordination
+- **Campus Isolation**: Each institution's data remains separate and secure
+- **Scalability**: Easy to add new states, cities, or campuses
+- **Performance**: Queries are scoped to specific geographic and institutional levels
+- **Multi-tenancy**: Natural separation for different SMP programs
+- **Hierarchical Permissions**: Can implement state, city, or campus-level access controls
+
+### Implementation Notes:
+- The current implementation will use `California/Merced/UC_Merced/` as the primary path
+- All collection paths in the schema above should be prefixed with this full hierarchical path in production
+- The system is designed to initially support California institutions only
+- Future expansion to other states would follow the same hierarchical pattern

@@ -171,16 +171,6 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                             setState(() {
                               _selectedIndex = index;
                             });
-                            
-                            // Handle navigation based on selection
-                            if (index == 8) { // Settings
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const WebSettingsScreen(isMentor: true),
-                                ),
-                              );
-                            }
                           },
                         );
                       },
@@ -343,6 +333,13 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                   Expanded(
                     child: Scaffold(
                       body: AnnouncementScreen(isCoordinator: false),
+                    ),
+                  ),
+                
+                if (_selectedIndex == 8) // Settings
+                  Expanded(
+                    child: Scaffold(
+                      body: WebSettingsScreen(isMentor: true),
                     ),
                   ),
               ],

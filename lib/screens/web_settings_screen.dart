@@ -33,6 +33,12 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   Map<String, dynamic>? _selectedPerson;
   final FocusNode _searchFocusNode = FocusNode();
+  
+  // Firestore initializer variables
+  String _selectedState = 'California';
+  String _selectedCity = 'Merced';
+  String _selectedCampus = 'UC_Merced';
+  bool _isInitializing = false;
 
   @override
   void initState() {
@@ -225,6 +231,21 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                     _buildExcelUploadSection(),
                   ],
                 ),
+                if (DeveloperSession.isActive) ...[
+                  const SizedBox(height: 24),
+                  _buildWebSection(
+                    'Database Administration',
+                    Icons.admin_panel_settings,
+                    [
+                      _buildListTile(
+                        'Initialize Firestore Database',
+                        'Configure state, city, and campus',
+                        Icons.add_circle_outline,
+                        () => _showFirestoreInitializerDialog(),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 24),
                 _buildWebSection(
                   'Help & Support',
@@ -943,5 +964,309 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
         ],
       ),
     );
+  }
+
+  void _showFirestoreInitializerDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.cloud_upload, color: Color(0xFF0F2D52)),
+              const SizedBox(width: 8),
+              const Text('Initialize Firestore Database'),
+            ],
+          ),
+          content: Container(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Configure your database location before initialization:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                
+                // State Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'State',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedState,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: ['California'].map((state) {
+                            return DropdownMenuItem(
+                              value: state,
+                              child: Text(state),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedState = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // City Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'City',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCity,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: ['Merced', 'Fresno', 'Berkeley', 'Los Angeles']
+                              .map((city) {
+                            return DropdownMenuItem(
+                              value: city,
+                              child: Text(city),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedCity = value!;
+                              // Update campus options based on city
+                              _updateCampusSelection(value);
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Campus Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Campus',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCampus,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: _getCampusOptions(_selectedCity).map((campus) {
+                            return DropdownMenuItem(
+                              value: campus['value'] as String,
+                              child: Text(campus['display'] as String),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedCampus = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // Preview Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Database Structure Preview:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F2D52),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$_selectedState/',
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            Text(
+                              '  └── $_selectedCity/',
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            Text(
+                              '      └── $_selectedCampus/',
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            const Text(
+                              '          ├── users/',
+                              style: TextStyle(fontFamily: 'monospace'),
+                            ),
+                            const Text(
+                              '          ├── meetings/',
+                              style: TextStyle(fontFamily: 'monospace'),
+                            ),
+                            const Text(
+                              '          ├── announcements/',
+                              style: TextStyle(fontFamily: 'monospace'),
+                            ),
+                            const Text(
+                              '          └── ... (all collections)',
+                              style: TextStyle(fontFamily: 'monospace', color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isInitializing ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isInitializing
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        _isInitializing = true;
+                      });
+                      
+                      // TODO: Implement actual Firestore initialization
+                      await Future.delayed(const Duration(seconds: 2));
+                      
+                      setDialogState(() {
+                        _isInitializing = false;
+                      });
+                      
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Database initialized: $_selectedState/$_selectedCity/$_selectedCampus',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2D52),
+                foregroundColor: Colors.white,
+              ),
+              child: _isInitializing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Initialize Database'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateCampusSelection(String city) {
+    // Reset campus selection based on city
+    switch (city) {
+      case 'Merced':
+        _selectedCampus = 'UC_Merced';
+        break;
+      case 'Fresno':
+        _selectedCampus = 'Fresno_State';
+        break;
+      case 'Berkeley':
+        _selectedCampus = 'UC_Berkeley';
+        break;
+      case 'Los Angeles':
+        _selectedCampus = 'UCLA';
+        break;
+    }
+  }
+
+  List<Map<String, String>> _getCampusOptions(String city) {
+    switch (city) {
+      case 'Merced':
+        return [
+          {'value': 'UC_Merced', 'display': 'UC Merced'},
+          {'value': 'Merced_College', 'display': 'Merced College'},
+        ];
+      case 'Fresno':
+        return [
+          {'value': 'Fresno_State', 'display': 'Fresno State'},
+          {'value': 'Fresno_City_College', 'display': 'Fresno City College'},
+        ];
+      case 'Berkeley':
+        return [
+          {'value': 'UC_Berkeley', 'display': 'UC Berkeley'},
+          {'value': 'Berkeley_City_College', 'display': 'Berkeley City College'},
+        ];
+      case 'Los Angeles':
+        return [
+          {'value': 'UCLA', 'display': 'UCLA'},
+          {'value': 'USC', 'display': 'USC'},
+          {'value': 'LA_City_College', 'display': 'LA City College'},
+        ];
+      default:
+        return [];
+    }
   }
 }
