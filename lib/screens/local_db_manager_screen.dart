@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'local_db_table_screen.dart';
-// TODO: Use LocalDatabaseService for real counts
+import 'local_db_explorer_screen.dart';
+import '../services/local_database_service.dart';
+import '../services/mock_data_generator.dart';
 
 class LocalDbManagerScreen extends StatefulWidget {
   const LocalDbManagerScreen({Key? key}) : super(key: key);
@@ -14,6 +16,9 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
   int _mentorshipsCount = 0;
   int _availabilityCount = 0;
   int _meetingsCount = 0;
+  bool _isLoading = false;
+
+  final _localDb = LocalDatabaseService.instance;
 
   @override
   void initState() {
@@ -21,20 +26,130 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
     _loadCounts();
   }
 
-  void _loadCounts() async {
-    // TODO: Fetch counts from local DB via LocalDatabaseService
-    // e.g. final db = LocalDatabaseService.instance;
-    // _usersCount = await db.getUsersCount();
-    // _mentorshipsCount = await db.getMentorshipsCount();
-    // etc.
-    setState(() {});
+  Future<void> _loadCounts() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final usersCount = await _localDb.getUsersCount();
+      final mentorshipsCount = await _localDb.getMentorshipsCount();
+      final availabilityCount = await _localDb.getAvailabilityCount();
+      final meetingsCount = await _localDb.getMeetingsCount();
+
+      setState(() {
+        _usersCount = usersCount;
+        _mentorshipsCount = mentorshipsCount;
+        _availabilityCount = availabilityCount;
+        _meetingsCount = meetingsCount;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading counts: $e')),
+        );
+      }
+    }
   }
 
-  void _initializeLocalDb() {
-    // TODO: Run migrations, seed tables, or clear DB as needed.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Local DB initialized (TODO)')),
+  Future<void> _addMockData() async {
+    // Show dialog to select mock data options
+    final result = await showDialog<Map<String, bool>>(
+      context: context,
+      builder: (BuildContext context) {
+        bool includeCoordinators = true;
+        bool includeMentors = true;
+        bool includeMentees = true;
+        bool clearExisting = false;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Generate Mock Data'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CheckboxListTile(
+                    title: const Text('Include Coordinators'),
+                    value: includeCoordinators,
+                    onChanged: (value) {
+                      setState(() => includeCoordinators = value ?? true);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Include Mentors'),
+                    value: includeMentors,
+                    onChanged: (value) {
+                      setState(() => includeMentors = value ?? true);
+                    },
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Include Mentees'),
+                    value: includeMentees,
+                    onChanged: (value) {
+                      setState(() => includeMentees = value ?? true);
+                    },
+                  ),
+                  const Divider(),
+                  CheckboxListTile(
+                    title: const Text('Clear Existing Data'),
+                    subtitle: const Text('Warning: This will delete all current data'),
+                    value: clearExisting,
+                    onChanged: (value) {
+                      setState(() => clearExisting = value ?? false);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, {
+                      'includeCoordinators': includeCoordinators,
+                      'includeMentors': includeMentors,
+                      'includeMentees': includeMentees,
+                      'clearExisting': clearExisting,
+                    });
+                  },
+                  child: const Text('Generate'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
+    if (result == null) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      await MockDataGenerator.generateMockData(
+        includeCoordinators: result['includeCoordinators'] ?? true,
+        includeMentors: result['includeMentors'] ?? true,
+        includeMentees: result['includeMentees'] ?? true,
+        clearExisting: result['clearExisting'] ?? false,
+      );
+      await _loadCounts();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mock data added successfully!')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding mock data: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildStatCard(String title, int count, IconData icon) {
@@ -58,10 +173,70 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
   }
 
   @override
+  Future<void> _deleteAllData() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete All Data'),
+        content: const Text(
+          'Are you sure you want to delete all data from the local database? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    
+    try {
+      await _localDb.clearAllTables();
+      await _loadCounts();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All data deleted successfully!')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting data: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Local DB Manager')),
-      body: Padding(
+      appBar: AppBar(
+        title: const Text('Local DB Manager'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_forever),
+            onPressed: _deleteAllData,
+            tooltip: 'Delete All Data',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -82,16 +257,30 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Mock data added (TODO)')),
-                  );
-                },
-                child: const Text('Add Mock Data'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _addMockData,
+                    child: const Text('Add Mock Data'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LocalDbExplorerScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.explore),
+                    label: const Text('Database Explorer'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -105,7 +294,10 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                 'resources',
                 'messages',
                 'meeting_notes',
-                'meeting_ratings'
+                'meeting_ratings',
+                'checklists',
+                'announcements',
+                'events'
               ].map(
                 (table) => ElevatedButton(
                   onPressed: () {
@@ -119,12 +311,6 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                   child: Text(table),
                 ),
               ).toList(),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'TODO: Integrate LocalDatabaseService to populate counts and handle DB setup.',
-              style: TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
