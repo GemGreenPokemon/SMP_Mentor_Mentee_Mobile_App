@@ -93,7 +93,7 @@ class _LocalDbTableScreenState extends State<LocalDbTableScreen> {
       
       // Also map student IDs to names for the mentee field
       if (user.studentId != null) {
-        _studentIdToName[user.studentId] = user.name;
+        _studentIdToName[user.studentId!] = user.name;
       }
     }
   }

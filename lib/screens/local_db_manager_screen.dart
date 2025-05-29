@@ -60,7 +60,6 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
         bool includeCoordinators = true;
         bool includeMentors = true;
         bool includeMentees = true;
-        bool clearExisting = false;
 
         return StatefulBuilder(
           builder: (context, setState) {
@@ -71,6 +70,7 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                 children: [
                   CheckboxListTile(
                     title: const Text('Include Coordinators'),
+                    subtitle: const Text('2 coordinators'),
                     value: includeCoordinators,
                     onChanged: (value) {
                       setState(() => includeCoordinators = value ?? true);
@@ -78,6 +78,7 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                   ),
                   CheckboxListTile(
                     title: const Text('Include Mentors'),
+                    subtitle: const Text('5 mentors with availability'),
                     value: includeMentors,
                     onChanged: (value) {
                       setState(() => includeMentors = value ?? true);
@@ -85,18 +86,10 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                   ),
                   CheckboxListTile(
                     title: const Text('Include Mentees'),
+                    subtitle: const Text('Up to 3 mentees per mentor'),
                     value: includeMentees,
                     onChanged: (value) {
                       setState(() => includeMentees = value ?? true);
-                    },
-                  ),
-                  const Divider(),
-                  CheckboxListTile(
-                    title: const Text('Clear Existing Data'),
-                    subtitle: const Text('Warning: This will delete all current data'),
-                    value: clearExisting,
-                    onChanged: (value) {
-                      setState(() => clearExisting = value ?? false);
                     },
                   ),
                 ],
@@ -112,7 +105,6 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
                       'includeCoordinators': includeCoordinators,
                       'includeMentors': includeMentors,
                       'includeMentees': includeMentees,
-                      'clearExisting': clearExisting,
                     });
                   },
                   child: const Text('Generate'),
@@ -133,7 +125,7 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
         includeCoordinators: result['includeCoordinators'] ?? true,
         includeMentors: result['includeMentors'] ?? true,
         includeMentees: result['includeMentees'] ?? true,
-        clearExisting: result['clearExisting'] ?? false,
+        clearExisting: false,  // Never clear existing data from this dialog
       );
       await _loadCounts();
       
@@ -226,13 +218,6 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Local DB Manager'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_forever),
-            onPressed: _deleteAllData,
-            tooltip: 'Delete All Data',
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -260,27 +245,49 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     onPressed: _addMockData,
-                    child: const Text('Add Mock Data'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Generate Mock Data'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LocalDbExplorerScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.explore),
-                    label: const Text('Database Explorer'),
+                    onPressed: _deleteAllData,
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('Delete All Data'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LocalDbExplorerScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.explore),
+                label: const Text('Database Explorer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Wrap(

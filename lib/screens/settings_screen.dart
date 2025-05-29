@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';  // optional retains kDebugMode if needed
 import '../utils/developer_session.dart';
+import '../utils/test_mode_manager.dart';
 import 'firestore_manager_screen.dart';
 import 'local_db_manager_screen.dart';
+import 'local_mentor_selection_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isMentor;
@@ -20,10 +22,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _downloadLocation = 'Default Downloads Folder';
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize test mode manager to load saved state
+    TestModeManager.initialize();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Check if we can pop (normal navigation)
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              // If we can't pop, we likely came from developer menu
+              // Navigate to developer home if in developer mode, otherwise to login
+              if (DeveloperSession.isActive) {
+                Navigator.pushReplacementNamed(context, '/dev');
+              } else {
+                // Go to the appropriate dashboard based on user type
+                // For now, go to login as a safe fallback
+                Navigator.pushReplacementNamed(context, '/');
+              }
+            }
+          },
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -185,6 +213,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // TODO: Implement messaging loopback test UI
                   },
                 ),
+                const Divider(height: 1),
+                StatefulBuilder(
+                  builder: (context, setLocalState) {
+                    return SwitchListTile(
+                      title: const Text('Test Mode'),
+                      subtitle: TestModeManager.isTestMode && TestModeManager.currentTestUser != null
+                          ? Text('Testing as: ${TestModeManager.currentTestUser!.name}')
+                          : const Text('Test app as a local database user'),
+                      value: TestModeManager.isTestMode,
+                      onChanged: (bool value) async {
+                        if (value) {
+                          // Navigate to mentor selection screen
+                          final result = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LocalMentorSelectionScreen(),
+                            ),
+                          );
+                          
+                          // Refresh the switch state if a selection was made
+                          if (result == true) {
+                            setLocalState(() {});
+                          }
+                        } else {
+                          // Disable test mode
+                          await TestModeManager.disableTestMode();
+                          setLocalState(() {});
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Test mode disabled'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+                if (TestModeManager.isTestMode)
+                  ListTile(
+                    title: const Text('Change Test User'),
+                    subtitle: Text('Currently: ${TestModeManager.currentTestUser?.name ?? "None"}'),
+                    trailing: const Icon(Icons.person_search),
+                    onTap: () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LocalMentorSelectionScreen(),
+                        ),
+                      );
+                      
+                      if (result == true && mounted) {
+                        setState(() {}); // Refresh to show new user
+                      }
+                    },
+                  ),
               ],
             ),
           ],

@@ -120,6 +120,25 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
         backgroundColor: const Color(0xFF0F2D52),
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Check if we can pop (normal navigation)
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              // If we can't pop, we likely came from developer menu
+              // Navigate to developer home if in developer mode, otherwise to login
+              if (DeveloperSession.isActive) {
+                Navigator.pushReplacementNamed(context, '/dev');
+              } else {
+                // Go to the appropriate dashboard based on user type
+                // For now, go to login as a safe fallback
+                Navigator.pushReplacementNamed(context, '/');
+              }
+            }
+          },
+        ),
       ),
       body: Center(
         child: Container(

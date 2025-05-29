@@ -23,7 +23,8 @@ class DeveloperHomeScreen extends StatelessWidget {
           final item = routes[i];
           return ListTile(
             title: Text(item['label']!),
-            onTap: () => Navigator.pushReplacementNamed(
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () => Navigator.pushNamed(
               context, item['route']!),
           );
         },

@@ -237,8 +237,9 @@ class MockDataGenerator {
       }
     }
 
-    // Generate messages between mentors and mentees
-    for (final mentorship in await _localDb.getMentorshipsByMentor(mentors[0].id)) {
+    // Generate messages between mentors and mentees (only if we have mentors)
+    if (mentors.isNotEmpty) {
+      for (final mentorship in await _localDb.getMentorshipsByMentor(mentors[0].id)) {
       final chatId = '${mentorship.mentorId}__${mentorship.menteeId}';
       for (int i = 0; i < 10; i++) {
         final message = Message(
@@ -251,18 +252,20 @@ class MockDataGenerator {
         await _localDb.createMessage(message);
       }
     }
+    }
 
-    // Generate events
-    for (int i = 0; i < 8; i++) {
-      final startTime = DateTime.now().add(Duration(days: _random.nextInt(60)));
-      final event = Event(
-        id: _localDb.generateId(),
-        title: 'Event ${i + 1}: ${_eventTypes[i % _eventTypes.length].toUpperCase()} Session',
-        description: 'Description for event ${i + 1}. Join us for this important session.',
-        location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom Link',
-        startTime: startTime,
-        endTime: startTime.add(Duration(hours: 2)),
-        createdBy: coordinators[_random.nextInt(coordinators.length)].id,
+    // Generate events (only if we have coordinators)
+    if (coordinators.isNotEmpty) {
+      for (int i = 0; i < 8; i++) {
+        final startTime = DateTime.now().add(Duration(days: _random.nextInt(60)));
+        final event = Event(
+          id: _localDb.generateId(),
+          title: 'Event ${i + 1}: ${_eventTypes[i % _eventTypes.length].toUpperCase()} Session',
+          description: 'Description for event ${i + 1}. Join us for this important session.',
+          location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom Link',
+          startTime: startTime,
+          endTime: startTime.add(Duration(hours: 2)),
+          createdBy: coordinators[_random.nextInt(coordinators.length)].id,
         eventType: _eventTypes[i % _eventTypes.length],
         targetAudience: ['mentors', 'mentees', 'both', 'all'][_random.nextInt(4)],
         maxParticipants: _random.nextBool() ? 20 + _random.nextInt(80) : null,
@@ -270,6 +273,7 @@ class MockDataGenerator {
         createdAt: DateTime.now(),
       );
       await _localDb.createEvent(event);
+    }
     }
   }
 
