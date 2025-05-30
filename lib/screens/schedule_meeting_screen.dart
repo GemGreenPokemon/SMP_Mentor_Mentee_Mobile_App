@@ -284,11 +284,11 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _buildLegendItem('Open', Colors.green),
+                        _buildLegendItem('Open', Colors.lightBlue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Pending', Colors.orange),
+                        _buildLegendItem('Pending', Colors.blue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Confirmed', Colors.red),
+                        _buildLegendItem('Confirmed', Colors.indigo),
                       ],
                     ),
                   ],
@@ -322,11 +322,11 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _buildLegendItem('Available', Colors.green),
+                        _buildLegendItem('Available', Colors.lightBlue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Pending', Colors.orange),
+                        _buildLegendItem('Pending', Colors.blue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Booked', Colors.red),
+                        _buildLegendItem('Booked', Colors.indigo),
                       ],
                     ),
                   ],
@@ -349,17 +349,17 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
                   TableCalendar<CalendarEvent>(
                     firstDay: DateTime.now(),
                     lastDay: DateTime.now().add(const Duration(days: 30)),
                     focusedDay: selectedDate,
                     calendarFormat: CalendarFormat.month,
                     eventLoader: (day) {
-                      return _calendarEvents[DateTime(day.year, day.month, day.day)] ?? [];
+                      final key = DateTime(day.year, day.month, day.day);
+                      return _calendarEvents[key] ?? [];
                     },
-                    selectedDayPredicate: (day) {
-                      return isSameDay(selectedDate, day);
-                    },
+                    selectedDayPredicate: (day) => isSameDay(selectedDate, day),
                     onDaySelected: (selectedDay, focusedDay) {
                       if (!isSameDay(selectedDate, selectedDay)) {
                         setState(() {
@@ -367,57 +367,71 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                           selectedTime = null;
                         });
                       }
-                      
-                      // Show popup if this date has events
-                      final normalizedDay = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-                      final dayEvents = _calendarEvents[normalizedDay];
-                      if (dayEvents != null && dayEvents.isNotEmpty) {
-                        _showDaySchedulePopup(selectedDay, dayEvents);
-                      }
+                      final key = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+                      final events = _calendarEvents[key] ?? [];
+                      if (events.isNotEmpty) _showDaySchedulePopup(selectedDay, events);
                     },
-                    calendarStyle: CalendarStyle(
-                      selectedDecoration: const BoxDecoration(
+                    calendarStyle: const CalendarStyle(
+                      selectedDecoration: BoxDecoration(
                         color: Color(0xFF2196F3),
                         shape: BoxShape.circle,
                       ),
                       todayDecoration: BoxDecoration(
-                        color: const Color(0xFF2196F3).withOpacity(0.5),
+                        color: Color(0x802196F3),
                         shape: BoxShape.circle,
                       ),
+                      markersMaxCount: 3,
+                      markersAlignment: Alignment.bottomCenter,
                     ),
                     calendarBuilders: CalendarBuilders<CalendarEvent>(
                       markerBuilder: (context, day, events) {
-                        if (events.isNotEmpty) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: events.take(3).map((event) {
-                              Color dotColor;
-                              switch (event.status) {
-                                case 'Available':
-                                  dotColor = Colors.green;
-                                  break;
-                                case 'Pending Request':
-                                  dotColor = Colors.orange;
-                                  break;
-                                case 'Booked':
-                                  dotColor = Colors.red;
-                                  break;
-                                default:
-                                  dotColor = Colors.blue;
-                              }
-                              return Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 1.0),
-                                width: 8.0,
-                                height: 8.0,
+                        if (events.isEmpty) return null;
+
+                        // BLUE THEME: Different shades of blue
+                        List<Widget> dots = [];
+                        
+                        for (int i = 0; i < events.length && i < 3; i++) {
+                          final event = events[i];
+                          Color? dotColor;
+                          
+                          if (event.status == 'Available') {
+                            dotColor = Colors.lightBlue; // Light blue for available
+                          } else if (event.status == 'Pending' || event.status == 'Pending Request') {
+                            dotColor = Colors.blue; // Medium blue for pending
+                          } else if (event.status == 'Booked') {
+                            dotColor = Colors.indigo; // Dark blue/indigo for booked
+                          }
+                          
+                          if (dotColor != null) {
+                            if (dots.isNotEmpty) {
+                              dots.add(SizedBox(width: 2));
+                            }
+                            
+                            // Use EXACT same Container structure as legend
+                            dots.add(
+                              Container(
+                                width: 6, // Smaller than legend (12) but same structure
+                                height: 6,
                                 decoration: BoxDecoration(
                                   color: dotColor,
                                   shape: BoxShape.circle,
                                 ),
-                              );
-                            }).toList(),
-                          );
+                              ),
+                            );
+                          }
                         }
-                        return const SizedBox.shrink();
+                        
+                        if (dots.isEmpty) return null;
+                        
+                        return Positioned(
+                          bottom: 1,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: dots,
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -1106,7 +1120,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                   _buildScheduleSection(
                     'Available Time Slots',
                     availableSlots,
-                    Colors.green,
+                    Colors.lightBlue,
                     Icons.check_circle_outline,
                     selectedDay,
                   ),
@@ -1116,7 +1130,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                   _buildScheduleSection(
                     'Pending Requests',
                     pendingSlots,
-                    Colors.orange,
+                    Colors.blue,
                     Icons.schedule,
                     selectedDay,
                   ),
@@ -1126,7 +1140,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                   _buildScheduleSection(
                     'Confirmed Meetings',
                     bookedSlots,
-                    Colors.red,
+                    Colors.indigo,
                     Icons.event,
                     selectedDay,
                   ),
@@ -1354,6 +1368,38 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       ),
     );
   }
+
+  // Custom vector dot to bypass color rendering issues
+  Widget _createVectorDot(Color color) {
+    return CustomPaint(
+      size: Size(6, 6),
+      painter: _DotPainter(color),
+    );
+  }
+}
+
+// Custom painter for perfectly aligned dots
+class _DotPainter extends CustomPainter {
+  final Color color;
+  
+  _DotPainter(this.color);
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    // Draw perfect circle at exact center
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      size.width / 2,
+      paint,
+    );
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class MentorTimeSlot {

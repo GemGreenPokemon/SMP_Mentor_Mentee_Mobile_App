@@ -289,15 +289,17 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               onPageChanged: (focusedDay) {
                                 _focusedDay = focusedDay;
                               },
-                              calendarStyle: CalendarStyle(
-                                selectedDecoration: const BoxDecoration(
+                              calendarStyle: const CalendarStyle(
+                                selectedDecoration: BoxDecoration(
                                   color: Color(0xFF0F2D52),
                                   shape: BoxShape.circle,
                                 ),
                                 todayDecoration: BoxDecoration(
-                                  color: const Color(0xFF0F2D52).withOpacity(0.5),
+                                  color: Color(0x800F2D52),
                                   shape: BoxShape.circle,
                                 ),
+                                markersAlignment: Alignment.bottomCenter,
+                                markersMaxCount: 3,
                               ),
                               headerStyle: const HeaderStyle(
                                 formatButtonVisible: true,
@@ -313,37 +315,45 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               ),
                               calendarBuilders: CalendarBuilders<CalendarEvent>(
                                 markerBuilder: (context, day, events) {
-                                  if (events.isNotEmpty) {
-                                    return Row(
+                                  if (events.isEmpty) return null;
+
+                                  // Create ALL dots as indigo/blue baseline since they align correctly
+                                  // Sort to ensure consistent order: Available, Pending, Booked
+                                  final statusOrder = {'Available': 0, 'Pending': 1, 'Pending Request': 1, 'Booked': 2};
+                                  final sortedEvents = List<CalendarEvent>.from(events)
+                                    ..sort((a, b) => (statusOrder[a.status] ?? 99).compareTo(statusOrder[b.status] ?? 99));
+
+                                  return Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    alignment: Alignment.bottomCenter,
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: events.take(3).map((event) {
-                                        Color dotColor;
-                                        switch (event.status) {
-                                          case 'Available':
-                                            dotColor = Colors.green;
-                                            break;
-                                          case 'Pending':
-                                            dotColor = Colors.orange;
-                                            break;
-                                          case 'Booked':
-                                            dotColor = Colors.red;
-                                            break;
-                                          default:
-                                            dotColor = Colors.blue;
+                                      children: sortedEvents.take(3).map((event) {
+                                        // Use red as baseline template, only change color
+                                        Color dotColor = Colors.indigo; // Start with indigo template
+                                        
+                                        if (event.status == 'Available') {
+                                          dotColor = Colors.lightBlue;
+                                        } else if (event.status == 'Pending' || event.status == 'Pending Request') {
+                                          dotColor = Colors.blue;
+                                        } else if (event.status == 'Booked') {
+                                          dotColor = Colors.indigo;
                                         }
+                                        
                                         return Container(
-                                          margin: const EdgeInsets.symmetric(horizontal: 1.0),
-                                          width: 8.0,
-                                          height: 8.0,
+                                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                                          width: 6,
+                                          height: 6,
                                           decoration: BoxDecoration(
                                             color: dotColor,
                                             shape: BoxShape.circle,
                                           ),
                                         );
                                       }).toList(),
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
+                                    ),
+                                  );
                                 },
                               ),
                             ),
@@ -385,18 +395,18 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     const SizedBox(height: 8),
                                     Text(
                                       widget.isMentor 
-                                        ? 'Green slots show your available times. You can schedule meetings during these times or add new ones.'
-                                        : 'Green slots show when your mentor is available. You can also request a custom time if needed.',
+                                        ? 'Light blue slots show your available times. You can schedule meetings during these times or add new ones.'
+                                        : 'Light blue slots show when your mentor is available. You can also request a custom time if needed.',
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        _buildLegend('Available', Colors.green),
+                                        _buildLegend('Available', Colors.lightBlue),
                                         const SizedBox(width: 16),
-                                        _buildLegend('Pending', Colors.orange),
+                                        _buildLegend('Pending', Colors.blue),
                                         const SizedBox(width: 16),
-                                        _buildLegend('Booked', Colors.red),
+                                        _buildLegend('Booked', Colors.indigo),
                                       ],
                                     ),
                                   ],
@@ -417,7 +427,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     return FilterChip(
                                       label: Text(_formatTime(time)),
                                       selected: isSelected,
-                                      selectedColor: Colors.green,
+                                      selectedColor: Colors.lightBlue,
                                       checkmarkColor: Colors.white,
                                       onSelected: (selected) {
                                         setState(() {
@@ -843,11 +853,11 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   Color _getSlotColor(String status) {
     switch (status) {
       case 'Available':
-        return Colors.green;
+        return Colors.lightBlue;
       case 'Pending':
-        return Colors.orange;
+        return Colors.blue;
       case 'Booked':
-        return Colors.red;
+        return Colors.indigo;
       default:
         return Colors.grey;
     }
@@ -856,11 +866,11 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   Color _getSlotTextColor(String status) {
     switch (status) {
       case 'Available':
-        return Colors.green[700]!;
+        return Colors.lightBlue[700]!;
       case 'Pending':
-        return Colors.orange[700]!;
+        return Colors.blue[700]!;
       case 'Booked':
-        return Colors.red[700]!;
+        return Colors.indigo[700]!;
       default:
         return Colors.grey[700]!;
     }
@@ -993,8 +1003,8 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       : Icons.schedule_send;
     
     final Color dialogColor = widget.isMentor || !_isCustomTimeRequest
-      ? Colors.green 
-      : Colors.orange;
+      ? Colors.lightBlue 
+      : Colors.blue;
     
     showDialog(
       context: context,
@@ -1030,7 +1040,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                       _formatTime(slot),
                       style: const TextStyle(fontSize: 12),
                     ),
-                    backgroundColor: Colors.green.withOpacity(0.2),
+                    backgroundColor: Colors.lightBlue.withOpacity(0.2),
                   )
                 ).toList(),
               ),
