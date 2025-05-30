@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../utils/test_mode_manager.dart';
 import '../services/local_database_service.dart';
 import '../models/availability.dart';
@@ -25,9 +26,12 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   User? _currentUser;
   User? _otherUser; // Mentor for mentees, or selected mentee for mentors
   List<Availability> _availabilities = [];
-  List<Meeting> _pendingMeetings = []; // Pending meeting requests
+  List<Meeting> _allMeetings = []; // All meeting requests (pending, accepted, rejected)
   Map<String, User> _menteeMap = {}; // Map of mentee IDs to User objects
   bool _isLoading = true;
+  
+  // Calendar events for visual indicators
+  Map<DateTime, List<CalendarEvent>> _calendarEvents = {};
 
   // Mock data for mentor's available time slots and status
   final Map<String, List<MentorTimeSlot>> mentorAvailability = {
@@ -83,29 +87,55 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   @override
   void initState() {
     super.initState();
+    print('DEBUG: ScheduleMeetingScreen initState called - isMentor: ${widget.isMentor}');
     _loadData();
   }
 
   Future<void> _loadData() async {
+    print('DEBUG: _loadData called, TestMode: ${TestModeManager.isTestMode}');
     if (TestModeManager.isTestMode) {
       try {
         // Get current user from test mode
         _currentUser = TestModeManager.currentTestUser;
+        print('DEBUG: Current user: ${_currentUser?.name} (${_currentUser?.id})');
         
         if (_currentUser != null) {
           if (widget.isMentor) {
             // Mentor viewing their own availability (both available and booked)
             _availabilities = await _localDb.getAvailabilityByMentor(_currentUser!.id);
+            print('DEBUG: Loaded ${_availabilities.length} availability slots for mentor ${_currentUser!.id}');
             
-            // Load pending meeting requests
-            final allMeetings = await _localDb.getMeetingsByMentor(_currentUser!.id);
-            _pendingMeetings = allMeetings.where((m) => m.status == 'pending').toList();
+            // Log each availability slot's details
+            for (final avail in _availabilities) {
+              print('DEBUG: Availability - id: ${avail.id}, day: ${avail.day}, slotStart: ${avail.slotStart}, isBooked: ${avail.isBooked}, menteeId: ${avail.menteeId}');
+            }
             
-            // Load mentee information for pending meetings
-            for (final meeting in _pendingMeetings) {
+            // Load all meeting requests (pending, accepted, rejected)
+            _allMeetings = await _localDb.getMeetingsByMentor(_currentUser!.id);
+            print('DEBUG: Loaded ${_allMeetings.length} meetings for mentor ${_currentUser!.id}');
+            
+            // Log each meeting's details
+            for (final meeting in _allMeetings) {
+              print('DEBUG: Meeting - id: ${meeting.id}, availabilityId: ${meeting.availabilityId}, status: ${meeting.status}, topic: ${meeting.topic}, location: ${meeting.location}');
+            }
+            
+            // Load mentee information for all meetings
+            for (final meeting in _allMeetings) {
               final mentee = await _localDb.getUserById(meeting.menteeId);
               if (mentee != null) {
                 _menteeMap[meeting.menteeId] = mentee;
+                print('DEBUG: Loaded mentee: ${mentee.name} for meeting ${meeting.id}');
+              }
+            }
+            
+            // Also load mentees who have booked availability slots
+            for (final slot in _availabilities) {
+              if (slot.isBooked && slot.menteeId != null && !_menteeMap.containsKey(slot.menteeId)) {
+                final mentee = await _localDb.getUserById(slot.menteeId!);
+                if (mentee != null) {
+                  _menteeMap[slot.menteeId!] = mentee;
+                  print('DEBUG: Loaded mentee: ${mentee.name} for availability slot ${slot.id}');
+                }
               }
             }
           } else {
@@ -130,6 +160,9 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     setState(() {
       _isLoading = false;
     });
+    
+    // Build calendar events for visual indicators
+    _buildCalendarEvents();
   }
 
   List<MentorTimeSlot> getAvailableTimeSlots() {
@@ -144,18 +177,26 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         String status = 'Available';
         String? menteeName;
         
-        if (avail.isBooked) {
-          status = 'Booked';
-          // Find if there's a pending meeting for this slot
-          final pendingMeeting = _pendingMeetings.firstWhere(
-            (m) => m.availabilityId == avail.id,
-            orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
-          );
-          
-          if (pendingMeeting.id.isNotEmpty) {
+        // Check if there's a meeting for this slot (regardless of isBooked status)
+        final meeting = _allMeetings.firstWhere(
+          (m) => m.availabilityId == avail.id,
+          orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
+        );
+        
+        if (meeting.id.isNotEmpty) {
+          // Base status on meeting status, not availability isBooked flag
+          if (meeting.status == 'pending') {
             status = 'Pending Request';
-            menteeName = _menteeMap[pendingMeeting.menteeId]?.name;
-          } else if (avail.menteeId != null) {
+          } else if (meeting.status == 'accepted') {
+            status = 'Booked';
+          } else {
+            status = 'Booked'; // Default for other statuses
+          }
+          menteeName = _menteeMap[meeting.menteeId]?.name;
+        } else if (avail.isBooked) {
+          // Only use isBooked if no meeting found (legacy case)
+          status = 'Booked';
+          if (avail.menteeId != null) {
             menteeName = _menteeMap[avail.menteeId]?.name;
           }
         }
@@ -308,16 +349,77 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  CalendarDatePicker(
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 30)),
-                    onDateChanged: (date) {
-                      setState(() {
-                        selectedDate = date;
-                        selectedTime = null;
-                      });
+                  TableCalendar<CalendarEvent>(
+                    firstDay: DateTime.now(),
+                    lastDay: DateTime.now().add(const Duration(days: 30)),
+                    focusedDay: selectedDate,
+                    calendarFormat: CalendarFormat.month,
+                    eventLoader: (day) {
+                      return _calendarEvents[DateTime(day.year, day.month, day.day)] ?? [];
                     },
+                    selectedDayPredicate: (day) {
+                      return isSameDay(selectedDate, day);
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      if (!isSameDay(selectedDate, selectedDay)) {
+                        setState(() {
+                          selectedDate = selectedDay;
+                          selectedTime = null;
+                        });
+                      }
+                      
+                      // Show popup if this date has events
+                      final normalizedDay = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+                      final dayEvents = _calendarEvents[normalizedDay];
+                      if (dayEvents != null && dayEvents.isNotEmpty) {
+                        _showDaySchedulePopup(selectedDay, dayEvents);
+                      }
+                    },
+                    calendarStyle: CalendarStyle(
+                      selectedDecoration: const BoxDecoration(
+                        color: Color(0xFF2196F3),
+                        shape: BoxShape.circle,
+                      ),
+                      todayDecoration: BoxDecoration(
+                        color: const Color(0xFF2196F3).withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    calendarBuilders: CalendarBuilders<CalendarEvent>(
+                      markerBuilder: (context, day, events) {
+                        if (events.isNotEmpty) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: events.take(3).map((event) {
+                              Color dotColor;
+                              switch (event.status) {
+                                case 'Available':
+                                  dotColor = Colors.green;
+                                  break;
+                                case 'Pending Request':
+                                  dotColor = Colors.orange;
+                                  break;
+                                case 'Booked':
+                                  dotColor = Colors.red;
+                                  break;
+                                default:
+                                  dotColor = Colors.blue;
+                              }
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 1.0),
+                                width: 8.0,
+                                height: 8.0,
+                                decoration: BoxDecoration(
+                                  color: dotColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -383,7 +485,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
           const SizedBox(height: 16),
           
           // Pending Requests Card (Only for Mentors)
-          if (widget.isMentor && _pendingMeetings.isNotEmpty)
+          if (widget.isMentor && _allMeetings.where((m) => m.status == 'pending').isNotEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -398,7 +500,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ..._pendingMeetings.map((meeting) {
+                    ..._allMeetings.where((m) => m.status == 'pending').map((meeting) {
                       final mentee = _menteeMap[meeting.menteeId];
                       final startTime = DateTime.tryParse(meeting.startTime);
                       return Card(
@@ -902,6 +1004,356 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       });
     }
   }
+  
+  // Build calendar events for visual indicators
+  void _buildCalendarEvents() {
+    _calendarEvents.clear();
+    print('DEBUG: Building calendar events for schedule screen...');
+    print('DEBUG: Availability slots count: ${_availabilities.length}');
+    print('DEBUG: All meetings count: ${_allMeetings.length}');
+    
+    // Add availability events
+    for (final slot in _availabilities) {
+      final date = DateTime.tryParse(slot.day);
+      if (date != null) {
+        // Normalize date to remove time component for calendar comparison
+        final normalizedDate = DateTime(date.year, date.month, date.day);
+        final events = _calendarEvents[normalizedDate] ?? [];
+        
+        String status = 'Available';
+        
+        // Check if there's a meeting for this slot (regardless of isBooked status)
+        final meeting = _allMeetings.firstWhere(
+          (m) => m.availabilityId == slot.id,
+          orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
+        );
+        
+        if (meeting.id.isNotEmpty) {
+          // Base status on meeting status, not availability isBooked flag
+          if (meeting.status == 'pending') {
+            status = 'Pending Request';
+          } else if (meeting.status == 'accepted') {
+            status = 'Booked';
+          } else {
+            status = 'Booked'; // Default for other statuses
+          }
+        } else if (slot.isBooked) {
+          // Only use isBooked if no meeting found (legacy case)
+          status = 'Booked';
+        }
+        
+        events.add(CalendarEvent(
+          type: 'availability',
+          time: slot.slotStart,
+          status: status,
+          availabilityId: slot.id,
+          meetingId: meeting.id.isNotEmpty ? meeting.id : null,
+        ));
+        _calendarEvents[normalizedDate] = events;
+        print('DEBUG: Added availability event for $normalizedDate: ${slot.slotStart} ($status) with availabilityId: ${slot.id}');
+      }
+    }
+    
+    print('DEBUG: Total calendar events: ${_calendarEvents.length}');
+    _calendarEvents.forEach((date, events) {
+      print('DEBUG: $date has ${events.length} events: ${events.map((e) => '${e.time}(${e.status})').join(', ')}');
+    });
+  }
+  
+  // Show popup with day's schedule details
+  void _showDaySchedulePopup(DateTime selectedDay, List<CalendarEvent> dayEvents) {
+    final dateFormatter = "${selectedDay.day}/${selectedDay.month}/${selectedDay.year}";
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = weekdays[selectedDay.weekday - 1];
+    
+    print('DEBUG: Showing popup for $dateFormatter with ${dayEvents.length} events');
+    for (final event in dayEvents) {
+      print('DEBUG: Event - time: ${event.time}, status: ${event.status}, type: ${event.type}');
+    }
+    
+    // Group events by status for better organization
+    final availableSlots = dayEvents.where((e) => e.status == 'Available').toList();
+    final pendingSlots = dayEvents.where((e) => e.status == 'Pending Request').toList();
+    final bookedSlots = dayEvents.where((e) => e.status == 'Booked').toList();
+    
+    print('DEBUG: Grouped - Available: ${availableSlots.length}, Pending: ${pendingSlots.length}, Booked: ${bookedSlots.length}');
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dayName,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                dateFormatter,
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (availableSlots.isNotEmpty) ...[
+                  _buildScheduleSection(
+                    'Available Time Slots',
+                    availableSlots,
+                    Colors.green,
+                    Icons.check_circle_outline,
+                    selectedDay,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (pendingSlots.isNotEmpty) ...[
+                  _buildScheduleSection(
+                    'Pending Requests',
+                    pendingSlots,
+                    Colors.orange,
+                    Icons.schedule,
+                    selectedDay,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (bookedSlots.isNotEmpty) ...[
+                  _buildScheduleSection(
+                    'Confirmed Meetings',
+                    bookedSlots,
+                    Colors.red,
+                    Icons.event,
+                    selectedDay,
+                  ),
+                ],
+                if (dayEvents.isEmpty) 
+                  const Text(
+                    'No events scheduled for this day.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            if (widget.isMentor && availableSlots.isNotEmpty)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Could add functionality to quickly book a slot here
+                },
+                child: const Text('Manage Slots'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // Helper method to build schedule sections
+  Widget _buildScheduleSection(String title, List<CalendarEvent> events, Color color, IconData icon, DateTime selectedDay) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...events.map((event) => _buildEventTile(event, color, selectedDay)),
+      ],
+    );
+  }
+  
+  // Helper method to build individual event tiles
+  Widget _buildEventTile(CalendarEvent event, Color color, DateTime selectedDay) {
+    // Find additional details for this event
+    String? menteeInfo;
+    String? meetingTopic;
+    String? meetingLocation;
+    
+    print('DEBUG: Building event tile for time: ${event.time}, status: ${event.status}, availabilityId: ${event.availabilityId}');
+    print('DEBUG: Available _availabilities count: ${_availabilities.length}');
+    print('DEBUG: Available _allMeetings count: ${_allMeetings.length}');
+    
+    // Use the availabilityId from the event if available
+    if (event.availabilityId != null && event.availabilityId!.isNotEmpty) {
+      // Find the availability slot by ID
+      final availabilitySlot = _availabilities.firstWhere(
+        (slot) => slot.id == event.availabilityId,
+        orElse: () => Availability(id: '', mentorId: '', day: '', slotStart: '', isBooked: false, updatedAt: DateTime.now()),
+      );
+      
+      print('DEBUG: Found availability slot by ID: id=${availabilitySlot.id}, slotStart=${availabilitySlot.slotStart}, isBooked=${availabilitySlot.isBooked}');
+      
+      if (availabilitySlot.id.isNotEmpty) {
+      print('DEBUG: Looking for meeting with availabilityId: ${availabilitySlot.id}');
+      print('DEBUG: All meetings availabilityIds: ${_allMeetings.map((m) => '${m.id}:${m.availabilityId}').join(', ')}');
+      
+      // Always look for associated meeting, regardless of event status
+      final meeting = _allMeetings.firstWhere(
+        (meeting) => meeting.availabilityId == availabilitySlot.id,
+        orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
+      );
+      
+      print('DEBUG: Found meeting: id=${meeting.id}, topic=${meeting.topic}, location=${meeting.location}');
+      
+      if (meeting.id.isNotEmpty) {
+        final mentee = _menteeMap[meeting.menteeId];
+        menteeInfo = mentee?.name ?? 'Unknown Mentee';
+        meetingTopic = meeting.topic;
+        meetingLocation = meeting.location;
+        print('DEBUG: Set details - mentee: $menteeInfo, topic: $meetingTopic, location: $meetingLocation');
+      } else if (availabilitySlot.menteeId != null) {
+        final mentee = _menteeMap[availabilitySlot.menteeId];
+        menteeInfo = mentee?.name ?? 'Unknown Mentee';
+        print('DEBUG: Using availability slot menteeId: ${availabilitySlot.menteeId}, mentee: $menteeInfo');
+      } else {
+        print('DEBUG: No meeting found and no menteeId in availability slot');
+      }
+      }
+    } else {
+      print('DEBUG: No availabilityId in event, trying to find by day and time');
+      // Fallback: try to find by matching day and time
+      final dateString = '${selectedDay.year}-${selectedDay.month.toString().padLeft(2, '0')}-${selectedDay.day.toString().padLeft(2, '0')}';
+      final availabilitySlot = _availabilities.firstWhere(
+        (slot) => slot.day == dateString && slot.slotStart == event.time,
+        orElse: () => Availability(id: '', mentorId: '', day: '', slotStart: '', isBooked: false, updatedAt: DateTime.now()),
+      );
+      
+      if (availabilitySlot.id.isNotEmpty) {
+        print('DEBUG: Found availability slot by day/time: id=${availabilitySlot.id}');
+        // Look for associated meeting
+        final meeting = _allMeetings.firstWhere(
+          (meeting) => meeting.availabilityId == availabilitySlot.id,
+          orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
+        );
+        
+        if (meeting.id.isNotEmpty) {
+          final mentee = _menteeMap[meeting.menteeId];
+          menteeInfo = mentee?.name ?? 'Unknown Mentee';
+          meetingTopic = meeting.topic;
+          meetingLocation = meeting.location;
+          print('DEBUG: Set details from fallback - mentee: $menteeInfo, topic: $meetingTopic, location: $meetingLocation');
+        } else if (availabilitySlot.menteeId != null) {
+          final mentee = _menteeMap[availabilitySlot.menteeId];
+          menteeInfo = mentee?.name ?? 'Unknown Mentee';
+        }
+      } else {
+        print('DEBUG: No availability slot found for date: $dateString and time: ${event.time}');
+      }
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.time,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                if (menteeInfo != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        menteeInfo,
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (meetingTopic != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.topic, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          meetingTopic,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (meetingLocation != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          meetingLocation,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class MentorTimeSlot {
@@ -911,4 +1363,20 @@ class MentorTimeSlot {
   final String? menteeName;
 
   MentorTimeSlot(this.time, this.status, {this.availabilityId, this.menteeName});
+}
+
+class CalendarEvent {
+  final String type;
+  final String time;
+  final String status;
+  final String? availabilityId;
+  final String? meetingId;
+  
+  CalendarEvent({
+    required this.type,
+    required this.time, 
+    required this.status,
+    this.availabilityId,
+    this.meetingId,
+  });
 } 

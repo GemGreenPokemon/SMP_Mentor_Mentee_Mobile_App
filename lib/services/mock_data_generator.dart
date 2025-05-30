@@ -297,27 +297,7 @@ class MockDataGenerator {
 
     // Generate meetings (only if we have both mentors and mentees)
     if (mentors.isNotEmpty && mentees.isNotEmpty) {
-      for (int i = 0; i < 20; i++) {
-        final mentor = mentors[_random.nextInt(mentors.length)];
-        final mentorshipList = await _localDb.getMentorshipsByMentor(mentor.id);
-        if (mentorshipList.isNotEmpty) {
-          final mentorship = mentorshipList[_random.nextInt(mentorshipList.length)];
-          final startTime = DateTime.now().subtract(Duration(days: _random.nextInt(30)));
-          
-          final meeting = Meeting(
-            id: _localDb.generateId(),
-            mentorId: mentorship.mentorId,
-            menteeId: mentorship.menteeId,
-            startTime: startTime.toIso8601String(),
-            endTime: startTime.add(Duration(hours: 1)).toIso8601String(),
-            topic: _meetingTopics[_random.nextInt(_meetingTopics.length)],
-            location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom',
-            status: ['pending', 'accepted', 'rejected'][_random.nextInt(3)],
-            createdAt: startTime.subtract(Duration(days: _random.nextInt(5))),
-          );
-          await _localDb.createMeeting(meeting);
-        }
-      }
+      await _generateMeetingsWithAvailability(mentors, mentees);
     }
 
     // Generate meeting notes for existing meetings
@@ -491,13 +471,12 @@ class MockDataGenerator {
 
   // Generate realistic availability slots for a mentor
   static Future<void> _generateAvailabilityForMentor(User mentor) async {
-    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     final timeSlots = [
       '9:00 AM', '10:00 AM', '11:00 AM', 
       '2:00 PM', '3:00 PM', '4:00 PM'
     ];
     
-    // Generate availability for next 30 days
+    // Generate availability for next 30 days (starting from today)
     final now = DateTime.now();
     for (int dayOffset = 0; dayOffset < 30; dayOffset++) {
       final currentDate = now.add(Duration(days: dayOffset));
@@ -514,22 +493,135 @@ class MockDataGenerator {
       final selectedSlots = List<String>.from(timeSlots)..shuffle(_random);
       
       for (int i = 0; i < numSlots && i < selectedSlots.length; i++) {
-        // For past dates, some slots might be booked
-        // For future dates, all slots should be available for the mentor to set
-        final isPastDate = currentDate.isBefore(DateTime.now());
-        final isBooked = isPastDate && _random.nextDouble() < 0.2;
-        
         final availability = Availability(
           id: _localDb.generateId(),
           mentorId: mentor.id,
-          day: dateString, // Using date string instead of day name
+          day: dateString,
           slotStart: selectedSlots[i],
-          isBooked: isBooked,
-          menteeId: isBooked ? 'mentee${_random.nextInt(10) + 1}' : null,
+          slotEnd: _getEndTime(selectedSlots[i]), // Add end time
+          isBooked: false, // Initially all slots are available
+          menteeId: null,
           updatedAt: DateTime.now(),
         );
         await _localDb.createAvailability(availability);
       }
     }
+  }
+
+  // Generate meetings that properly link to availability slots
+  static Future<void> _generateMeetingsWithAvailability(List<User> mentors, List<User> mentees) async {
+    final now = DateTime.now();
+    
+    // Create past meetings (for testing meeting history)
+    print('DEBUG: Creating ${10} past meetings...');
+    for (int i = 0; i < 10; i++) {
+      final mentor = mentors[_random.nextInt(mentors.length)];
+      final mentorshipList = await _localDb.getMentorshipsByMentor(mentor.id);
+      if (mentorshipList.isNotEmpty) {
+        final mentorship = mentorshipList[_random.nextInt(mentorshipList.length)];
+        final startTime = now.subtract(Duration(days: _random.nextInt(30) + 1)); // Past dates
+        
+        final meeting = Meeting(
+          id: _localDb.generateId(),
+          mentorId: mentorship.mentorId,
+          menteeId: mentorship.menteeId,
+          startTime: startTime.toIso8601String(),
+          endTime: startTime.add(Duration(hours: 1)).toIso8601String(),
+          topic: _meetingTopics[_random.nextInt(_meetingTopics.length)],
+          location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom',
+          status: 'accepted', // Past meetings are accepted
+          availabilityId: null, // Past meetings don't link to availability slots
+          createdAt: startTime.subtract(Duration(days: _random.nextInt(5))),
+        );
+        print('DEBUG: Created past meeting ${meeting.id} with topic: ${meeting.topic}, location: ${meeting.location}');
+        await _localDb.createMeeting(meeting);
+      }
+    }
+    
+    // Create future meetings by booking availability slots
+    final allAvailability = await _localDb.getTableData('availability');
+    print('DEBUG: Found ${allAvailability.length} total availability slots in database');
+    
+    final availableSlots = allAvailability.where((slot) {
+      final slotDate = DateTime.tryParse(slot['day']);
+      final isAfterNow = slotDate != null && slotDate.isAfter(now);
+      final isNotBooked = slot['is_booked'] == 0;
+      print('DEBUG: Slot ${slot['id']} on ${slot['day']} at ${slot['slot_start']}: afterNow=$isAfterNow, notBooked=$isNotBooked');
+      return isAfterNow && isNotBooked;
+    }).toList();
+    
+    // Book some availability slots with meetings
+    final numMeetingsToCreate = (availableSlots.length * 0.3).round(); // Book 30% of available slots
+    print('DEBUG: Selected ${availableSlots.length} available slots for future meetings, will create ${numMeetingsToCreate} meetings');
+    availableSlots.shuffle(_random);
+    
+    for (int i = 0; i < numMeetingsToCreate && i < availableSlots.length; i++) {
+      final slot = availableSlots[i];
+      final mentorId = slot['mentor_id'];
+      
+      print('DEBUG: Creating meeting for availability slot: ${slot['id']} on ${slot['day']} at ${slot['slot_start']}');
+      
+      // Find a mentee for this mentor
+      final mentorshipList = await _localDb.getMentorshipsByMentor(mentorId);
+      if (mentorshipList.isNotEmpty) {
+        final mentorship = mentorshipList[_random.nextInt(mentorshipList.length)];
+        
+        // Parse the slot date and start time
+        final slotDate = DateTime.parse(slot['day']);
+        final startTimeStr = slot['slot_start'];
+        final startTime = _parseDateTime(slotDate, startTimeStr);
+        
+        // Determine meeting status
+        final statuses = ['pending', 'accepted'];
+        final status = statuses[_random.nextInt(statuses.length)];
+        
+        final meeting = Meeting(
+          id: _localDb.generateId(),
+          mentorId: mentorship.mentorId,
+          menteeId: mentorship.menteeId,
+          startTime: startTime.toIso8601String(),
+          endTime: startTime.add(Duration(hours: 1)).toIso8601String(),
+          topic: _meetingTopics[_random.nextInt(_meetingTopics.length)],
+          location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom',
+          status: status,
+          availabilityId: slot['id'],
+          createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(5))),
+        );
+        
+        print('DEBUG: Created meeting ${meeting.id} with availabilityId: ${meeting.availabilityId}, topic: ${meeting.topic}, location: ${meeting.location}, status: ${meeting.status}');
+        await _localDb.createMeeting(meeting);
+        
+        // Update the availability slot to mark it as booked
+        if (status == 'accepted') {
+          print('DEBUG: Booking availability slot ${slot['id']} for mentee ${mentorship.menteeId}');
+          await _localDb.bookAvailabilitySlot(slot['id'], mentorship.menteeId);
+        } else {
+          print('DEBUG: Leaving slot ${slot['id']} unbooked (pending status)');
+        }
+      } else {
+        print('DEBUG: No mentorships found for mentor ${mentorId}, skipping meeting creation');
+      }
+    }
+  }
+  
+  // Helper function to get end time for a time slot
+  static String _getEndTime(String startTime) {
+    final timeSlotDuration = {'9:00 AM': '10:00 AM', '10:00 AM': '11:00 AM', '11:00 AM': '12:00 PM',
+                             '2:00 PM': '3:00 PM', '3:00 PM': '4:00 PM', '4:00 PM': '5:00 PM'};
+    return timeSlotDuration[startTime] ?? '${startTime.replaceAll(RegExp(r'\d+'), '${int.parse(startTime.split(':')[0]) + 1}')}:00 ${startTime.contains('AM') ? 'AM' : 'PM'}';
+  }
+  
+  // Helper function to parse date and time string into DateTime
+  static DateTime _parseDateTime(DateTime date, String timeStr) {
+    final parts = timeStr.split(' ');
+    final timePart = parts[0].split(':');
+    int hour = int.parse(timePart[0]);
+    final minute = int.parse(timePart[1]);
+    final isAM = parts[1] == 'AM';
+    
+    if (!isAM && hour != 12) hour += 12;
+    if (isAM && hour == 12) hour = 0;
+    
+    return DateTime(date.year, date.month, date.day, hour, minute);
   }
 }

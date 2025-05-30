@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../utils/responsive.dart';
+import '../services/local_database_service.dart';
+import '../models/availability.dart';
+import '../models/meeting.dart';
+import '../models/user.dart';
+import '../utils/test_mode_manager.dart';
 
 class WebScheduleMeetingScreen extends StatefulWidget {
   final bool isMentor;
@@ -29,6 +34,13 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   String? _selectedMenteeOrMentor;
   String _meetingType = 'in-person';
   String _repeatOption = 'none';
+  
+  // Database integration
+  final _localDb = LocalDatabaseService.instance;
+  List<Availability> _availabilitySlots = [];
+  List<Meeting> _meetings = [];
+  User? _currentUser;
+  Map<DateTime, List<CalendarEvent>> _calendarEvents = {};
   
   // Mock data for mentees/mentors
   final List<String> mentees = [
@@ -63,7 +75,98 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   @override
   void initState() {
     super.initState();
+    print('DEBUG: WebScheduleMeetingScreen initState called');
     _selectedDay = _focusedDay;
+    _loadCurrentUser();
+  }
+  
+  Future<void> _loadCurrentUser() async {
+    await TestModeManager.initialize();
+    final currentUser = TestModeManager.currentTestUser;
+    print('DEBUG: Current test user: $currentUser');
+    setState(() {
+      _currentUser = currentUser;
+    });
+    if (_currentUser != null) {
+      print('DEBUG: Loading calendar data for: ${_currentUser!.name}');
+      await _loadCalendarData();
+    } else {
+      print('DEBUG: No current user set in test mode!');
+    }
+  }
+  
+  Future<void> _loadCalendarData() async {
+    if (_currentUser == null) {
+      print('DEBUG: No current user found!');
+      return;
+    }
+    
+    print('DEBUG: Loading calendar data for user: ${_currentUser!.name} (${_currentUser!.id})');
+    
+    // Load availability and meetings from database
+    final availability = await _localDb.getAvailabilityByMentor(_currentUser!.id);
+    final meetings = widget.isMentor 
+        ? await _localDb.getMeetingsByMentor(_currentUser!.id)
+        : await _localDb.getMeetingsByMentee(_currentUser!.id);
+    
+    print('DEBUG: Loaded ${availability.length} availability slots and ${meetings.length} meetings');
+    
+    setState(() {
+      _availabilitySlots = availability;
+      _meetings = meetings;
+      _buildCalendarEvents();
+    });
+  }
+  
+  void _buildCalendarEvents() {
+    _calendarEvents.clear();
+    print('DEBUG: Building calendar events...');
+    print('DEBUG: Availability slots count: ${_availabilitySlots.length}');
+    print('DEBUG: Meetings count: ${_meetings.length}');
+    
+    // Add availability events
+    for (final slot in _availabilitySlots) {
+      final date = DateTime.tryParse(slot.day);
+      print('DEBUG: Processing availability slot: ${slot.day} -> parsed date: $date');
+      if (date != null) {
+        // Normalize date to remove time component for calendar comparison
+        final normalizedDate = DateTime(date.year, date.month, date.day);
+        final events = _calendarEvents[normalizedDate] ?? [];
+        events.add(CalendarEvent(
+          type: slot.isBooked ? 'booked' : 'available',
+          time: slot.slotStart,
+          status: slot.isBooked ? 'Booked' : 'Available',
+        ));
+        _calendarEvents[normalizedDate] = events;
+        print('DEBUG: Added availability event for $normalizedDate: ${slot.slotStart} (${slot.isBooked ? "Booked" : "Available"})');
+      } else {
+        print('DEBUG: Failed to parse date: ${slot.day}');
+      }
+    }
+    
+    // Add meeting events
+    for (final meeting in _meetings) {
+      final startTime = DateTime.tryParse(meeting.startTime);
+      print('DEBUG: Processing meeting: ${meeting.startTime} -> parsed time: $startTime');
+      if (startTime != null) {
+        final date = DateTime(startTime.year, startTime.month, startTime.day);
+        final events = _calendarEvents[date] ?? [];
+        events.add(CalendarEvent(
+          type: 'meeting',
+          time: '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
+          status: meeting.status == 'pending' ? 'Pending' : 'Booked',
+        ));
+        _calendarEvents[date] = events;
+        print('DEBUG: Added meeting event for $date: ${meeting.topic} (${meeting.status})');
+      } else {
+        print('DEBUG: Failed to parse meeting start time: ${meeting.startTime}');
+      }
+    }
+    
+    print('DEBUG: Total calendar events: ${_calendarEvents.length}');
+    _calendarEvents.forEach((date, events) {
+      print('DEBUG: $date has ${events.length} events: ${events.map((e) => '${e.time}(${e.status})').join(', ')}');
+    });
   }
 
   @override
@@ -157,11 +260,14 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            TableCalendar(
+                            TableCalendar<CalendarEvent>(
                               firstDay: DateTime.now(),
                               lastDay: DateTime.now().add(const Duration(days: 365)),
                               focusedDay: _focusedDay,
                               calendarFormat: _calendarFormat,
+                              eventLoader: (day) {
+                                return _calendarEvents[day] ?? [];
+                              },
                               selectedDayPredicate: (day) {
                                 return isSameDay(_selectedDay, day);
                               },
@@ -204,6 +310,41 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                 formatButtonTextStyle: TextStyle(
                                   color: Colors.white,
                                 ),
+                              ),
+                              calendarBuilders: CalendarBuilders<CalendarEvent>(
+                                markerBuilder: (context, day, events) {
+                                  if (events.isNotEmpty) {
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: events.take(3).map((event) {
+                                        Color dotColor;
+                                        switch (event.status) {
+                                          case 'Available':
+                                            dotColor = Colors.green;
+                                            break;
+                                          case 'Pending':
+                                            dotColor = Colors.orange;
+                                            break;
+                                          case 'Booked':
+                                            dotColor = Colors.red;
+                                            break;
+                                          default:
+                                            dotColor = Colors.blue;
+                                        }
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(horizontal: 1.0),
+                                          width: 8.0,
+                                          height: 8.0,
+                                          decoration: BoxDecoration(
+                                            color: dotColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        );
+                                      }).toList(),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
                               ),
                             ),
                             const SizedBox(height: 24),
@@ -647,18 +788,16 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   }
 
   List<TimeSlot> _getTimeSlots() {
-    if (widget.isMentor) {
-      // For mentors, show all time slots as available
+    if (_selectedDay == null) return [];
+    
+    final events = _calendarEvents[_selectedDay!] ?? [];
+    if (events.isEmpty && widget.isMentor && _isSettingAvailability) {
+      // For mentors setting availability, show all time slots as available
       return _generateTimeSlots().map((time) => 
         TimeSlot(_formatTime(time), 'Available')).toList();
-    } else {
-      // For mentees, show mentor's availability
-      if (_selectedDay != null) {
-        final dateKey = _selectedDay!.toString().split(' ')[0];
-        return mentorAvailability[dateKey] ?? [];
-      }
-      return [];
     }
+    
+    return events.map((event) => TimeSlot(event.time, event.status)).toList();
   }
 
   List<DateTime> _generateTimeSlots() {
@@ -975,4 +1114,16 @@ class TimeSlot {
   final String status;
   
   TimeSlot(this.time, this.status);
+}
+
+class CalendarEvent {
+  final String type;
+  final String time;
+  final String status;
+  
+  CalendarEvent({
+    required this.type,
+    required this.time, 
+    required this.status,
+  });
 }
