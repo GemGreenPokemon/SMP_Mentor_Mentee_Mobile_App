@@ -19,8 +19,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Incremented version for schema updates - 5/29/25
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -31,7 +32,7 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const integerTypeNullable = 'INTEGER';
 
-    // Users table
+    // Users table - Updated 5/29/25: Added department and year_major fields
     await db.execute('''
       CREATE TABLE users (
         id $idType,
@@ -42,16 +43,20 @@ class DatabaseHelper {
         mentor $textTypeNullable,
         mentee $textTypeNullable,
         acknowledgment_signed TEXT CHECK(acknowledgment_signed IN ('yes', 'no', 'not_applicable')) DEFAULT 'not_applicable',
+        department $textTypeNullable,
+        year_major $textTypeNullable,
         created_at $integerType
       )
     ''');
 
-    // Mentorships table
+    // Mentorships table - Updated 5/29/25: Added assigned_by and overall_progress fields
     await db.execute('''
       CREATE TABLE mentorships (
         id $idType,
         mentor_id $textType,
         mentee_id $textType,
+        assigned_by $textTypeNullable,
+        overall_progress REAL DEFAULT 0.0,
         created_at $integerType,
         FOREIGN KEY (mentor_id) REFERENCES users(id),
         FOREIGN KEY (mentee_id) REFERENCES users(id),
@@ -75,7 +80,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Meetings table
+    // Meetings table - Updated 5/29/25: Added location field
     await db.execute('''
       CREATE TABLE meetings (
         id $idType,
@@ -84,6 +89,7 @@ class DatabaseHelper {
         start_time $textType,
         end_time $textTypeNullable,
         topic $textTypeNullable,
+        location $textTypeNullable,
         status TEXT DEFAULT 'pending',
         availability_id $textTypeNullable,
         synced INTEGER DEFAULT 0,
@@ -237,6 +243,104 @@ class DatabaseHelper {
         FOREIGN KEY (created_by) REFERENCES users(id)
       )
     ''');
+
+    // Mentee goals table - Added 5/29/25
+    await db.execute('''
+      CREATE TABLE mentee_goals (
+        id $idType,
+        mentorship_id $textType,
+        title $textType,
+        progress REAL DEFAULT 0.0,
+        created_at $integerType,
+        updated_at $integerTypeNullable,
+        FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+      )
+    ''');
+
+    // Action items table - Added 5/29/25
+    await db.execute('''
+      CREATE TABLE action_items (
+        id $idType,
+        mentorship_id $textType,
+        task $textType,
+        description $textTypeNullable,
+        due_date $textTypeNullable,
+        completed INTEGER DEFAULT 0,
+        created_at $integerType,
+        updated_at $integerTypeNullable,
+        FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+      )
+    ''');
+
+    // Notifications table - Added 5/29/25
+    await db.execute('''
+      CREATE TABLE notifications (
+        id $idType,
+        user_id $textType,
+        title $textType,
+        message $textType,
+        type TEXT CHECK(type IN ('meeting', 'report', 'announcement', 'task')),
+        priority TEXT CHECK(priority IN ('high', 'medium', 'low')),
+        read INTEGER DEFAULT 0,
+        created_at $integerType,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    ''');
+  }
+
+  // Migration logic for existing databases - Added 5/29/25
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new fields to existing tables
+      await db.execute('ALTER TABLE users ADD COLUMN department TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN year_major TEXT');
+      
+      await db.execute('ALTER TABLE mentorships ADD COLUMN assigned_by TEXT');
+      await db.execute('ALTER TABLE mentorships ADD COLUMN overall_progress REAL DEFAULT 0.0');
+      
+      await db.execute('ALTER TABLE meetings ADD COLUMN location TEXT');
+      
+      // Create new tables
+      await db.execute('''
+        CREATE TABLE mentee_goals (
+          id TEXT PRIMARY KEY,
+          mentorship_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          progress REAL DEFAULT 0.0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER,
+          FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+        )
+      ''');
+      
+      await db.execute('''
+        CREATE TABLE action_items (
+          id TEXT PRIMARY KEY,
+          mentorship_id TEXT NOT NULL,
+          task TEXT NOT NULL,
+          description TEXT,
+          due_date TEXT,
+          completed INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER,
+          FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+        )
+      ''');
+      
+      await db.execute('''
+        CREATE TABLE notifications (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          type TEXT CHECK(type IN ('meeting', 'report', 'announcement', 'task')),
+          priority TEXT CHECK(priority IN ('high', 'medium', 'low')),
+          read INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      ''');
+    }
   }
 
   Future close() async {

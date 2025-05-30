@@ -10,6 +10,9 @@ import '../models/announcement.dart';
 import '../models/checklist.dart';
 import '../models/message.dart';
 import '../models/event.dart';
+import '../models/mentee_goal.dart';
+import '../models/action_item.dart';
+import '../models/notification.dart' as app_notification;
 
 class LocalDatabaseService {
   static final LocalDatabaseService instance = LocalDatabaseService._init();
@@ -304,13 +307,144 @@ class LocalDatabaseService {
     return result.first['count'] as int;
   }
 
+  // ========== MENTEE GOALS OPERATIONS ==========
+  Future<MenteeGoal> createMenteeGoal(MenteeGoal goal) async {
+    final db = await database;
+    await db.insert('mentee_goals', goal.toMap());
+    return goal;
+  }
+
+  Future<List<MenteeGoal>> getGoalsByMentorship(String mentorshipId) async {
+    final db = await database;
+    final maps = await db.query(
+      'mentee_goals',
+      where: 'mentorship_id = ?',
+      whereArgs: [mentorshipId],
+    );
+    return maps.map((map) => MenteeGoal.fromMap(map)).toList();
+  }
+
+  Future<int> updateGoalProgress(String goalId, double progress) async {
+    final db = await database;
+    return db.update(
+      'mentee_goals',
+      {'progress': progress, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [goalId],
+    );
+  }
+
+  Future<int> deleteGoal(String id) async {
+    final db = await database;
+    return db.delete(
+      'mentee_goals',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ========== ACTION ITEMS OPERATIONS ==========
+  Future<ActionItem> createActionItem(ActionItem item) async {
+    final db = await database;
+    await db.insert('action_items', item.toMap());
+    return item;
+  }
+
+  Future<List<ActionItem>> getActionItemsByMentorship(String mentorshipId) async {
+    final db = await database;
+    final maps = await db.query(
+      'action_items',
+      where: 'mentorship_id = ?',
+      whereArgs: [mentorshipId],
+    );
+    return maps.map((map) => ActionItem.fromMap(map)).toList();
+  }
+
+  Future<int> completeActionItem(String itemId) async {
+    final db = await database;
+    return db.update(
+      'action_items',
+      {'completed': 1, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [itemId],
+    );
+  }
+
+  Future<int> updateActionItem(ActionItem item) async {
+    final db = await database;
+    return db.update(
+      'action_items',
+      item.toMap(),
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
+  }
+
+  Future<int> deleteActionItem(String id) async {
+    final db = await database;
+    return db.delete(
+      'action_items',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ========== NOTIFICATIONS OPERATIONS ==========
+  Future<app_notification.Notification> createNotification(app_notification.Notification notification) async {
+    final db = await database;
+    await db.insert('notifications', notification.toMap());
+    return notification;
+  }
+
+  Future<List<app_notification.Notification>> getNotificationsByUser(String userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'notifications',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => app_notification.Notification.fromMap(map)).toList();
+  }
+
+  Future<List<app_notification.Notification>> getUnreadNotifications(String userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'notifications',
+      where: 'user_id = ? AND read = 0',
+      whereArgs: [userId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => app_notification.Notification.fromMap(map)).toList();
+  }
+
+  Future<int> markNotificationAsRead(String notificationId) async {
+    final db = await database;
+    return db.update(
+      'notifications',
+      {'read': 1},
+      where: 'id = ?',
+      whereArgs: [notificationId],
+    );
+  }
+
+  Future<int> deleteNotification(String id) async {
+    final db = await database;
+    return db.delete(
+      'notifications',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // ========== UTILITY OPERATIONS ==========
   Future<void> clearAllTables() async {
     final db = await database;
     final tables = [
       'users', 'mentorships', 'availability', 'meetings',
       'resources', 'messages', 'meeting_notes', 'meeting_ratings',
-      'checklists', 'newsletters', 'announcements', 'progress_reports', 'events'
+      'checklists', 'newsletters', 'announcements', 'progress_reports', 'events',
+      'mentee_goals', 'action_items', 'notifications'
     ];
     
     for (final table in tables) {

@@ -1,5 +1,12 @@
 # SMP Mentor Mentee Mobile App Database Schema
 
+## Update History
+- **5/29/25**: Added missing fields and tables required for mentor dashboard functionality:
+  - Added `location` field to meetings table
+  - Added `department`, `year_major` fields to users table
+  - Added `assigned_by`, `overall_progress` fields to mentorships table
+  - Created new tables: `mentee_goals`, `action_items`, `notifications`
+
 ## Introduction
 
 This schema serves dual purposes:
@@ -21,6 +28,8 @@ CREATE TABLE users (
   mentor TEXT,                               -- Mentor's student_id (for mentees)
   mentee TEXT,                               -- JSON array of mentee student_ids (for mentors, up to 3)
   acknowledgment_signed TEXT CHECK(acknowledgment_signed IN ('yes', 'no', 'not_applicable')) DEFAULT 'not_applicable', -- For mentees only: 'yes', 'no', 'not_applicable' for non-mentees
+  department TEXT,                           -- User's department (e.g., "Computer Science") - Added 5/29/25
+  year_major TEXT,                           -- User's year and major (e.g., "3rd Year, Computer Science Major") - Added 5/29/25
   created_at INTEGER NOT NULL
 );
 ```
@@ -32,6 +41,8 @@ CREATE TABLE mentorships (
   id TEXT PRIMARY KEY,
   mentor_id TEXT NOT NULL,
   mentee_id TEXT NOT NULL,
+  assigned_by TEXT,                          -- User ID of who assigned this mentorship - Added 5/29/25
+  overall_progress REAL DEFAULT 0.0,         -- Overall progress percentage (0-100) - Added 5/29/25
   created_at INTEGER NOT NULL,
   FOREIGN KEY (mentor_id) REFERENCES users(id),
   FOREIGN KEY (mentee_id) REFERENCES users(id),
@@ -65,6 +76,7 @@ CREATE TABLE meetings (
   start_time TEXT NOT NULL,                  -- ISO format or UTC
   end_time TEXT,                             -- Nullable
   topic TEXT,
+  location TEXT,                             -- Meeting location (physical or virtual) - Added 5/29/25
   status TEXT DEFAULT 'pending',             -- 'pending', 'accepted', 'rejected'
   availability_id TEXT,                      -- Optional ref to availability
   synced INTEGER DEFAULT 0,
@@ -221,6 +233,49 @@ CREATE TABLE events (
 );
 ```
 
+### 🔹 mentee_goals (Added 5/29/25)
+```sql
+CREATE TABLE mentee_goals (
+  id TEXT PRIMARY KEY,
+  mentorship_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  progress REAL DEFAULT 0.0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER,
+  FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+);
+```
+
+### 🔹 action_items (Added 5/29/25)
+```sql
+CREATE TABLE action_items (
+  id TEXT PRIMARY KEY,
+  mentorship_id TEXT NOT NULL,
+  task TEXT NOT NULL,
+  description TEXT,
+  due_date TEXT,
+  completed INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER,
+  FOREIGN KEY (mentorship_id) REFERENCES mentorships(id)
+);
+```
+
+### 🔹 notifications (Added 5/29/25)
+```sql
+CREATE TABLE notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT CHECK(type IN ('meeting', 'report', 'announcement', 'task')),
+  priority TEXT CHECK(priority IN ('high', 'medium', 'low')),
+  read INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
 ## Firestore Schema
 
 Describes the collections and data structure in Firestore. **Note:** This mirrors the local SQLite schema, which is the source of truth for synchronization.
@@ -237,6 +292,8 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `mentor`: (String) Mentor's `student_id` (for mentees, optional).
       - `mentee`: (String) JSON string representing an array of mentee `student_id`s (for mentors, optional).
       - `acknowledgment_signed`: (String) For mentees only: 'yes', 'no', or 'not_applicable' for non-mentees.
+      - `department`: (String) User's department (e.g., "Computer Science") - Added 5/29/25.
+      - `year_major`: (String) User's year and major (e.g., "3rd Year, Computer Science Major") - Added 5/29/25.
       - `created_at`: (Timestamp) Timestamp of account creation (mirrors SQLite INTEGER timestamp).
 
       #### Subcollections of users:
@@ -318,6 +375,7 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `startTime`: (Timestamp) Start time of the meeting
       - `endTime`: (Timestamp) End time of the meeting
       - `topic`: (String) Topic of the meeting
+      - `location`: (String) Meeting location (physical or virtual) - Added 5/29/25
       - `status`: (String) Status of the meeting ('pending', 'accepted', 'rejected')
       - `availabilityId`: (String/Reference) Optional reference to the availability slot
       - `synced`: (Boolean) Flag indicating if the meeting is synced with the local database
@@ -391,6 +449,50 @@ Describes the collections and data structure in Firestore. **Note:** This mirror
       - `synced`: (Boolean) Flag indicating if the event is synced with local DB
       - `createdAt`: (Timestamp) When the event was created
       - `updatedAt`: (Timestamp) When the event was last updated
+
+6.  **`mentorships`** (Added 5/29/25)
+    - Description: Stores mentorship relationships between mentors and mentees.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `mentorId`: (String/Reference) ID of the mentor
+      - `menteeId`: (String/Reference) ID of the mentee
+      - `assignedBy`: (String/Reference) User ID of who assigned this mentorship
+      - `overallProgress`: (Number) Overall progress percentage (0-100)
+      - `createdAt`: (Timestamp) When the mentorship was created
+
+7.  **`mentee_goals`** (Added 5/29/25)
+    - Description: Stores goals for mentees within their mentorship.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `mentorshipId`: (String/Reference) ID of the mentorship this goal belongs to
+      - `title`: (String) Title of the goal
+      - `progress`: (Number) Progress percentage (0-100)
+      - `createdAt`: (Timestamp) When the goal was created
+      - `updatedAt`: (Timestamp) When the goal was last updated
+
+8.  **`action_items`** (Added 5/29/25)
+    - Description: Stores tasks and action items for mentees.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `mentorshipId`: (String/Reference) ID of the mentorship this task belongs to
+      - `task`: (String) Task description
+      - `description`: (String) Detailed description (optional)
+      - `dueDate`: (Timestamp/String) Due date for the task
+      - `completed`: (Boolean) Whether the task is completed
+      - `createdAt`: (Timestamp) When the task was created
+      - `updatedAt`: (Timestamp) When the task was last updated
+
+9.  **`notifications`** (Added 5/29/25)
+    - Description: Stores notifications for users.
+    - **Document ID**: Auto-generated unique ID
+    - **Fields**:
+      - `userId`: (String/Reference) ID of the user this notification is for
+      - `title`: (String) Notification title
+      - `message`: (String) Notification message
+      - `type`: (String) Type of notification ('meeting', 'report', 'announcement', 'task')
+      - `priority`: (String) Priority level ('high', 'medium', 'low')
+      - `read`: (Boolean) Whether the notification has been read
+      - `createdAt`: (Timestamp) When the notification was created
 
 ## Hierarchical State/City/Campus Structure
 

@@ -5,6 +5,7 @@ class Meeting {
   final String startTime;
   final String? endTime;
   final String? topic;
+  final String? location; // Added 5/29/25
   final String status;
   final String? availabilityId;
   final bool synced;
@@ -17,6 +18,7 @@ class Meeting {
     required this.startTime,
     this.endTime,
     this.topic,
+    this.location,
     this.status = 'pending',
     this.availabilityId,
     this.synced = false,
@@ -31,6 +33,7 @@ class Meeting {
       startTime: map['start_time'],
       endTime: map['end_time'],
       topic: map['topic'],
+      location: map['location'],
       status: map['status'] ?? 'pending',
       availabilityId: map['availability_id'],
       synced: map['synced'] == 1,
@@ -48,6 +51,7 @@ class Meeting {
       'start_time': startTime,
       'end_time': endTime,
       'topic': topic,
+      'location': location,
       'status': status,
       'availability_id': availabilityId,
       'synced': synced ? 1 : 0,
@@ -62,6 +66,7 @@ class Meeting {
     String? startTime,
     String? endTime,
     String? topic,
+    String? location,
     String? status,
     String? availabilityId,
     bool? synced,
@@ -74,6 +79,7 @@ class Meeting {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       topic: topic ?? this.topic,
+      location: location ?? this.location,
       status: status ?? this.status,
       availabilityId: availabilityId ?? this.availabilityId,
       synced: synced ?? this.synced,

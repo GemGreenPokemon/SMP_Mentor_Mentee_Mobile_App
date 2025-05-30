@@ -8,6 +8,9 @@ import '../models/announcement.dart';
 import '../models/checklist.dart';
 import '../models/message.dart';
 import '../models/event.dart';
+import '../models/mentee_goal.dart';
+import '../models/action_item.dart';
+import '../models/notification.dart' as app_notification;
 import 'local_database_service.dart';
 
 class MockDataGenerator {
@@ -39,6 +42,42 @@ class MockDataGenerator {
     'workshop', 'meeting', 'social', 'training', 'other'
   ];
 
+  static const List<String> _departments = [
+    'Computer Science', 'Engineering', 'Biology', 'Chemistry', 
+    'Mathematics', 'Physics', 'Psychology', 'Business'
+  ];
+
+  static const List<String> _years = [
+    '1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'
+  ];
+
+  static const List<String> _majors = [
+    'Computer Science', 'Electrical Engineering', 'Mechanical Engineering',
+    'Bioengineering', 'Applied Mathematics', 'Data Science', 'Chemistry', 'Physics'
+  ];
+
+  static const List<String> _goalTitles = [
+    'Complete research project proposal',
+    'Improve GPA to 3.5 or higher',
+    'Apply for summer internships',
+    'Join professional organizations',
+    'Develop networking skills',
+    'Master advanced programming concepts',
+    'Publish first research paper',
+    'Prepare for graduate school applications'
+  ];
+
+  static const List<String> _actionTasks = [
+    'Schedule weekly check-in meetings',
+    'Review and update resume',
+    'Complete online certification course',
+    'Attend career fair',
+    'Submit internship applications',
+    'Practice technical interview questions',
+    'Join study group for difficult course',
+    'Meet with academic advisor'
+  ];
+
   static Future<void> generateMockData({
     bool includeCoordinators = true,
     bool includeMentors = true,
@@ -63,6 +102,8 @@ class MockDataGenerator {
             email: 'coordinator${i + 1}@ucmerced.edu',
             userType: 'coordinator',
             studentId: 'COORD${(1000 + i).toString()}',
+            department: 'Student Affairs',
+            yearMajor: 'Staff',
             createdAt: DateTime.now().subtract(Duration(days: 365 - i * 30)),
           );
           await _localDb.createUser(coordinator);
@@ -83,12 +124,15 @@ class MockDataGenerator {
         // Check if mentor already exists
         final existingMentor = await _localDb.getUserByEmail('mentor${i + 1}@ucmerced.edu');
         if (existingMentor == null) {
+          final randomMajor = _majors[_random.nextInt(_majors.length)];
           final mentor = User(
             id: _localDb.generateId(),
             name: '${_firstNames[_random.nextInt(_firstNames.length)]} ${_lastNames[_random.nextInt(_lastNames.length)]}',
             email: 'mentor${i + 1}@ucmerced.edu',
             userType: 'mentor',
             studentId: 'M${(2000 + i).toString()}',
+            department: _departments[_random.nextInt(_departments.length)],
+            yearMajor: '${_years[2 + _random.nextInt(3)]}, $randomMajor Major',
             createdAt: DateTime.now().subtract(Duration(days: 300 - i * 20)),
           );
           await _localDb.createUser(mentor);
@@ -138,6 +182,7 @@ class MockDataGenerator {
           // Check if mentee already exists
           final existingMentee = await _localDb.getUserByEmail('mentee${menteeCounter}@ucmerced.edu');
           if (existingMentee == null) {
+            final randomMajor = _majors[_random.nextInt(_majors.length)];
             final mentee = User(
               id: _localDb.generateId(),
               name: '${_firstNames[_random.nextInt(_firstNames.length)]} ${_lastNames[_random.nextInt(_lastNames.length)]}',
@@ -146,6 +191,8 @@ class MockDataGenerator {
               studentId: 'S${(3000 + menteeCounter).toString()}',
               mentor: mentor.studentId,
               acknowledgmentSigned: _random.nextBool() ? 'yes' : 'no',
+              department: _departments[_random.nextInt(_departments.length)],
+              yearMajor: '${_years[_random.nextInt(2)]}, $randomMajor Major',
               createdAt: DateTime.now().subtract(Duration(days: 200 - menteeCounter * 10)),
             );
             await _localDb.createUser(mentee);
@@ -157,9 +204,39 @@ class MockDataGenerator {
               id: _localDb.generateId(),
               mentorId: mentor.id,
               menteeId: mentee.id,
+              assignedBy: coordinators.isNotEmpty ? coordinators[0].id : null,
+              overallProgress: _random.nextDouble() * 100, // Random progress 0-100
               createdAt: mentee.createdAt,
             );
             await _localDb.createMentorship(mentorship);
+
+            // Generate mentee goals for this mentorship
+            for (int g = 0; g < 3 + _random.nextInt(3); g++) {
+              final goal = MenteeGoal(
+                id: _localDb.generateId(),
+                mentorshipId: mentorship.id,
+                title: _goalTitles[_random.nextInt(_goalTitles.length)],
+                progress: _random.nextDouble() * 100,
+                createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(60))),
+                updatedAt: DateTime.now().subtract(Duration(days: _random.nextInt(7))),
+              );
+              await _localDb.createMenteeGoal(goal);
+            }
+
+            // Generate action items for this mentorship
+            for (int a = 0; a < 2 + _random.nextInt(4); a++) {
+              final dueDate = DateTime.now().add(Duration(days: _random.nextInt(30)));
+              final actionItem = ActionItem(
+                id: _localDb.generateId(),
+                mentorshipId: mentorship.id,
+                task: _actionTasks[_random.nextInt(_actionTasks.length)],
+                description: 'Additional details for this task',
+                dueDate: dueDate.toIso8601String(),
+                completed: _random.nextDouble() < 0.3, // 30% chance of being completed
+                createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(14))),
+              );
+              await _localDb.createActionItem(actionItem);
+            }
 
             // Generate checklist items for each mentee
             for (int k = 0; k < 5; k++) {
@@ -211,6 +288,7 @@ class MockDataGenerator {
             startTime: startTime.toIso8601String(),
             endTime: startTime.add(Duration(hours: 1)).toIso8601String(),
             topic: _meetingTopics[_random.nextInt(_meetingTopics.length)],
+            location: _random.nextBool() ? 'Room ${100 + _random.nextInt(400)}' : 'Virtual - Zoom',
             status: ['pending', 'accepted', 'rejected'][_random.nextInt(3)],
             createdAt: startTime.subtract(Duration(days: _random.nextInt(5))),
           );
@@ -274,6 +352,51 @@ class MockDataGenerator {
       );
       await _localDb.createEvent(event);
     }
+    }
+
+    // Generate notifications for all users
+    final allUsers = [...coordinators, ...mentors, ...mentees];
+    for (final user in allUsers) {
+      // Generate 2-5 notifications per user
+      for (int i = 0; i < 2 + _random.nextInt(4); i++) {
+        final notificationType = ['meeting', 'report', 'announcement', 'task'][_random.nextInt(4)];
+        String title;
+        String message;
+        
+        switch (notificationType) {
+          case 'meeting':
+            title = 'Upcoming Meeting Reminder';
+            message = 'You have a meeting scheduled tomorrow at 2:00 PM';
+            break;
+          case 'report':
+            title = 'Progress Report Due';
+            message = 'Your monthly progress report is due in 3 days';
+            break;
+          case 'announcement':
+            title = 'New Announcement';
+            message = 'A new announcement has been posted for your program';
+            break;
+          case 'task':
+            title = 'Task Reminder';
+            message = 'You have 2 pending tasks due this week';
+            break;
+          default:
+            title = 'Notification';
+            message = 'You have a new notification';
+        }
+        
+        final notification = app_notification.Notification(
+          id: _localDb.generateId(),
+          userId: user.id,
+          title: title,
+          message: message,
+          type: notificationType,
+          priority: ['high', 'medium', 'low'][_random.nextInt(3)],
+          read: _random.nextDouble() < 0.6, // 60% chance of being read
+          createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(14))),
+        );
+        await _localDb.createNotification(notification);
+      }
     }
   }
 

@@ -7,6 +7,8 @@ class User {
   final String? mentor;
   final String? mentee;
   final String acknowledgmentSigned;
+  final String? department; // Added 5/29/25
+  final String? yearMajor; // Added 5/29/25
   final DateTime createdAt;
 
   User({
@@ -18,6 +20,8 @@ class User {
     this.mentor,
     this.mentee,
     this.acknowledgmentSigned = 'not_applicable',
+    this.department,
+    this.yearMajor,
     required this.createdAt,
   });
 
@@ -31,6 +35,8 @@ class User {
       mentor: map['mentor'],
       mentee: map['mentee'],
       acknowledgmentSigned: map['acknowledgment_signed'] ?? 'not_applicable',
+      department: map['department'],
+      yearMajor: map['year_major'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
     );
   }
@@ -45,6 +51,8 @@ class User {
       'mentor': mentor,
       'mentee': mentee,
       'acknowledgment_signed': acknowledgmentSigned,
+      'department': department,
+      'year_major': yearMajor,
       'created_at': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -58,6 +66,8 @@ class User {
     String? mentor,
     String? mentee,
     String? acknowledgmentSigned,
+    String? department,
+    String? yearMajor,
     DateTime? createdAt,
   }) {
     return User(
@@ -69,6 +79,8 @@ class User {
       mentor: mentor ?? this.mentor,
       mentee: mentee ?? this.mentee,
       acknowledgmentSigned: acknowledgmentSigned ?? this.acknowledgmentSigned,
+      department: department ?? this.department,
+      yearMajor: yearMajor ?? this.yearMajor,
       createdAt: createdAt ?? this.createdAt,
     );
   }
