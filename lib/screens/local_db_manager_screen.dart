@@ -164,7 +164,6 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
     );
   }
 
-  @override
   Future<void> _deleteAllData() async {
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(

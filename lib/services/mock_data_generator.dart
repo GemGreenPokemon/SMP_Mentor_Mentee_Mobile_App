@@ -11,6 +11,7 @@ import '../models/event.dart';
 import '../models/mentee_goal.dart';
 import '../models/action_item.dart';
 import '../models/notification.dart' as app_notification;
+import '../models/meeting_note.dart';
 import 'local_database_service.dart';
 
 class MockDataGenerator {
@@ -78,6 +79,28 @@ class MockDataGenerator {
     'Meet with academic advisor'
   ];
 
+  static const List<String> _mentorNotes = [
+    'Student showed great enthusiasm for the project. We discussed potential research opportunities and identified three areas of interest.',
+    'Reviewed midterm grades and developed a study plan for the remaining semester. Student is struggling with calculus but making progress.',
+    'Excellent progress on resume development. Added two new projects and updated skills section. Ready for internship applications.',
+    'Discussed career goals and potential graduate school options. Student is interested in pursuing a PhD in computer science.',
+    'Student presented their research proposal. Needs to narrow down the scope and add more technical details.',
+    'Great meeting discussing time management strategies. Student has been overwhelmed but now has a clear weekly schedule.',
+    'Explored networking opportunities and professional development resources. Set up LinkedIn profile and joined relevant organizations.',
+    'Student is excelling in coursework and showing leadership potential. Discussed opportunities to mentor other students.'
+  ];
+
+  static const List<String> _menteeNotes = [
+    'Found the discussion about research methods very helpful. Will follow up on the resources suggested and prepare a draft.',
+    'Appreciate the guidance on study strategies. The techniques discussed should help with upcoming exams.',
+    'Great feedback on my resume. The suggested changes make it much stronger for internship applications.',
+    'Valuable insights about graduate school requirements. Now have a clear timeline for applications.',
+    'The research presentation feedback was constructive. Will revise the proposal based on the suggestions.',
+    'Time management tips are already making a difference. Feeling more organized and less stressed.',
+    'Networking advice was extremely helpful. Already connected with several professionals in my field.',
+    'Inspired by the mentorship opportunities discussed. Excited to give back to younger students.'
+  ];
+
   static Future<void> generateMockData({
     bool includeCoordinators = true,
     bool includeMentors = true,
@@ -139,26 +162,26 @@ class MockDataGenerator {
           mentors.add(mentor);
 
           // Generate availability for each mentor
-          final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-          for (int j = 0; j < 3; j++) {
-            final availability = Availability(
-              id: _localDb.generateId(),
-              mentorId: mentor.id,
-              day: days[_random.nextInt(days.length)],
-              slotStart: '${9 + _random.nextInt(8)}:00',
-              slotEnd: '${10 + _random.nextInt(8)}:00',
-              isBooked: _random.nextBool(),
-              updatedAt: DateTime.now(),
-            );
-            await _localDb.createAvailability(availability);
-          }
+          await _generateAvailabilityForMentor(mentor);
         } else {
           mentors.add(existingMentor);
+          // Generate availability for existing mentor if they don't have any
+          final existingAvailability = await _localDb.getAvailabilityByMentor(existingMentor.id);
+          if (existingAvailability.isEmpty) {
+            await _generateAvailabilityForMentor(existingMentor);
+          }
         }
       }
     } else {
       // Load existing mentors for relationships
       mentors = await _localDb.getUsersByType('mentor');
+      // Generate availability for existing mentors if they don't have any
+      for (final mentor in mentors) {
+        final existingAvailability = await _localDb.getAvailabilityByMentor(mentor.id);
+        if (existingAvailability.isEmpty) {
+          await _generateAvailabilityForMentor(mentor);
+        }
+      }
     }
 
     // Generate mentees and create mentorships
@@ -297,6 +320,57 @@ class MockDataGenerator {
       }
     }
 
+    // Generate meeting notes for existing meetings
+    if (mentors.isNotEmpty && mentees.isNotEmpty) {
+      final allMeetings = await _localDb.getTableData('meetings');
+      
+      for (final meetingMap in allMeetings) {
+        final meeting = Meeting.fromMap(meetingMap);
+        final meetingDate = DateTime.tryParse(meeting.startTime);
+        
+        // Only create notes for past meetings (meetings that have happened)
+        if (meetingDate != null && meetingDate.isBefore(DateTime.now())) {
+          // Get mentor and mentee for this meeting
+          final mentor = mentors.firstWhere((m) => m.id == meeting.mentorId, orElse: () => mentors.first);
+          final mentee = mentees.firstWhere((m) => m.id == meeting.menteeId, orElse: () => mentees.first);
+          
+          // 70% chance of having mentor notes
+          if (_random.nextDouble() < 0.7) {
+            final mentorNote = MeetingNote(
+              id: _localDb.generateId(),
+              meetingId: meeting.id,
+              authorId: mentor.id,
+              isMentor: true,
+              isShared: _random.nextBool(), // 50% chance of being shared
+              rawNote: _mentorNotes[_random.nextInt(_mentorNotes.length)],
+              organizedNote: _random.nextBool() ? 'AI-organized version of the meeting notes with key points highlighted.' : null,
+              isAiGenerated: _random.nextDouble() < 0.3, // 30% chance of AI generation
+              createdAt: meetingDate.add(Duration(minutes: 15 + _random.nextInt(120))), // Created 15-135 minutes after meeting
+              updatedAt: _random.nextBool() ? meetingDate.add(Duration(hours: 1 + _random.nextInt(24))) : null,
+            );
+            await _localDb.createMeetingNote(mentorNote);
+          }
+          
+          // 60% chance of having mentee notes
+          if (_random.nextDouble() < 0.6) {
+            final menteeNote = MeetingNote(
+              id: _localDb.generateId(),
+              meetingId: meeting.id,
+              authorId: mentee.id,
+              isMentor: false,
+              isShared: _random.nextDouble() < 0.8, // 80% chance of sharing mentee notes
+              rawNote: _menteeNotes[_random.nextInt(_menteeNotes.length)],
+              organizedNote: null, // Mentees typically don't use AI organization
+              isAiGenerated: false,
+              createdAt: meetingDate.add(Duration(minutes: 30 + _random.nextInt(180))), // Created 30-210 minutes after meeting
+              updatedAt: _random.nextBool() ? meetingDate.add(Duration(hours: 2 + _random.nextInt(48))) : null,
+            );
+            await _localDb.createMeetingNote(menteeNote);
+          }
+        }
+      }
+    }
+
     // Generate announcements (only if we have coordinators)
     if (coordinators.isNotEmpty) {
       for (int i = 0; i < 10; i++) {
@@ -412,6 +486,50 @@ class MockDataGenerator {
       return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
     } else {
       return 'Just now';
+    }
+  }
+
+  // Generate realistic availability slots for a mentor
+  static Future<void> _generateAvailabilityForMentor(User mentor) async {
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    final timeSlots = [
+      '9:00 AM', '10:00 AM', '11:00 AM', 
+      '2:00 PM', '3:00 PM', '4:00 PM'
+    ];
+    
+    // Generate availability for next 30 days
+    final now = DateTime.now();
+    for (int dayOffset = 0; dayOffset < 30; dayOffset++) {
+      final currentDate = now.add(Duration(days: dayOffset));
+      final dayOfWeek = currentDate.weekday;
+      
+      // Skip weekends
+      if (dayOfWeek == 6 || dayOfWeek == 7) continue;
+      
+      // Format date as YYYY-MM-DD
+      final dateString = '${currentDate.year}-${currentDate.month.toString().padLeft(2, '0')}-${currentDate.day.toString().padLeft(2, '0')}';
+      
+      // Randomly select 2-4 time slots for this day
+      final numSlots = 2 + _random.nextInt(3);
+      final selectedSlots = List<String>.from(timeSlots)..shuffle(_random);
+      
+      for (int i = 0; i < numSlots && i < selectedSlots.length; i++) {
+        // For past dates, some slots might be booked
+        // For future dates, all slots should be available for the mentor to set
+        final isPastDate = currentDate.isBefore(DateTime.now());
+        final isBooked = isPastDate && _random.nextDouble() < 0.2;
+        
+        final availability = Availability(
+          id: _localDb.generateId(),
+          mentorId: mentor.id,
+          day: dateString, // Using date string instead of day name
+          slotStart: selectedSlots[i],
+          isBooked: isBooked,
+          menteeId: isBooked ? 'mentee${_random.nextInt(10) + 1}' : null,
+          updatedAt: DateTime.now(),
+        );
+        await _localDb.createAvailability(availability);
+      }
     }
   }
 }

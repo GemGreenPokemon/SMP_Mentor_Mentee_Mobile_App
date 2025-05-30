@@ -8,6 +8,7 @@ import '../models/announcement.dart';
 import '../models/mentee_goal.dart';
 import '../models/action_item.dart';
 import '../models/notification.dart' as app_notification;
+import '../models/meeting_note.dart';
 
 class MentorService extends ChangeNotifier {
   final LocalDatabaseService _localDb = LocalDatabaseService.instance;
@@ -742,6 +743,149 @@ class MentorService extends ChangeNotifier {
     } else {
       _hasInitialized = true;
       notifyListeners();
+    }
+  }
+
+  // ========== MEETING NOTES OPERATIONS ==========
+  
+  /// Get meeting notes for a specific mentorship relationship
+  Future<List<MeetingNote>> getMeetingNotesForMentorship(String mentorId, String menteeId) async {
+    if (!_shouldUseDatabase) {
+      return []; // Return empty list for mock mode
+    }
+    
+    try {
+      return await _localDb.getMeetingNotesByMentorship(mentorId, menteeId);
+    } catch (e) {
+      debugPrint('Error loading meeting notes: $e');
+      return [];
+    }
+  }
+
+  /// Get meeting notes for a specific meeting
+  Future<List<MeetingNote>> getMeetingNotesForMeeting(String meetingId) async {
+    if (!_shouldUseDatabase) {
+      return []; // Return empty list for mock mode
+    }
+    
+    try {
+      return await _localDb.getMeetingNotesByMeeting(meetingId);
+    } catch (e) {
+      debugPrint('Error loading meeting notes: $e');
+      return [];
+    }
+  }
+
+  /// Get all meeting notes by the current test user (mentor)
+  Future<List<MeetingNote>> getMentorMeetingNotes() async {
+    if (!_shouldUseDatabase || TestModeManager.currentTestUser == null) {
+      return []; // Return empty list for mock mode
+    }
+    
+    try {
+      return await _localDb.getMeetingNotesByAuthor(TestModeManager.currentTestUser!.id);
+    } catch (e) {
+      debugPrint('Error loading mentor meeting notes: $e');
+      return [];
+    }
+  }
+
+  /// Create a new meeting note
+  Future<MeetingNote?> createMeetingNote({
+    required String meetingId,
+    required String rawNote,
+    bool isShared = false,
+    String? organizedNote,
+    bool isAiGenerated = false,
+  }) async {
+    if (!_shouldUseDatabase || TestModeManager.currentTestUser == null) {
+      debugPrint('Cannot create meeting note: not in test mode or no test user');
+      return null;
+    }
+    
+    try {
+      final note = MeetingNote(
+        id: _localDb.generateId(),
+        meetingId: meetingId,
+        authorId: TestModeManager.currentTestUser!.id,
+        isMentor: TestModeManager.currentTestUser!.userType == 'mentor',
+        isShared: isShared,
+        rawNote: rawNote,
+        organizedNote: organizedNote,
+        isAiGenerated: isAiGenerated,
+        createdAt: DateTime.now(),
+      );
+      
+      final createdNote = await _localDb.createMeetingNote(note);
+      notifyListeners(); // Refresh UI
+      return createdNote;
+    } catch (e) {
+      debugPrint('Error creating meeting note: $e');
+      return null;
+    }
+  }
+
+  /// Update an existing meeting note
+  Future<bool> updateMeetingNote(MeetingNote note) async {
+    if (!_shouldUseDatabase) {
+      debugPrint('Cannot update meeting note: not in test mode');
+      return false;
+    }
+    
+    try {
+      final updatedNote = note.copyWith(
+        updatedAt: DateTime.now(),
+      );
+      
+      final result = await _localDb.updateMeetingNote(updatedNote);
+      if (result > 0) {
+        notifyListeners(); // Refresh UI
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error updating meeting note: $e');
+      return false;
+    }
+  }
+
+  /// Share or unshare a meeting note
+  Future<bool> shareMeetingNote(String noteId, bool isShared) async {
+    if (!_shouldUseDatabase) {
+      debugPrint('Cannot share meeting note: not in test mode');
+      return false;
+    }
+    
+    try {
+      final result = await _localDb.shareMeetingNote(noteId, isShared);
+      if (result > 0) {
+        notifyListeners(); // Refresh UI
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error sharing meeting note: $e');
+      return false;
+    }
+  }
+
+  /// Delete a meeting note
+  Future<bool> deleteMeetingNote(String noteId) async {
+    if (!_shouldUseDatabase) {
+      debugPrint('Cannot delete meeting note: not in test mode');
+      return false;
+    }
+    
+    try {
+      final result = await _localDb.deleteMeetingNote(noteId);
+      if (result > 0) {
+        notifyListeners(); // Refresh UI
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error deleting meeting note: $e');
+      return false;
     }
   }
 }

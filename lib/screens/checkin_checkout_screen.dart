@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../models/meeting.dart';
+import '../models/meeting_note.dart';
+import '../services/local_database_service.dart';
+import '../utils/test_mode_manager.dart';
 
 class CheckInCheckOutScreen extends StatefulWidget {
   final String meetingTitle;
@@ -6,6 +10,7 @@ class CheckInCheckOutScreen extends StatefulWidget {
   final String location;
   final String scheduledTime;
   final bool isMentor;
+  final Meeting? meeting;  // Pass the actual meeting object if available
 
   const CheckInCheckOutScreen({
     super.key,
@@ -14,6 +19,7 @@ class CheckInCheckOutScreen extends StatefulWidget {
     required this.location,
     required this.scheduledTime,
     this.isMentor = false,
+    this.meeting,
   });
 
   @override
@@ -81,12 +87,43 @@ good interest in AI/ML''';
     );
   }
 
-  void _checkOut() {
+  Future<void> _checkOut() async {
     // Set the check-out time
     print("Check-out button pressed");
     setState(() {
       _checkOutTime = DateTime.now();
     });
+    
+    // Save meeting notes to database if in test mode
+    if (TestModeManager.isTestMode && widget.meeting != null && TestModeManager.currentTestUser != null) {
+      try {
+        // Update meeting status to completed
+        final updatedMeeting = widget.meeting!.copyWith(
+          status: 'completed',
+        );
+        await LocalDatabaseService.instance.updateMeeting(updatedMeeting);
+        
+        // Save meeting notes if any were written
+        final notesText = widget.isMentor ? _mentorNotesController.text : _notesController.text;
+        if (notesText.trim().isNotEmpty) {
+          final note = MeetingNote(
+            id: LocalDatabaseService.instance.generateId(),
+            meetingId: widget.meeting!.id,
+            authorId: TestModeManager.currentTestUser!.id,
+            isMentor: widget.isMentor,
+            isShared: widget.isMentor ? _shareNotesWithMentor : true,
+            rawNote: notesText.trim(),
+            organizedNote: _notesOrganized ? _organizedNotesController.text.trim() : null,
+            isAiGenerated: false,
+            createdAt: DateTime.now(),
+          );
+          
+          await LocalDatabaseService.instance.createMeetingNote(note);
+        }
+      } catch (e) {
+        debugPrint('Error saving meeting data: $e');
+      }
+    }
     
     // Show the rating dialog for mentees
     if (!widget.isMentor) {
@@ -99,7 +136,7 @@ good interest in AI/ML''';
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You have checked out successfully!'),
+          content: Text('You have checked out successfully! Meeting notes saved.'),
           backgroundColor: Colors.green,
         ),
       );

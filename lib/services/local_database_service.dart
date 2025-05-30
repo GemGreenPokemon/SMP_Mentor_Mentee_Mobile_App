@@ -13,6 +13,7 @@ import '../models/event.dart';
 import '../models/mentee_goal.dart';
 import '../models/action_item.dart';
 import '../models/notification.dart' as app_notification;
+import '../models/meeting_note.dart';
 
 class LocalDatabaseService {
   static final LocalDatabaseService instance = LocalDatabaseService._init();
@@ -42,6 +43,9 @@ class LocalDatabaseService {
     }
     return null;
   }
+
+  // Alias for getUser to match naming convention
+  Future<User?> getUserById(String id) => getUser(id);
 
   Future<User?> getUserByEmail(String email) async {
     final db = await database;
@@ -171,16 +175,6 @@ class LocalDatabaseService {
     return meeting;
   }
 
-  Future<List<Meeting>> getMeetingsByMentor(String mentorId) async {
-    final db = await database;
-    final result = await db.query(
-      'meetings',
-      where: 'mentor_id = ?',
-      whereArgs: [mentorId],
-    );
-    return result.map((map) => Meeting.fromMap(map)).toList();
-  }
-
   Future<List<Meeting>> getMeetingsByMentee(String menteeId) async {
     final db = await database;
     final result = await db.query(
@@ -213,6 +207,17 @@ class LocalDatabaseService {
       'meetings',
       where: 'mentor_id = ? AND mentee_id = ?',
       whereArgs: [mentorId, menteeId],
+      orderBy: 'start_time ASC',
+    );
+    return maps.map((map) => Meeting.fromMap(map)).toList();
+  }
+  
+  Future<List<Meeting>> getMeetingsByMentor(String mentorId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meetings',
+      where: 'mentor_id = ?',
+      whereArgs: [mentorId],
       orderBy: 'start_time ASC',
     );
     return maps.map((map) => Meeting.fromMap(map)).toList();
@@ -457,6 +462,172 @@ class LocalDatabaseService {
       'notifications',
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  // ========== MEETING NOTES OPERATIONS ==========
+  Future<MeetingNote> createMeetingNote(MeetingNote note) async {
+    final db = await database;
+    await db.insert('meeting_notes', note.toMap());
+    return note;
+  }
+
+  Future<List<MeetingNote>> getMeetingNotesByMeeting(String meetingId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meeting_notes',
+      where: 'meeting_id = ?',
+      whereArgs: [meetingId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => MeetingNote.fromMap(map)).toList();
+  }
+
+  Future<List<MeetingNote>> getMeetingNotesByAuthor(String authorId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meeting_notes',
+      where: 'author_id = ?',
+      whereArgs: [authorId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => MeetingNote.fromMap(map)).toList();
+  }
+
+  Future<List<MeetingNote>> getMeetingNotesByMentorship(String mentorId, String menteeId) async {
+    final db = await database;
+    final maps = await db.rawQuery('''
+      SELECT mn.* FROM meeting_notes mn
+      INNER JOIN meetings m ON mn.meeting_id = m.id
+      WHERE m.mentor_id = ? AND m.mentee_id = ?
+      ORDER BY mn.created_at DESC
+    ''', [mentorId, menteeId]);
+    return maps.map((map) => MeetingNote.fromMap(map)).toList();
+  }
+
+  Future<List<MeetingNote>> getSharedMeetingNotes(String meetingId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meeting_notes',
+      where: 'meeting_id = ? AND is_shared = 1',
+      whereArgs: [meetingId],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((map) => MeetingNote.fromMap(map)).toList();
+  }
+
+  Future<int> updateMeetingNote(MeetingNote note) async {
+    final db = await database;
+    return db.update(
+      'meeting_notes',
+      note.toMap(),
+      where: 'id = ?',
+      whereArgs: [note.id],
+    );
+  }
+
+  Future<int> shareMeetingNote(String noteId, bool isShared) async {
+    final db = await database;
+    return db.update(
+      'meeting_notes',
+      {
+        'is_shared': isShared ? 1 : 0,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [noteId],
+    );
+  }
+
+  Future<int> deleteMeetingNote(String id) async {
+    final db = await database;
+    return db.delete(
+      'meeting_notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> getMeetingNotesCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM meeting_notes');
+    return result.first['count'] as int;
+  }
+
+  // The missing availability methods that were added below
+  Future<List<Availability>> getAvailabilityByDay(String mentorId, String day) async {
+    final db = await database;
+    final maps = await db.query(
+      'availability',
+      where: 'mentor_id = ? AND day = ?',
+      whereArgs: [mentorId, day],
+      orderBy: 'slot_start ASC',
+    );
+    return maps.map((map) => Availability.fromMap(map)).toList();
+  }
+
+  Future<List<Availability>> getAvailableSlots(String mentorId, {String? day}) async {
+    final db = await database;
+    String whereClause = 'mentor_id = ? AND is_booked = 0';
+    List<dynamic> whereArgs = [mentorId];
+    
+    if (day != null) {
+      whereClause += ' AND day = ?';
+      whereArgs.add(day);
+    }
+    
+    final maps = await db.query(
+      'availability',
+      where: whereClause,
+      whereArgs: whereArgs,
+      orderBy: 'day ASC, slot_start ASC',
+    );
+    return maps.map((map) => Availability.fromMap(map)).toList();
+  }
+
+  Future<int> bookAvailabilitySlot(String availabilityId, String menteeId) async {
+    final db = await database;
+    return db.update(
+      'availability',
+      {
+        'is_booked': 1,
+        'mentee_id': menteeId,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ? AND is_booked = 0',
+      whereArgs: [availabilityId],
+    );
+  }
+
+  Future<int> unbookAvailabilitySlot(String availabilityId) async {
+    final db = await database;
+    return db.update(
+      'availability',
+      {
+        'is_booked': 0,
+        'mentee_id': null,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [availabilityId],
+    );
+  }
+
+  Future<int> deleteAvailability(String id) async {
+    final db = await database;
+    return db.delete(
+      'availability',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteAllAvailabilityForMentor(String mentorId) async {
+    final db = await database;
+    return db.delete(
+      'availability',
+      where: 'mentor_id = ?',
+      whereArgs: [mentorId],
     );
   }
 

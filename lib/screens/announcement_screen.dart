@@ -529,8 +529,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> {
                 announcement['priority'] = priority;
               }
 
-              // Notify listeners to update the UI
-              mentorService.notifyListeners();
+              // Update the state to refresh UI
+              setState(() {});
               Navigator.pop(context);
 
               ScaffoldMessenger.of(context).showSnackBar(
@@ -568,8 +568,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> {
               // Remove the announcement from the list
               mentorService.announcements.remove(announcement);
               
-              // Notify listeners to update the UI
-              mentorService.notifyListeners();
+              // Update the state to refresh UI
+              setState(() {});
               Navigator.pop(context);
 
               ScaffoldMessenger.of(context).showSnackBar(

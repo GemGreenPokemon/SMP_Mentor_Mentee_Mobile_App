@@ -13,8 +13,6 @@ class CoordinatorDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mentorService = Provider.of<MentorService>(context);
-    
     return Scaffold(
       appBar: AppBar(
         title: Column(

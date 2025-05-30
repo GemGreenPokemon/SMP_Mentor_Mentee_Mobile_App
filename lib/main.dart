@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import './screens/login_screen.dart';
 import './screens/web_login_screen.dart';
 import './screens/mentee_dashboard_screen.dart';

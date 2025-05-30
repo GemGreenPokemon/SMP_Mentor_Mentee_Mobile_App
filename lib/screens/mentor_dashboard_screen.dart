@@ -12,6 +12,7 @@ import 'checkin_checkout_screen.dart';
 import 'newsletter_screen.dart';
 import 'announcement_screen.dart';
 import '../utils/developer_session.dart';
+import '../models/meeting.dart';
 
 class MentorDashboardScreen extends StatelessWidget {
   const MentorDashboardScreen({super.key});
@@ -644,8 +645,10 @@ class MentorDashboardScreen extends StatelessWidget {
     bool isNext,
     MentorService mentorService,
     String menteeName,
-    String meetingTitle,
-  ) {
+    String meetingTitle, {
+    Meeting? meeting,
+    String? location,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -676,9 +679,9 @@ class MentorDashboardScreen extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                const Text(
-                  'Location: KL 109',
-                  style: TextStyle(
+                Text(
+                  'Location: ${location ?? "KL 109"}',
+                  style: const TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
                   ),
@@ -698,9 +701,10 @@ class MentorDashboardScreen extends StatelessWidget {
                         builder: (context) => CheckInCheckOutScreen(
                           meetingTitle: meetingTitle,
                           mentorName: 'You',
-                          location: 'KL 109',
+                          location: location ?? 'KL 109',
                           scheduledTime: time,
                           isMentor: true,
+                          meeting: meeting,
                         ),
                       ),
                     );

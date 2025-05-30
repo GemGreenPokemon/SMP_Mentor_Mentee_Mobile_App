@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import '../utils/test_mode_manager.dart';
+import '../services/local_database_service.dart';
+import '../models/availability.dart';
+import '../models/meeting.dart';
+import '../models/user.dart';
 
 class ScheduleMeetingScreen extends StatefulWidget {
   final bool isMentor;
@@ -11,9 +16,18 @@ class ScheduleMeetingScreen extends StatefulWidget {
 class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   DateTime selectedDate = DateTime.now();
   String? selectedTime;
+  String? selectedAvailabilityId;
   String selectedLocation = 'KL 109';
   bool isRecurring = false;
   int recurringWeeks = 4;
+  
+  final LocalDatabaseService _localDb = LocalDatabaseService.instance;
+  User? _currentUser;
+  User? _otherUser; // Mentor for mentees, or selected mentee for mentors
+  List<Availability> _availabilities = [];
+  List<Meeting> _pendingMeetings = []; // Pending meeting requests
+  Map<String, User> _menteeMap = {}; // Map of mentee IDs to User objects
+  bool _isLoading = true;
 
   // Mock data for mentor's available time slots and status
   final Map<String, List<MentorTimeSlot>> mentorAvailability = {
@@ -66,9 +80,96 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   TextEditingController _customLocationController = TextEditingController();
   bool _addingLocation = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (TestModeManager.isTestMode) {
+      try {
+        // Get current user from test mode
+        _currentUser = TestModeManager.currentTestUser;
+        
+        if (_currentUser != null) {
+          if (widget.isMentor) {
+            // Mentor viewing their own availability (both available and booked)
+            _availabilities = await _localDb.getAvailabilityByMentor(_currentUser!.id);
+            
+            // Load pending meeting requests
+            final allMeetings = await _localDb.getMeetingsByMentor(_currentUser!.id);
+            _pendingMeetings = allMeetings.where((m) => m.status == 'pending').toList();
+            
+            // Load mentee information for pending meetings
+            for (final meeting in _pendingMeetings) {
+              final mentee = await _localDb.getUserById(meeting.menteeId);
+              if (mentee != null) {
+                _menteeMap[meeting.menteeId] = mentee;
+              }
+            }
+          } else {
+            // Mentee viewing mentor's availability
+            // Find the mentor for this mentee
+            final mentorships = await _localDb.getMentorshipsByMentee(_currentUser!.id);
+            if (mentorships.isNotEmpty) {
+              final mentorId = mentorships.first.mentorId;
+              _otherUser = await _localDb.getUser(mentorId);
+              if (_otherUser != null) {
+                // Get only available (non-booked) slots
+                _availabilities = await _localDb.getAvailableSlots(mentorId);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading availability data: $e');
+      }
+    }
+    
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
   List<MentorTimeSlot> getAvailableTimeSlots() {
     final dateKey = selectedDate.toString().split(' ')[0];
-    // For mentors, initialize default slots if none exist
+    
+    // If in test mode and we have loaded availability data
+    if (TestModeManager.isTestMode && _availabilities.isNotEmpty) {
+      // Filter availabilities for the selected date
+      final slotsForDate = _availabilities.where((avail) => avail.day == dateKey).toList();
+      
+      return slotsForDate.map((avail) {
+        String status = 'Available';
+        String? menteeName;
+        
+        if (avail.isBooked) {
+          status = 'Booked';
+          // Find if there's a pending meeting for this slot
+          final pendingMeeting = _pendingMeetings.firstWhere(
+            (m) => m.availabilityId == avail.id,
+            orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
+          );
+          
+          if (pendingMeeting.id.isNotEmpty) {
+            status = 'Pending Request';
+            menteeName = _menteeMap[pendingMeeting.menteeId]?.name;
+          } else if (avail.menteeId != null) {
+            menteeName = _menteeMap[avail.menteeId]?.name;
+          }
+        }
+        
+        return MentorTimeSlot(
+          avail.slotStart, 
+          status,
+          availabilityId: avail.id,
+          menteeName: menteeName,
+        );
+      }).toList();
+    }
+    
+    // Fallback to hardcoded data if not in test mode
     if (widget.isMentor) {
       mentorAvailability.putIfAbsent(dateKey, () => [
         MentorTimeSlot('9:00 AM', 'Available'),
@@ -79,7 +180,6 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         MentorTimeSlot('4:00 PM', 'Available'),
       ]);
     }
-    // Return slots for the date (mentors use map, mentees see mentor's slots)
     return mentorAvailability[dateKey] ?? [];
   }
 
@@ -118,6 +218,42 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          if (widget.isMentor && TestModeManager.isTestMode)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Set your available time slots. Green slots are open for meetings. Red slots indicate times with scheduled meetings.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildLegendItem('Open', Colors.green),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Pending', Colors.orange),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Confirmed', Colors.red),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (!widget.isMentor)
             Card(
               child: Padding(
@@ -131,7 +267,9 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Your mentor (Sarah Martinez) will need to approve your meeting request.',
+                            TestModeManager.isTestMode && _otherUser != null
+                              ? 'Your mentor (${_otherUser!.name}) will need to approve your meeting request.'
+                              : 'Your mentor (Sarah Martinez) will need to approve your meeting request.',
                             style: TextStyle(
                               color: Colors.grey[700],
                               fontSize: 14,
@@ -243,6 +381,64 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
             ),
 
           const SizedBox(height: 16),
+          
+          // Pending Requests Card (Only for Mentors)
+          if (widget.isMentor && _pendingMeetings.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Pending Meeting Requests',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._pendingMeetings.map((meeting) {
+                      final mentee = _menteeMap[meeting.menteeId];
+                      final startTime = DateTime.tryParse(meeting.startTime);
+                      return Card(
+                        color: Colors.orange[50],
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.orange,
+                            child: Text(
+                              mentee?.name.substring(0, 1).toUpperCase() ?? '?',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(mentee?.name ?? 'Unknown Mentee'),
+                          subtitle: Text(
+                            '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${meeting.location ?? 'TBD'}',
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.check_circle, color: Colors.green),
+                                onPressed: () => _handleMeetingRequest(meeting, true),
+                                tooltip: 'Approve',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.cancel, color: Colors.red),
+                                onPressed: () => _handleMeetingRequest(meeting, false),
+                                tooltip: 'Reject',
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
 
           // Time Slots Card
           Card(
@@ -277,18 +473,40 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       final isAvailable = slot.status == 'Available';
                       return FilterChip(
                         selected: isSelected,
-                        label: Row(
+                        label: Column(
                           mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(slot.time),
-                            if (!widget.isMentor) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: getTimeSlotTextColor(slot.status),
-                                  shape: BoxShape.circle,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(slot.time),
+                                if (!widget.isMentor) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: getTimeSlotTextColor(slot.status),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ] else if (slot.status != 'Available') ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    slot.status == 'Pending Request' ? Icons.hourglass_empty : Icons.check_circle,
+                                    size: 16,
+                                    color: getTimeSlotTextColor(slot.status),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (widget.isMentor && slot.menteeName != null) ...[
+                              Text(
+                                slot.menteeName!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
                                 ),
                               ),
                             ],
@@ -296,9 +514,10 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                         ),
                         backgroundColor: getTimeSlotColor(slot.status),
                         selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                        onSelected: isAvailable ? (selected) {
+                        onSelected: widget.isMentor || isAvailable ? (selected) {
                           setState(() {
                             selectedTime = selected ? slot.time : null;
+                            selectedAvailabilityId = selected ? slot.availabilityId : null;
                           });
                         } : null,
                         disabledColor: getTimeSlotColor(slot.status),
@@ -461,8 +680,76 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                                   child: const Text('Cancel'),
                                 ),
                                 ElevatedButton(
-                                  onPressed: () {
-                                    // TODO: Save meeting/availability
+                                  onPressed: () async {
+                                    if (TestModeManager.isTestMode) {
+                                      try {
+                                        if (widget.isMentor) {
+                                          // Mentor setting availability
+                                          if (isRecurring) {
+                                            // Create availability for multiple weeks
+                                            for (final date in getRecurringDates()) {
+                                              final availability = Availability(
+                                                id: _localDb.generateId(),
+                                                mentorId: _currentUser!.id,
+                                                day: date.toString().split(' ')[0],
+                                                slotStart: selectedTime!,
+                                                isBooked: false,
+                                                updatedAt: DateTime.now(),
+                                              );
+                                              await _localDb.createAvailability(availability);
+                                            }
+                                          } else {
+                                            // Create single availability
+                                            final availability = Availability(
+                                              id: _localDb.generateId(),
+                                              mentorId: _currentUser!.id,
+                                              day: selectedDate.toString().split(' ')[0],
+                                              slotStart: selectedTime!,
+                                              isBooked: false,
+                                              updatedAt: DateTime.now(),
+                                            );
+                                            await _localDb.createAvailability(availability);
+                                          }
+                                        } else {
+                                          // Mentee requesting meeting
+                                          if (selectedAvailabilityId != null && _otherUser != null) {
+                                            // Create meeting
+                                            final meeting = Meeting(
+                                              id: _localDb.generateId(),
+                                              mentorId: _otherUser!.id,
+                                              menteeId: _currentUser!.id,
+                                              startTime: '${selectedDate.toString().split(' ')[0]} $selectedTime',
+                                              endTime: '', // Will be set later
+                                              topic: 'Regular Meeting',
+                                              location: selectedLocation,
+                                              status: 'pending',
+                                              availabilityId: selectedAvailabilityId,
+                                              createdAt: DateTime.now(),
+                                            );
+                                            await _localDb.createMeeting(meeting);
+                                            
+                                            // Book the availability slot
+                                            await _localDb.bookAvailabilitySlot(selectedAvailabilityId!, _currentUser!.id);
+                                          }
+                                        }
+                                        
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(widget.isMentor 
+                                              ? 'Availability set successfully!' 
+                                              : 'Meeting request sent successfully!'),
+                                          ),
+                                        );
+                                      } catch (e) {
+                                        debugPrint('Error saving to database: $e');
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Error saving. Please try again.'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
                                     Navigator.pop(context); // Close dialog
                                     Navigator.pop(context); // Return to previous screen
                                   },
@@ -482,6 +769,55 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         ],
       ),
     );
+  }
+
+  /// Handle approve/reject meeting request
+  Future<void> _handleMeetingRequest(Meeting meeting, bool approve) async {
+    try {
+      if (approve) {
+        // Update meeting status to accepted
+        final updatedMeeting = meeting.copyWith(status: 'accepted');
+        await _localDb.updateMeeting(updatedMeeting);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting request approved!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Update meeting status to rejected and unbook the availability slot
+        final updatedMeeting = meeting.copyWith(status: 'rejected');
+        await _localDb.updateMeeting(updatedMeeting);
+        
+        if (meeting.availabilityId != null) {
+          await _localDb.unbookAvailabilitySlot(meeting.availabilityId!);
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting request rejected'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      
+      // Reload data
+      await _loadData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  /// Format date for display
+  String _formatDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   Widget _buildLegendItem(String label, Color color) {
@@ -524,11 +860,33 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     );
     if (picked != null) {
       final key = selectedDate.toString().split(' ')[0];
-      setState(() {
-        mentorAvailability.putIfAbsent(key, () => []);
-        mentorAvailability[key]!
-            .add(MentorTimeSlot(picked.format(context), 'Available'));
-      });
+      
+      if (TestModeManager.isTestMode && widget.isMentor && _currentUser != null) {
+        try {
+          // Create new availability in database
+          final availability = Availability(
+            id: _localDb.generateId(),
+            mentorId: _currentUser!.id,
+            day: key,
+            slotStart: picked.format(context),
+            isBooked: false,
+            updatedAt: DateTime.now(),
+          );
+          await _localDb.createAvailability(availability);
+          
+          // Reload availabilities
+          await _loadData();
+        } catch (e) {
+          debugPrint('Error adding custom time: $e');
+        }
+      } else {
+        // Fallback to in-memory storage
+        setState(() {
+          mentorAvailability.putIfAbsent(key, () => []);
+          mentorAvailability[key]!
+              .add(MentorTimeSlot(picked.format(context), 'Available'));
+        });
+      }
     }
   }
 
@@ -549,6 +907,8 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
 class MentorTimeSlot {
   final String time;
   final String status; // 'Available', 'Pending Request', or 'Booked'
+  final String? availabilityId;
+  final String? menteeName;
 
-  MentorTimeSlot(this.time, this.status);
+  MentorTimeSlot(this.time, this.status, {this.availabilityId, this.menteeName});
 } 
