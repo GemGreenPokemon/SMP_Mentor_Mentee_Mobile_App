@@ -337,7 +337,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                         if (event.status == 'Available') {
                                           dotColor = Colors.lightBlue;
                                         } else if (event.status == 'Pending' || event.status == 'Pending Request') {
-                                          dotColor = Colors.blue;
+                                          dotColor = Colors.blue[600]!;
                                         } else if (event.status == 'Booked') {
                                           dotColor = Colors.indigo;
                                         }
@@ -404,7 +404,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                       children: [
                                         _buildLegend('Available', Colors.lightBlue),
                                         const SizedBox(width: 16),
-                                        _buildLegend('Pending', Colors.blue),
+                                        _buildLegend('Pending', Colors.blue[600]!),
                                         const SizedBox(width: 16),
                                         _buildLegend('Booked', Colors.indigo),
                                       ],
@@ -855,7 +855,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       case 'Available':
         return Colors.lightBlue;
       case 'Pending':
-        return Colors.blue;
+        return Colors.blue[600]!;
       case 'Booked':
         return Colors.indigo;
       default:
@@ -868,7 +868,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       case 'Available':
         return Colors.lightBlue[700]!;
       case 'Pending':
-        return Colors.blue[700]!;
+        return Colors.blue[600]!;
       case 'Booked':
         return Colors.indigo[700]!;
       default:
@@ -1004,7 +1004,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     
     final Color dialogColor = widget.isMentor || !_isCustomTimeRequest
       ? Colors.lightBlue 
-      : Colors.blue;
+      : Colors.blue[600]!;
     
     showDialog(
       context: context,
@@ -1059,10 +1059,10 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
             ],
             if (_isCustomTimeRequest && !widget.isMentor) ...[
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 '(Custom time - pending approval)',
                 style: TextStyle(
-                  color: Colors.orange,
+                  color: Colors.blue[600]!,
                   fontStyle: FontStyle.italic,
                   fontSize: 12,
                 ),

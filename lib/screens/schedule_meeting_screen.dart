@@ -229,7 +229,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       case 'Available':
         return Colors.green.withOpacity(0.1);
       case 'Pending Request':
-        return Colors.orange.withOpacity(0.1);
+        return Colors.blue[600]!.withOpacity(0.1);
       case 'Booked':
         return Colors.red.withOpacity(0.1);
       default:
@@ -242,7 +242,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       case 'Available':
         return Colors.green;
       case 'Pending Request':
-        return Colors.orange;
+        return Colors.blue[600]!;
       case 'Booked':
         return Colors.red;
       default:
@@ -286,7 +286,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       children: [
                         _buildLegendItem('Open', Colors.lightBlue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Pending', Colors.blue),
+                        _buildLegendItem('Pending', Colors.blue[600]!),
                         const SizedBox(width: 16),
                         _buildLegendItem('Confirmed', Colors.indigo),
                       ],
@@ -324,7 +324,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       children: [
                         _buildLegendItem('Available', Colors.lightBlue),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Pending', Colors.blue),
+                        _buildLegendItem('Pending', Colors.blue[600]!),
                         const SizedBox(width: 16),
                         _buildLegendItem('Booked', Colors.indigo),
                       ],
@@ -397,7 +397,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                           if (event.status == 'Available') {
                             dotColor = Colors.lightBlue; // Light blue for available
                           } else if (event.status == 'Pending' || event.status == 'Pending Request') {
-                            dotColor = Colors.blue; // Medium blue for pending
+                            dotColor = Colors.blue[600]!; // 5% darker blue for pending
                           } else if (event.status == 'Booked') {
                             dotColor = Colors.indigo; // Dark blue/indigo for booked
                           }
@@ -506,22 +506,38 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Pending Meeting Requests',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pending Meeting Requests',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (_allMeetings.where((m) => m.status == 'pending').length > 3)
+                          TextButton(
+                            onPressed: () => _showAllPendingRequestsDialog(),
+                            child: Text(
+                              'View More (${_allMeetings.where((m) => m.status == 'pending').length - 3})',
+                              style: TextStyle(
+                                color: Colors.blue[600]!,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    ..._allMeetings.where((m) => m.status == 'pending').map((meeting) {
+                    ..._allMeetings.where((m) => m.status == 'pending').take(3).map((meeting) {
                       final mentee = _menteeMap[meeting.menteeId];
                       final startTime = DateTime.tryParse(meeting.startTime);
                       return Card(
-                        color: Colors.orange[50],
+                        color: Colors.blue[100],
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.orange,
+                            backgroundColor: Colors.blue[600]!,
                             child: Text(
                               mentee?.name.substring(0, 1).toUpperCase() ?? '?',
                               style: const TextStyle(color: Colors.white),
@@ -1130,7 +1146,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                   _buildScheduleSection(
                     'Pending Requests',
                     pendingSlots,
-                    Colors.blue,
+                    Colors.blue[600]!,
                     Icons.schedule,
                     selectedDay,
                   ),
@@ -1374,6 +1390,105 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     return CustomPaint(
       size: Size(6, 6),
       painter: _DotPainter(color),
+    );
+  }
+  
+  // Show popup dialog with all pending meeting requests
+  void _showAllPendingRequestsDialog() {
+    final pendingMeetings = _allMeetings.where((m) => m.status == 'pending').toList();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.schedule, color: Colors.blue[600]!),
+              const SizedBox(width: 8),
+              const Text('All Pending Requests'),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (pendingMeetings.isNotEmpty) ...[
+                  Text(
+                    '${pendingMeetings.length} pending meeting request${pendingMeetings.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: pendingMeetings.length,
+                      itemBuilder: (context, index) {
+                        final meeting = pendingMeetings[index];
+                        final mentee = _menteeMap[meeting.menteeId];
+                        final startTime = DateTime.tryParse(meeting.startTime);
+                        
+                        return Card(
+                          color: Colors.blue[100],
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue[600]!,
+                              child: Text(
+                                mentee?.name.substring(0, 1).toUpperCase() ?? '?',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            title: Text(mentee?.name ?? 'Unknown Mentee'),
+                            subtitle: Text(
+                              '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${meeting.location ?? 'TBD'}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                                  onPressed: () async {
+                                    Navigator.of(context).pop(); // Close dialog first
+                                    await _handleMeetingRequest(meeting, true);
+                                  },
+                                  tooltip: 'Approve',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.cancel, color: Colors.red),
+                                  onPressed: () async {
+                                    Navigator.of(context).pop(); // Close dialog first
+                                    await _handleMeetingRequest(meeting, false);
+                                  },
+                                  tooltip: 'Reject',
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ] else ...[
+                  const Text(
+                    'No pending requests found.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

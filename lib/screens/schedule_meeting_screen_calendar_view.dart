@@ -92,7 +92,7 @@ class _ScheduleMeetingScreenCalendarViewState extends State<ScheduleMeetingScree
             endTime: finalEndTime,
             title: meeting.topic ?? 'Meeting',
             description: meeting.status ?? 'scheduled',
-            color: meeting.status == 'pending' ? Colors.blue : Colors.indigo,
+            color: meeting.status == 'pending' ? Colors.blue[600]! : Colors.indigo,
           ),
         );
       }
@@ -134,7 +134,7 @@ class _ScheduleMeetingScreenCalendarViewState extends State<ScheduleMeetingScree
                         children: [
                           _buildLegendItem('Available', Colors.lightBlue),
                           const SizedBox(width: 16),
-                          _buildLegendItem('Pending', Colors.blue),
+                          _buildLegendItem('Pending', Colors.blue[600]!),
                           const SizedBox(width: 16),
                           _buildLegendItem('Booked', Colors.indigo),
                         ],
