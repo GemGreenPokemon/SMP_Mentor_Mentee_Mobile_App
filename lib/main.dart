@@ -17,12 +17,25 @@ import './screens/settings_screen.dart';
 import './screens/web_settings_screen.dart';
 import './services/mentor_service.dart';
 import './utils/responsive.dart';
+import './utils/test_mode_manager.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize TestModeManager first
+  await TestModeManager.initialize();
+  
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MentorService()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final mentorService = MentorService();
+            // Initialize with current test mode state
+            mentorService.refresh();
+            return mentorService;
+          },
+        ),
       ],
       child: const MyApp(),
     ),

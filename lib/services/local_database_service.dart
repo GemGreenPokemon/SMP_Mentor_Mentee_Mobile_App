@@ -207,6 +207,17 @@ class LocalDatabaseService {
     return result.first['count'] as int;
   }
 
+  Future<List<Meeting>> getMeetingsByMentorship(String mentorId, String menteeId) async {
+    final db = await database;
+    final maps = await db.query(
+      'meetings',
+      where: 'mentor_id = ? AND mentee_id = ?',
+      whereArgs: [mentorId, menteeId],
+      orderBy: 'start_time ASC',
+    );
+    return maps.map((map) => Meeting.fromMap(map)).toList();
+  }
+
   // ========== ANNOUNCEMENT OPERATIONS ==========
   Future<Announcement> createAnnouncement(Announcement announcement) async {
     final db = await database;
@@ -228,6 +239,18 @@ class LocalDatabaseService {
       final result = await db.query('announcements', orderBy: 'created_at DESC');
       return result.map((map) => Announcement.fromMap(map)).toList();
     }
+  }
+
+  Future<List<Announcement>> getAnnouncementsByAudience(List<String> audiences) async {
+    final db = await database;
+    final placeholders = audiences.map((_) => '?').join(', ');
+    final result = await db.query(
+      'announcements',
+      where: 'target_audience IN ($placeholders)',
+      whereArgs: audiences,
+      orderBy: 'created_at DESC',
+    );
+    return result.map((map) => Announcement.fromMap(map)).toList();
   }
 
   // ========== CHECKLIST OPERATIONS ==========

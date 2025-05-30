@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';  // optional retains kDebugMode if needed
+import 'package:provider/provider.dart';
 import '../utils/developer_session.dart';
 import '../utils/test_mode_manager.dart';
+import '../services/mentor_service.dart';
 import 'firestore_manager_screen.dart';
 import 'local_db_manager_screen.dart';
 import 'local_mentor_selection_screen.dart';
@@ -223,6 +225,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : const Text('Test app as a local database user'),
                       value: TestModeManager.isTestMode,
                       onChanged: (bool value) async {
+                        final mentorService = Provider.of<MentorService>(context, listen: false);
+                        
                         if (value) {
                           // Navigate to mentor selection screen
                           final result = await Navigator.push<bool>(
@@ -234,17 +238,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           
                           // Refresh the switch state if a selection was made
                           if (result == true) {
+                            // Refresh MentorService to load database data
+                            await mentorService.refresh();
                             setLocalState(() {});
+                            
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Test mode enabled - using database data'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
                           }
                         } else {
                           // Disable test mode
                           await TestModeManager.disableTestMode();
+                          // Refresh MentorService to use mock data
+                          await mentorService.refresh();
                           setLocalState(() {});
                           
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Test mode disabled'),
+                                content: Text('Test mode disabled - using mock data'),
                                 backgroundColor: Colors.orange,
                               ),
                             );
@@ -268,7 +285,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                       
                       if (result == true && mounted) {
+                        // Refresh MentorService with new test user data
+                        final mentorService = Provider.of<MentorService>(context, listen: false);
+                        await mentorService.refresh();
                         setState(() {}); // Refresh to show new user
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Test user changed to: ${TestModeManager.currentTestUser?.name ?? "Unknown"}'),
+                            backgroundColor: Colors.blue,
+                          ),
+                        );
                       }
                     },
                   ),
