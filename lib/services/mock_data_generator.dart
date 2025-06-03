@@ -369,22 +369,9 @@ class MockDataGenerator {
       }
     }
 
-    // Generate messages between mentors and mentees (only if we have mentors)
-    if (mentors.isNotEmpty) {
-      for (final mentorship in await _localDb.getMentorshipsByMentor(mentors[0].id)) {
-      final chatId = '${mentorship.mentorId}__${mentorship.menteeId}';
-      for (int i = 0; i < 10; i++) {
-        final message = Message(
-          id: _localDb.generateId(),
-          chatId: chatId,
-          senderId: _random.nextBool() ? mentorship.mentorId : mentorship.menteeId,
-          message: 'Message ${i + 1} in this conversation',
-          sentAt: DateTime.now().subtract(Duration(hours: _random.nextInt(72))),
-        );
-        await _localDb.createMessage(message);
-      }
-    }
-    }
+    // Generate messages between mentors and mentees
+    // DISABLED: Auto-generation of messages to prevent timeline confusion
+    // await _generateMessagesForMentorships(mentors, mentees);
 
     // Generate events (only if we have coordinators)
     if (coordinators.isNotEmpty) {
@@ -639,5 +626,143 @@ class MockDataGenerator {
     if (isAM && hour == 12) hour = 0;
     
     return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+  
+  // Public method to generate messages for test mode
+  static Future<void> generateTestMessages(User mentor, User mentee) async {
+    // Check if mentorship exists
+    final mentorships = await _localDb.getMentorshipsByMentor(mentor.id);
+    final mentorship = mentorships.firstWhere(
+      (m) => m.menteeId == mentee.id,
+      orElse: () => throw Exception('No mentorship found between ${mentor.name} and ${mentee.name}'),
+    );
+    
+    // DISABLED: Auto-generation of messages to prevent timeline confusion
+    // await _generateMessagesForMentorships([mentor], [mentee]);
+  }
+  
+  // Generate realistic messages between mentors and mentees
+  static Future<void> _generateMessagesForMentorships(List<User> mentors, List<User> mentees) async {
+    // Conversation templates
+    final mentorGreetings = [
+      "Hi! Welcome to the mentorship program. I'm excited to work with you!",
+      "Hello! I'm looking forward to being your mentor. How are you settling in?",
+      "Welcome! I'm here to support you throughout your academic journey.",
+    ];
+    
+    final menteeResponses = [
+      "Thank you so much! I'm really excited to get started.",
+      "Hi! Thank you for reaching out. I'm doing well and eager to learn.",
+      "Hello! I appreciate the warm welcome. Looking forward to our meetings.",
+    ];
+    
+    final mentorQuestions = [
+      "What are your main goals for this semester?",
+      "Tell me about your academic interests and career aspirations.",
+      "What areas would you like to focus on during our mentorship?",
+      "How can I best support you in achieving your goals?",
+    ];
+    
+    final menteeQuestions = [
+      "What time works best for our weekly meetings?",
+      "Could you recommend any resources for improving my study habits?",
+      "I'm interested in research opportunities. Can you guide me?",
+      "What clubs or organizations would you recommend joining?",
+    ];
+    
+    final generalMessages = [
+      "Don't forget about our meeting tomorrow at 2 PM!",
+      "Great job on your presentation today!",
+      "I've shared some resources in our shared folder.",
+      "Let me know if you need any help with your assignments.",
+      "How did your exam go?",
+      "Remember to submit your progress report by Friday.",
+    ];
+    
+    print('DEBUG: Generating messages for ${mentors.length} mentors');
+    
+    // Generate messages for each mentorship
+    for (final mentor in mentors) {
+      final mentorships = await _localDb.getMentorshipsByMentor(mentor.id);
+      print('DEBUG: Mentor ${mentor.name} has ${mentorships.length} mentorships');
+      
+      for (final mentorship in mentorships) {
+        final mentee = await _localDb.getUser(mentorship.menteeId);
+        if (mentee == null) continue;
+        
+        final chatId = '${mentorship.mentorId}__${mentorship.menteeId}';
+        final messages = <Message>[];
+        final baseTime = DateTime.now().subtract(Duration(days: 7));
+        
+        // Generate conversation flow
+        // 1. Initial greeting from mentor
+        messages.add(Message(
+          id: _localDb.generateId(),
+          chatId: chatId,
+          senderId: mentor.id,
+          message: mentorGreetings[_random.nextInt(mentorGreetings.length)],
+          sentAt: baseTime,
+        ));
+        
+        // 2. Mentee response
+        messages.add(Message(
+          id: _localDb.generateId(),
+          chatId: chatId,
+          senderId: mentee.id,
+          message: menteeResponses[_random.nextInt(menteeResponses.length)],
+          sentAt: baseTime.add(Duration(hours: 2)),
+        ));
+        
+        // 3. Mentor asks about goals
+        messages.add(Message(
+          id: _localDb.generateId(),
+          chatId: chatId,
+          senderId: mentor.id,
+          message: mentorQuestions[_random.nextInt(mentorQuestions.length)],
+          sentAt: baseTime.add(Duration(hours: 4)),
+        ));
+        
+        // 4. Generate additional conversation
+        final additionalMessages = 5 + _random.nextInt(10); // 5-15 more messages
+        var currentTime = baseTime.add(Duration(days: 1));
+        
+        for (int i = 0; i < additionalMessages; i++) {
+          final isMentorMessage = _random.nextBool();
+          final senderId = isMentorMessage ? mentor.id : mentee.id;
+          
+          String messageText;
+          if (_random.nextDouble() < 0.3) {
+            // 30% chance of question
+            messageText = isMentorMessage 
+                ? mentorQuestions[_random.nextInt(mentorQuestions.length)]
+                : menteeQuestions[_random.nextInt(menteeQuestions.length)];
+          } else {
+            // 70% general message
+            messageText = generalMessages[_random.nextInt(generalMessages.length)];
+          }
+          
+          messages.add(Message(
+            id: _localDb.generateId(),
+            chatId: chatId,
+            senderId: senderId,
+            message: messageText,
+            sentAt: currentTime,
+          ));
+          
+          // Add random time gap between messages (2 hours to 2 days)
+          currentTime = currentTime.add(Duration(
+            hours: 2 + _random.nextInt(48),
+          ));
+        }
+        
+        // Sort messages by time and save
+        messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+        
+        print('DEBUG: Creating ${messages.length} messages for ${mentor.name} - ${mentee.name}');
+        for (final message in messages) {
+          await _localDb.createMessage(message);
+        }
+      }
+    }
   }
 }

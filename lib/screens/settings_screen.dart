@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../utils/developer_session.dart';
 import '../utils/test_mode_manager.dart';
 import '../services/mentor_service.dart';
+import '../services/messaging_service.dart';
+import '../services/mock_data_generator.dart';
 import 'firestore_manager_screen.dart';
 import 'local_db_manager_screen.dart';
 import 'local_mentor_selection_screen.dart';
@@ -208,13 +210,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                ListTile(
-                  title: const Text('Messaging Loopback Test'),
-                  trailing: const Icon(Icons.message),
-                  onTap: () {
-                    // TODO: Implement messaging loopback test UI
-                  },
-                ),
+                if (TestModeManager.isTestMode && TestModeManager.hasCompleteTestData)
+                  ListTile(
+                    title: const Text('Messaging Test'),
+                    subtitle: Text('${MessagingService.instance.getMessageCount()} messages'),
+                    trailing: const Icon(Icons.message),
+                    onTap: () {
+                      _showMessagingTestDialog();
+                    },
+                  ),
                 const Divider(height: 1),
                 StatefulBuilder(
                   builder: (context, setLocalState) {
@@ -341,6 +345,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ...children,
       ],
     );
+  }
+
+  void _showMessagingTestDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Messaging Test Controls'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Current messages: ${MessagingService.instance.getMessageCount()}'),
+            const SizedBox(height: 8),
+            if (TestModeManager.currentTestMentor != null && TestModeManager.currentTestMentee != null)
+              Text(
+                'Chat: ${TestModeManager.currentTestMentor!.name} ↔ ${TestModeManager.currentTestMentee!.name}',
+                style: const TextStyle(fontSize: 12),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              // Generate test messages
+              Navigator.pop(context);
+              _generateTestMessages();
+            },
+            child: const Text('Generate Messages'),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Clear all messages
+              await MessagingService.instance.clearAllMessages();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('All messages cleared'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            },
+            child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _generateTestMessages() async {
+    if (!TestModeManager.hasCompleteTestData) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Generating test messages...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      // Generate messages using the mock data generator
+      final mentor = TestModeManager.currentTestMentor!;
+      final mentee = TestModeManager.currentTestMentee!;
+      
+      // Generate test messages for current test users
+      await MockDataGenerator.generateTestMessages(mentor, mentee);
+      
+      // Refresh messaging service
+      await MessagingService.instance.refresh();
+      
+      Navigator.pop(context); // Close loading dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Generated ${MessagingService.instance.getMessageCount()} messages'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating messages: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showLanguageDialog() {

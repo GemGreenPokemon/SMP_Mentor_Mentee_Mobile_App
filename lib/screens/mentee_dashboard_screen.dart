@@ -188,12 +188,20 @@ class _MenteeDashboardScreenState extends State<MenteeDashboardScreen> with Widg
                     trailing: IconButton(
                       icon: const Icon(Icons.message),
                       onPressed: () {
+                        // Pass IDs for proper message routing
+                        final currentMenteeId = TestModeManager.isTestMode && TestModeManager.currentTestMentee != null
+                            ? TestModeManager.currentTestMentee!.id
+                            : null;
+                        final mentorId = menteeService.mentorInfo['id'] as String?;
+                        
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => ChatScreen(
                               recipientName: menteeService.mentorInfo['name'] ?? 'Mentor',
                               recipientRole: menteeService.mentorInfo['role'] ?? '',
+                              currentUserId: currentMenteeId,
+                              recipientId: mentorId,
                             ),
                           ),
                         );

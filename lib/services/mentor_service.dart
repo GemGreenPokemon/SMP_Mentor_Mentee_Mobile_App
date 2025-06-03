@@ -295,6 +295,7 @@ class MentorService extends ChangeNotifier {
         
         // Build mentee data structure
         final menteeData = {
+          'id': mentee.id,  // Add mentee ID
           'name': mentee.name,
           'program': mentee.yearMajor ?? 'Unknown Program',
           'lastMeeting': lastMeeting,

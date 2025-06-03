@@ -3,6 +3,7 @@ import 'local_db_table_screen.dart';
 import 'local_db_explorer_screen.dart';
 import '../services/local_database_service.dart';
 import '../services/mock_data_generator.dart';
+import '../utils/messaging_debug.dart';
 
 class LocalDbManagerScreen extends StatefulWidget {
   const LocalDbManagerScreen({Key? key}) : super(key: key);
@@ -269,24 +270,46 @@ class _LocalDbManagerScreenState extends State<LocalDbManagerScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LocalDbExplorerScreen(),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LocalDbExplorerScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.explore),
+                    label: const Text('Database Explorer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.explore),
-                label: const Text('Database Explorer'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MessagingDebugScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.bug_report),
+                    label: const Text('Messaging Debug'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Wrap(

@@ -326,6 +326,7 @@ class MenteeService extends ChangeNotifier {
       }
       
       return {
+        'id': mentor.id,  // Add mentor ID
         'name': mentor.name,
         'role': mentor.yearMajor ?? 'Unknown',
         'email': mentor.email,

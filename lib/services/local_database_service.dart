@@ -340,6 +340,63 @@ class LocalDatabaseService {
     );
     return result.map((map) => Message.fromMap(map)).toList();
   }
+  
+  /// Get messages for a chat, excluding those hidden by the user
+  Future<List<Message>> getVisibleMessagesByChat(String chatId, String userId) async {
+    final db = await database;
+    // Get all messages that are NOT hidden by this user
+    final result = await db.rawQuery('''
+      SELECT m.* FROM messages m
+      LEFT JOIN message_visibility mv ON m.id = mv.message_id AND mv.user_id = ?
+      WHERE m.chat_id = ? AND mv.id IS NULL
+      ORDER BY m.sent_at ASC
+    ''', [userId, chatId]);
+    return result.map((map) => Message.fromMap(map)).toList();
+  }
+  
+  /// Hide messages for a specific user (clear chat for me)
+  Future<void> hideMessagesForUser(String chatId, String userId) async {
+    final db = await database;
+    
+    // Get all messages in the chat
+    final messages = await getMessagesByChat(chatId);
+    
+    // Mark all messages as hidden for this user
+    final batch = db.batch();
+    final hiddenAt = DateTime.now().millisecondsSinceEpoch;
+    
+    for (final message in messages) {
+      batch.insert(
+        'message_visibility',
+        {
+          'user_id': userId,
+          'message_id': message.id,
+          'hidden_at': hiddenAt,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    
+    await batch.commit();
+  }
+  
+  /// Clear all hidden messages for a user in a chat
+  Future<void> unhideMessagesForUser(String chatId, String userId) async {
+    final db = await database;
+    
+    // Get message IDs for this chat
+    final messages = await getMessagesByChat(chatId);
+    final messageIds = messages.map((m) => m.id).toList();
+    
+    if (messageIds.isNotEmpty) {
+      final placeholders = messageIds.map((_) => '?').join(', ');
+      await db.delete(
+        'message_visibility',
+        where: 'user_id = ? AND message_id IN ($placeholders)',
+        whereArgs: [userId, ...messageIds],
+      );
+    }
+  }
 
   // ========== EVENT OPERATIONS ==========
   Future<Event> createEvent(Event event) async {

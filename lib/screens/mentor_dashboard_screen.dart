@@ -613,12 +613,20 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
                 IconButton(
                   icon: const Icon(Icons.message),
                   onPressed: () {
+                    // Pass IDs for proper message routing
+                    final currentMentorId = TestModeManager.isTestMode && TestModeManager.currentTestMentor != null
+                        ? TestModeManager.currentTestMentor!.id
+                        : null;
+                    final menteeId = mentee['id'] as String?;
+                    
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatScreen(
                           recipientName: mentee['name'],
                           recipientRole: mentee['program'],
+                          currentUserId: currentMentorId,
+                          recipientId: menteeId,
                         ),
                       ),
                     );

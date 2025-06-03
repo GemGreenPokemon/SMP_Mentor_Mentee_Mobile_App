@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Incremented version for cancelled status support
+      version: 4, // Incremented version for message visibility support
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -128,6 +128,19 @@ class DatabaseHelper {
         sent_at $integerType,
         synced INTEGER DEFAULT 0,
         FOREIGN KEY (sender_id) REFERENCES users(id)
+      )
+    ''');
+    
+    // Message visibility table - tracks which messages are hidden for which users
+    await db.execute('''
+      CREATE TABLE message_visibility (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id $textType,
+        message_id $textType,
+        hidden_at $integerType,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (message_id) REFERENCES messages(id),
+        UNIQUE(user_id, message_id)
       )
     ''');
 
@@ -348,6 +361,22 @@ class DatabaseHelper {
       // but the constraint will be enforced at the application level
       // The existing status column can already store 'cancelled' as TEXT
       print('Database upgraded to version 3: Added support for cancelled meeting status');
+    }
+    
+    if (oldVersion < 4) {
+      // Version 4: Add message visibility table for per-user message clearing
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS message_visibility (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          message_id TEXT NOT NULL,
+          hidden_at INTEGER NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (message_id) REFERENCES messages(id),
+          UNIQUE(user_id, message_id)
+        )
+      ''');
+      print('Database upgraded to version 4: Added message visibility support');
     }
   }
 
