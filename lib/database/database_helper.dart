@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Incremented version for schema updates - 5/29/25
+      version: 3, // Incremented version for cancelled status support
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -340,6 +340,14 @@ class DatabaseHelper {
           FOREIGN KEY (user_id) REFERENCES users(id)
         )
       ''');
+    }
+    
+    if (oldVersion < 3) {
+      // Version 3: Add support for 'cancelled' status in meetings
+      // SQLite doesn't support modifying CHECK constraints directly, 
+      // but the constraint will be enforced at the application level
+      // The existing status column can already store 'cancelled' as TEXT
+      print('Database upgraded to version 3: Added support for cancelled meeting status');
     }
   }
 

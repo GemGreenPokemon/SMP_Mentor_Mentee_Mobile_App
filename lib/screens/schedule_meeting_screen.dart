@@ -95,9 +95,11 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
     print('DEBUG: _loadData called, TestMode: ${TestModeManager.isTestMode}');
     if (TestModeManager.isTestMode) {
       try {
-        // Get current user from test mode
-        _currentUser = TestModeManager.currentTestUser;
-        print('DEBUG: Current user: ${_currentUser?.name} (${_currentUser?.id})');
+        // Get current user from test mode based on role
+        _currentUser = widget.isMentor 
+            ? TestModeManager.currentTestMentor 
+            : TestModeManager.currentTestMentee;
+        print('DEBUG: Current user (${widget.isMentor ? 'Mentor' : 'Mentee'}): ${_currentUser?.name} (${_currentUser?.id})');
         
         if (_currentUser != null) {
           if (widget.isMentor) {
@@ -146,8 +148,18 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
               final mentorId = mentorships.first.mentorId;
               _otherUser = await _localDb.getUser(mentorId);
               if (_otherUser != null) {
-                // Get only available (non-booked) slots
-                _availabilities = await _localDb.getAvailableSlots(mentorId);
+                // Get ALL slots (available and booked) to show mentee's own bookings
+                _availabilities = await _localDb.getAvailabilityByMentor(mentorId);
+                print('DEBUG: Loaded ${_availabilities.length} total slots for mentor ${mentorId}');
+                
+                // Load mentee's own meetings to show status
+                _allMeetings = await _localDb.getMeetingsByMentee(_currentUser!.id);
+                print('DEBUG: Loaded ${_allMeetings.length} meetings for mentee ${_currentUser!.id}');
+                
+                // Log each meeting's details
+                for (final meeting in _allMeetings) {
+                  print('DEBUG: Mentee Meeting - id: ${meeting.id}, status: ${meeting.status}, topic: ${meeting.topic}, startTime: ${meeting.startTime}');
+                }
               }
             }
           }
@@ -176,27 +188,45 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       return slotsForDate.map((avail) {
         String status = 'Available';
         String? menteeName;
+        Meeting? meetingForSlot;
         
-        // Check if there's a meeting for this slot (regardless of isBooked status)
+        // Check if there's a meeting for this slot
         final meeting = _allMeetings.firstWhere(
           (m) => m.availabilityId == avail.id,
           orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
         );
         
         if (meeting.id.isNotEmpty) {
-          // Base status on meeting status, not availability isBooked flag
-          if (meeting.status == 'pending') {
-            status = 'Pending Request';
-          } else if (meeting.status == 'accepted') {
-            status = 'Booked';
+          meetingForSlot = meeting;
+          // Skip cancelled meetings - treat slot as available
+          if (meeting.status == 'cancelled') {
+            status = 'Available';
           } else {
-            status = 'Booked'; // Default for other statuses
+            // For mentee view, show their own meeting status
+            if (!widget.isMentor && meeting.menteeId == _currentUser?.id) {
+              if (meeting.status == 'pending') {
+                status = 'Your Request (Pending)';
+              } else if (meeting.status == 'accepted') {
+                status = 'Your Meeting (Confirmed)';
+              } else if (meeting.status == 'rejected') {
+                status = 'Your Request (Rejected)';
+              }
+            } else {
+              // For mentor view or other mentees' bookings
+              if (meeting.status == 'pending') {
+                status = 'Pending Request';
+              } else if (meeting.status == 'accepted') {
+                status = 'Booked';
+              } else {
+                status = 'Booked';
+              }
+              menteeName = widget.isMentor ? _menteeMap[meeting.menteeId]?.name : null;
+            }
           }
-          menteeName = _menteeMap[meeting.menteeId]?.name;
         } else if (avail.isBooked) {
-          // Only use isBooked if no meeting found (legacy case)
-          status = 'Booked';
-          if (avail.menteeId != null) {
+          // Slot is booked but not by current mentee
+          status = widget.isMentor ? 'Booked' : 'Unavailable';
+          if (avail.menteeId != null && widget.isMentor) {
             menteeName = _menteeMap[avail.menteeId]?.name;
           }
         }
@@ -206,6 +236,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
           status,
           availabilityId: avail.id,
           menteeName: menteeName,
+          meeting: meetingForSlot,
         );
       }).toList();
     }
@@ -232,6 +263,14 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         return Colors.blue[600]!.withOpacity(0.1);
       case 'Booked':
         return Colors.red.withOpacity(0.1);
+      case 'Your Request (Pending)':
+        return Colors.blue[600]!.withOpacity(0.1);
+      case 'Your Meeting (Confirmed)':
+        return Colors.green.withOpacity(0.2);
+      case 'Your Request (Rejected)':
+        return Colors.red.withOpacity(0.1);
+      case 'Unavailable':
+        return Colors.grey.withOpacity(0.1);
       default:
         return Colors.grey.withOpacity(0.1);
     }
@@ -245,6 +284,14 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         return Colors.blue[600]!;
       case 'Booked':
         return Colors.red;
+      case 'Your Request (Pending)':
+        return Colors.blue[600]!;
+      case 'Your Meeting (Confirmed)':
+        return Colors.green[700]!;
+      case 'Your Request (Rejected)':
+        return Colors.red[700]!;
+      case 'Unavailable':
+        return Colors.grey;
       default:
         return Colors.grey;
     }
@@ -256,9 +303,13 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       appBar: AppBar(
         title: Text(widget.isMentor ? 'Set Availability' : 'Request Meeting'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadData();
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
           if (widget.isMentor && TestModeManager.isTestMode)
             Card(
               child: Padding(
@@ -320,13 +371,13 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 16,
                       children: [
                         _buildLegendItem('Available', Colors.lightBlue),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Pending', Colors.blue[600]!),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Booked', Colors.indigo),
+                        _buildLegendItem('Your Pending', Colors.blue[600]!),
+                        _buildLegendItem('Your Confirmed', Colors.green),
+                        _buildLegendItem('Unavailable', Colors.grey),
                       ],
                     ),
                   ],
@@ -396,10 +447,14 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                           
                           if (event.status == 'Available') {
                             dotColor = Colors.lightBlue; // Light blue for available
-                          } else if (event.status == 'Pending' || event.status == 'Pending Request') {
-                            dotColor = Colors.blue[600]!; // 5% darker blue for pending
-                          } else if (event.status == 'Booked') {
-                            dotColor = Colors.indigo; // Dark blue/indigo for booked
+                          } else if (event.status == 'Pending' || event.status == 'Pending Request' || event.status == 'Your Request (Pending)') {
+                            dotColor = Colors.blue[600]; // Blue for pending
+                          } else if (event.status == 'Booked' || event.status == 'Your Meeting (Confirmed)') {
+                            dotColor = event.status.contains('Your') ? Colors.green : Colors.indigo; // Green for own confirmed, indigo for others
+                          } else if (event.status == 'Your Request (Rejected)') {
+                            dotColor = Colors.red; // Red for rejected
+                          } else if (event.status == 'Unavailable') {
+                            dotColor = Colors.grey; // Grey for unavailable
                           }
                           
                           if (dotColor != null) {
@@ -571,6 +626,171 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
             ),
 
           const SizedBox(height: 16),
+          
+          // Upcoming Accepted Meetings Card (Only for Mentors)
+          if (widget.isMentor && _allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.event_available, color: Colors.green),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Upcoming Confirmed Meetings',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ..._allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).take(3).map((meeting) {
+                      final mentee = _menteeMap[meeting.menteeId];
+                      final startTime = DateTime.tryParse(meeting.startTime);
+                      return Card(
+                        color: Colors.green[50],
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green,
+                            child: Text(
+                              mentee?.name.substring(0, 1).toUpperCase() ?? '?',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(mentee?.name ?? 'Unknown Mentee'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${_formatMeetingTime(meeting)}',
+                              ),
+                              if (meeting.location != null)
+                                Text(
+                                  'Location: ${meeting.location}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                            ],
+                          ),
+                          isThreeLine: true,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                            onPressed: () => _showCancelMeetingDialog(meeting),
+                            tooltip: 'Cancel Meeting',
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    if (_allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).length > 3) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => _showAllUpcomingMeetingsDialog(),
+                          child: Text(
+                            'View All (${_allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).length})',
+                            style: TextStyle(color: Colors.green[700]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
+          
+          // Upcoming Confirmed Meetings Card (For Mentees)
+          if (!widget.isMentor && _allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.event_available, color: Colors.green),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Your Upcoming Meetings',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ..._allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).take(3).map((meeting) {
+                      final startTime = DateTime.tryParse(meeting.startTime);
+                      return Card(
+                        color: Colors.green[50],
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green,
+                            child: const Icon(
+                              Icons.calendar_today,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            meeting.topic ?? 'Meeting with Mentor',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${_formatMeetingTime(meeting)}',
+                              ),
+                              if (meeting.location != null)
+                                Text(
+                                  'Location: ${meeting.location}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              if (_otherUser != null)
+                                Text(
+                                  'With: ${_otherUser!.name}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          isThreeLine: true,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                            onPressed: () => _showCancelMeetingDialog(meeting),
+                            tooltip: 'Cancel Meeting',
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    if (_allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).length > 3) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => _showAllUpcomingMeetingsDialogMentee(),
+                          child: Text(
+                            'View All (${_allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).length})',
+                            style: TextStyle(color: Colors.green[700]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
 
           // Time Slots Card
           Card(
@@ -639,6 +859,16 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey[600],
+                                ),
+                              ),
+                            ] else if (!widget.isMentor && slot.status.startsWith('Your')) ...[
+                              Text(
+                                slot.status.contains('Pending') ? 'Pending' : 
+                                slot.status.contains('Confirmed') ? 'Confirmed' : 'Rejected',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: getTimeSlotTextColor(slot.status),
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
@@ -899,6 +1129,7 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
             ],
           ),
         ],
+        ),
       ),
     );
   }
@@ -927,9 +1158,9 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Meeting request rejected'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: const Text('Meeting request rejected'),
+            backgroundColor: Colors.blue[600],
           ),
         );
       }
@@ -950,6 +1181,33 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
   String _formatDate(DateTime date) {
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[date.month - 1]} ${date.day}';
+  }
+  
+  /// Format meeting time
+  String _formatMeetingTime(Meeting meeting) {
+    try {
+      final startTime = DateTime.tryParse(meeting.startTime);
+      final endTime = meeting.endTime != null ? DateTime.tryParse(meeting.endTime!) : null;
+      
+      if (startTime == null) return 'TBD';
+      
+      String formatTime(DateTime time) {
+        final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+        final minute = time.minute.toString().padLeft(2, '0');
+        final period = time.hour >= 12 ? 'PM' : 'AM';
+        return '$hour:$minute $period';
+      }
+      
+      final startFormatted = formatTime(startTime);
+      if (endTime != null) {
+        final endFormatted = formatTime(endTime);
+        return '$startFormatted - $endFormatted';
+      }
+      
+      return startFormatted;
+    } catch (e) {
+      return 'TBD';
+    }
   }
 
   Widget _buildLegendItem(String label, Color color) {
@@ -1052,24 +1310,40 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
         
         String status = 'Available';
         
-        // Check if there's a meeting for this slot (regardless of isBooked status)
+        // Check if there's a meeting for this slot
         final meeting = _allMeetings.firstWhere(
           (m) => m.availabilityId == slot.id,
           orElse: () => Meeting(id: '', mentorId: '', menteeId: '', startTime: '', createdAt: DateTime.now()),
         );
         
         if (meeting.id.isNotEmpty) {
-          // Base status on meeting status, not availability isBooked flag
-          if (meeting.status == 'pending') {
-            status = 'Pending Request';
-          } else if (meeting.status == 'accepted') {
-            status = 'Booked';
+          // Skip cancelled meetings - treat slot as available
+          if (meeting.status == 'cancelled') {
+            status = 'Available';
           } else {
-            status = 'Booked'; // Default for other statuses
+            // For mentee view, show their own meeting status
+            if (!widget.isMentor && meeting.menteeId == _currentUser?.id) {
+              if (meeting.status == 'pending') {
+                status = 'Your Request (Pending)';
+              } else if (meeting.status == 'accepted') {
+                status = 'Your Meeting (Confirmed)';
+              } else if (meeting.status == 'rejected') {
+                status = 'Your Request (Rejected)';
+              }
+            } else {
+              // For mentor view or other mentees' bookings
+              if (meeting.status == 'pending') {
+                status = 'Pending Request';
+              } else if (meeting.status == 'accepted') {
+                status = 'Booked';
+              } else {
+                status = 'Booked';
+              }
+            }
           }
         } else if (slot.isBooked) {
-          // Only use isBooked if no meeting found (legacy case)
-          status = 'Booked';
+          // Slot is booked but not by current mentee
+          status = widget.isMentor ? 'Booked' : 'Unavailable';
         }
         
         events.add(CalendarEvent(
@@ -1491,6 +1765,313 @@ class _ScheduleMeetingScreenState extends State<ScheduleMeetingScreen> {
       },
     );
   }
+  
+  /// Check if a meeting is in the future
+  bool _isFutureMeeting(Meeting meeting) {
+    final startTime = DateTime.tryParse(meeting.startTime);
+    if (startTime == null) return false;
+    return startTime.isAfter(DateTime.now());
+  }
+  
+  /// Show cancel meeting confirmation dialog
+  void _showCancelMeetingDialog(Meeting meeting) {
+    final mentee = _menteeMap[meeting.menteeId];
+    final startTime = DateTime.tryParse(meeting.startTime);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning, color: Colors.orange),
+              const SizedBox(width: 8),
+              const Text('Cancel Meeting?'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Are you sure you want to cancel this meeting?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Text('Mentee: ${mentee?.name ?? "Unknown"}'),
+              if (startTime != null)
+                Text('Date: ${_formatDate(startTime)}'),
+              Text('Time: ${_formatMeetingTime(meeting)}'),
+              if (meeting.location != null)
+                Text('Location: ${meeting.location}'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'The mentee will be notified of the cancellation.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Keep Meeting'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close dialog
+                await _cancelMeeting(meeting);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Cancel Meeting'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  /// Cancel a meeting
+  Future<void> _cancelMeeting(Meeting meeting) async {
+    try {
+      final success = await _localDb.cancelMeeting(meeting.id);
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting cancelled successfully'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        
+        // Reload data to refresh the UI
+        await _loadData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to cancel meeting'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  /// Show all upcoming meetings dialog
+  void _showAllUpcomingMeetingsDialog() {
+    final upcomingMeetings = _allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).toList();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.event_available, color: Colors.green),
+              const SizedBox(width: 8),
+              const Text('All Upcoming Meetings'),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${upcomingMeetings.length} upcoming meeting${upcomingMeetings.length == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: upcomingMeetings.length,
+                    itemBuilder: (context, index) {
+                      final meeting = upcomingMeetings[index];
+                      final mentee = _menteeMap[meeting.menteeId];
+                      final startTime = DateTime.tryParse(meeting.startTime);
+                      
+                      return Card(
+                        color: Colors.green[50],
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green,
+                            child: Text(
+                              mentee?.name.substring(0, 1).toUpperCase() ?? '?',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(mentee?.name ?? 'Unknown Mentee'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${_formatMeetingTime(meeting)}',
+                              ),
+                              if (meeting.location != null)
+                                Text(
+                                  'Location: ${meeting.location}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                            ],
+                          ),
+                          isThreeLine: true,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close this dialog first
+                              _showCancelMeetingDialog(meeting);
+                            },
+                            tooltip: 'Cancel Meeting',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  /// Show all upcoming meetings dialog for mentees
+  void _showAllUpcomingMeetingsDialogMentee() {
+    final upcomingMeetings = _allMeetings.where((m) => m.status == 'accepted' && _isFutureMeeting(m)).toList();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.event_available, color: Colors.green),
+              const SizedBox(width: 8),
+              const Text('All Your Upcoming Meetings'),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${upcomingMeetings.length} upcoming meeting${upcomingMeetings.length == 1 ? '' : 's'} with your mentor',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: upcomingMeetings.length,
+                    itemBuilder: (context, index) {
+                      final meeting = upcomingMeetings[index];
+                      final startTime = DateTime.tryParse(meeting.startTime);
+                      
+                      return Card(
+                        color: Colors.green[50],
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green,
+                            child: const Icon(
+                              Icons.calendar_today,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            meeting.topic ?? 'Meeting with Mentor',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${startTime != null ? _formatDate(startTime) : 'Unknown date'} at ${_formatMeetingTime(meeting)}',
+                              ),
+                              if (meeting.location != null)
+                                Text(
+                                  'Location: ${meeting.location}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              if (_otherUser != null)
+                                Text(
+                                  'With: ${_otherUser!.name}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          isThreeLine: true,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close this dialog first
+                              _showCancelMeetingDialog(meeting);
+                            },
+                            tooltip: 'Cancel Meeting',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 // Custom painter for perfectly aligned dots
@@ -1522,8 +2103,9 @@ class MentorTimeSlot {
   final String status; // 'Available', 'Pending Request', or 'Booked'
   final String? availabilityId;
   final String? menteeName;
+  final Meeting? meeting;
 
-  MentorTimeSlot(this.time, this.status, {this.availabilityId, this.menteeName});
+  MentorTimeSlot(this.time, this.status, {this.availabilityId, this.menteeName, this.meeting});
 }
 
 class CalendarEvent {

@@ -77,7 +77,7 @@ CREATE TABLE meetings (
   end_time TEXT,                             -- Nullable
   topic TEXT,
   location TEXT,                             -- Meeting location (physical or virtual) - Added 5/29/25
-  status TEXT DEFAULT 'pending',             -- 'pending', 'accepted', 'rejected'
+  status TEXT DEFAULT 'pending',             -- 'pending', 'accepted', 'rejected', 'cancelled'
   availability_id TEXT,                      -- Optional ref to availability
   synced INTEGER DEFAULT 0,
   created_at INTEGER,

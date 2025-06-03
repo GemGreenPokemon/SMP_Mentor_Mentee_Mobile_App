@@ -175,13 +175,13 @@ class MentorService extends ChangeNotifier {
   /// Returns whether we should use database or mock data
   bool get _shouldUseDatabase {
     return TestModeManager.isTestMode && 
-           TestModeManager.currentTestUser != null &&
+           TestModeManager.currentTestMentor != null &&
            _hasInitialized;
   }
 
   /// Initialize database data if in test mode
   Future<void> initialize() async {
-    if (!TestModeManager.isTestMode || TestModeManager.currentTestUser == null) {
+    if (!TestModeManager.isTestMode || TestModeManager.currentTestMentor == null) {
       _hasInitialized = true;
       return;
     }
@@ -204,7 +204,7 @@ class MentorService extends ChangeNotifier {
 
   /// Load all data from database
   Future<void> _loadDatabaseData() async {
-    final currentUser = TestModeManager.currentTestUser!;
+    final currentUser = TestModeManager.currentTestMentor!;
     
     // Load mentor profile
     _dbMentorProfile = await _loadMentorProfileFromDb(currentUser);
@@ -271,13 +271,20 @@ class MentorService extends ChangeNotifier {
     final List<Map<String, dynamic>> menteesList = [];
     
     try {
+      debugPrint('Loading mentees for mentor: $mentorId');
       // Get all mentorships for this mentor
       final mentorships = await _localDb.getMentorshipsByMentor(mentorId);
+      debugPrint('Found ${mentorships.length} mentorships');
       
       for (final mentorship in mentorships) {
+        debugPrint('Processing mentorship: ${mentorship.id} (Mentor: ${mentorship.mentorId}, Mentee: ${mentorship.menteeId})');
         // Get mentee user data
         final mentee = await _localDb.getUser(mentorship.menteeId);
-        if (mentee == null) continue;
+        if (mentee == null) {
+          debugPrint('Mentee not found: ${mentorship.menteeId}');
+          continue;
+        }
+        debugPrint('Found mentee: ${mentee.name} (${mentee.id})');
         
         // Get related data
         final goals = await _loadGoalsForMentorship(mentorship.id);
@@ -339,11 +346,23 @@ class MentorService extends ChangeNotifier {
   /// Load upcoming meetings for a mentorship
   Future<List<Map<String, dynamic>>> _loadUpcomingMeetingsForMentorship(Mentorship mentorship) async {
     try {
+      debugPrint('Loading meetings for mentorship - Mentor: ${mentorship.mentorId}, Mentee: ${mentorship.menteeId}');
       final meetings = await _localDb.getMeetingsByMentorship(mentorship.mentorId, mentorship.menteeId);
+      debugPrint('Found ${meetings.length} total meetings');
+      
+      // Also check for any meetings with just the mentor ID (for pending requests)
+      final allMentorMeetings = await _localDb.getMeetingsByMentor(mentorship.mentorId);
+      debugPrint('Found ${allMentorMeetings.length} total meetings for mentor');
+      
       final upcomingMeetings = meetings.where((meeting) {
+        // Filter out cancelled meetings
+        if (meeting.status == 'cancelled') {
+          return false;
+        }
         final startTime = DateTime.tryParse(meeting.startTime);
         return startTime != null && startTime.isAfter(DateTime.now());
       }).toList();
+      debugPrint('Found ${upcomingMeetings.length} upcoming meetings');
       
       // Sort by start time
       upcomingMeetings.sort((a, b) {
@@ -778,12 +797,12 @@ class MentorService extends ChangeNotifier {
 
   /// Get all meeting notes by the current test user (mentor)
   Future<List<MeetingNote>> getMentorMeetingNotes() async {
-    if (!_shouldUseDatabase || TestModeManager.currentTestUser == null) {
+    if (!_shouldUseDatabase || TestModeManager.currentTestMentor == null) {
       return []; // Return empty list for mock mode
     }
     
     try {
-      return await _localDb.getMeetingNotesByAuthor(TestModeManager.currentTestUser!.id);
+      return await _localDb.getMeetingNotesByAuthor(TestModeManager.currentTestMentor!.id);
     } catch (e) {
       debugPrint('Error loading mentor meeting notes: $e');
       return [];
@@ -798,7 +817,7 @@ class MentorService extends ChangeNotifier {
     String? organizedNote,
     bool isAiGenerated = false,
   }) async {
-    if (!_shouldUseDatabase || TestModeManager.currentTestUser == null) {
+    if (!_shouldUseDatabase || TestModeManager.currentTestMentor == null) {
       debugPrint('Cannot create meeting note: not in test mode or no test user');
       return null;
     }
@@ -807,8 +826,8 @@ class MentorService extends ChangeNotifier {
       final note = MeetingNote(
         id: _localDb.generateId(),
         meetingId: meetingId,
-        authorId: TestModeManager.currentTestUser!.id,
-        isMentor: TestModeManager.currentTestUser!.userType == 'mentor',
+        authorId: TestModeManager.currentTestMentor!.id,
+        isMentor: TestModeManager.currentTestMentor!.userType == 'mentor',
         isShared: isShared,
         rawNote: rawNote,
         organizedNote: organizedNote,

@@ -195,6 +195,43 @@ class LocalDatabaseService {
     );
   }
 
+  /// Cancel a meeting and free up the availability slot
+  Future<bool> cancelMeeting(String meetingId) async {
+    final db = await database;
+    
+    try {
+      // First get the meeting to find the availability slot
+      final meetingMaps = await db.query(
+        'meetings',
+        where: 'id = ?',
+        whereArgs: [meetingId],
+      );
+      
+      if (meetingMaps.isEmpty) return false;
+      
+      final meeting = Meeting.fromMap(meetingMaps.first);
+      
+      // Update meeting status to cancelled
+      final updatedMeeting = meeting.copyWith(status: 'cancelled');
+      await db.update(
+        'meetings',
+        updatedMeeting.toMap(),
+        where: 'id = ?',
+        whereArgs: [meetingId],
+      );
+      
+      // If there's an associated availability slot, free it up
+      if (meeting.availabilityId != null) {
+        await unbookAvailabilitySlot(meeting.availabilityId!);
+      }
+      
+      return true;
+    } catch (e) {
+      print('Error cancelling meeting: $e');
+      return false;
+    }
+  }
+
   Future<int> getMeetingsCount() async {
     final db = await database;
     final result = await db.rawQuery('SELECT COUNT(*) as count FROM meetings');

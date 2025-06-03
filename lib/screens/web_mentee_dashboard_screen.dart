@@ -9,6 +9,7 @@ import 'meeting_notes_screen.dart';
 import 'web_newsletter_screen.dart';
 import 'announcement_screen.dart';
 import '../services/mentor_service.dart';
+import '../services/mentee_service.dart';
 import '../utils/responsive.dart';
 import 'package:provider/provider.dart';
 
@@ -99,12 +100,16 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'John Smith',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              Consumer<MenteeService>(
+                                builder: (context, menteeService, child) {
+                                  return Text(
+                                    menteeService.menteeProfile['name'] ?? 'Mentee',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  );
+                                },
                               ),
                               Text(
                                 'Mentee',

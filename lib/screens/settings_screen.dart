@@ -220,8 +220,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   builder: (context, setLocalState) {
                     return SwitchListTile(
                       title: const Text('Test Mode'),
-                      subtitle: TestModeManager.isTestMode && TestModeManager.currentTestUser != null
-                          ? Text('Testing as: ${TestModeManager.currentTestUser!.name}')
+                      subtitle: TestModeManager.isTestMode
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (TestModeManager.currentTestMentor != null)
+                                  Text('Mentor: ${TestModeManager.currentTestMentor!.name}'),
+                                if (TestModeManager.currentTestMentee != null)
+                                  Text('Mentee: ${TestModeManager.currentTestMentee!.name}'),
+                                if (TestModeManager.currentTestMentor == null && TestModeManager.currentTestMentee == null)
+                                  const Text('No test users selected'),
+                              ],
+                            )
                           : const Text('Test app as a local database user'),
                       value: TestModeManager.isTestMode,
                       onChanged: (bool value) async {
@@ -273,9 +283,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 if (TestModeManager.isTestMode)
                   ListTile(
-                    title: const Text('Change Test User'),
-                    subtitle: Text('Currently: ${TestModeManager.currentTestUser?.name ?? "None"}'),
-                    trailing: const Icon(Icons.person_search),
+                    title: const Text('Change Test Users'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Mentor: ${TestModeManager.currentTestMentor?.name ?? "None"}'),
+                        Text('Mentee: ${TestModeManager.currentTestMentee?.name ?? "None"}'),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.group),
                     onTap: () async {
                       final result = await Navigator.push<bool>(
                         context,
@@ -292,7 +308,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Test user changed to: ${TestModeManager.currentTestUser?.name ?? "Unknown"}'),
+                            content: Text('Test users updated'),
                             backgroundColor: Colors.blue,
                           ),
                         );

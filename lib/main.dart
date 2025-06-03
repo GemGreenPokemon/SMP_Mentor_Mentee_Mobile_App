@@ -15,6 +15,7 @@ import './screens/mentee_acknowledgment_screen.dart';
 import './screens/settings_screen.dart';
 import './screens/web_settings_screen.dart';
 import './services/mentor_service.dart';
+import './services/mentee_service.dart';
 import './utils/responsive.dart';
 import './utils/test_mode_manager.dart';
 
@@ -33,6 +34,14 @@ void main() async {
             // Initialize with current test mode state
             mentorService.refresh();
             return mentorService;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            final menteeService = MenteeService();
+            // Initialize with current test mode state
+            menteeService.refresh();
+            return menteeService;
           },
         ),
       ],

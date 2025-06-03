@@ -572,8 +572,9 @@ class MockDataGenerator {
         final startTime = _parseDateTime(slotDate, startTimeStr);
         
         // Determine meeting status
-        final statuses = ['pending', 'accepted'];
-        final status = statuses[_random.nextInt(statuses.length)];
+        final statuses = ['pending', 'accepted', 'cancelled'];
+        final statusWeights = [40, 50, 10]; // 40% pending, 50% accepted, 10% cancelled
+        final status = _weightedRandom(statuses, statusWeights);
         
         final meeting = Meeting(
           id: _localDb.generateId(),
@@ -596,12 +597,27 @@ class MockDataGenerator {
           print('DEBUG: Booking availability slot ${slot['id']} for mentee ${mentorship.menteeId}');
           await _localDb.bookAvailabilitySlot(slot['id'], mentorship.menteeId);
         } else {
-          print('DEBUG: Leaving slot ${slot['id']} unbooked (pending status)');
+          print('DEBUG: Leaving slot ${slot['id']} unbooked ($status status)');
         }
       } else {
         print('DEBUG: No mentorships found for mentor ${mentorId}, skipping meeting creation');
       }
     }
+  }
+  
+  // Helper function for weighted random selection
+  static T _weightedRandom<T>(List<T> items, List<int> weights) {
+    int totalWeight = weights.reduce((a, b) => a + b);
+    int randomValue = _random.nextInt(totalWeight);
+    
+    int currentWeight = 0;
+    for (int i = 0; i < items.length; i++) {
+      currentWeight += weights[i];
+      if (randomValue < currentWeight) {
+        return items[i];
+      }
+    }
+    return items.last;
   }
   
   // Helper function to get end time for a time slot

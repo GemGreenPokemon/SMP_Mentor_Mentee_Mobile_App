@@ -102,12 +102,16 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Sarah Martinez',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              Consumer<MentorService>(
+                                builder: (context, mentorService, child) {
+                                  return Text(
+                                    mentorService.mentorProfile['name'] ?? 'Mentor',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  );
+                                },
                               ),
                               Text(
                                 'Mentor',

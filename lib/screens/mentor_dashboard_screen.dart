@@ -12,18 +12,55 @@ import 'checkin_checkout_screen.dart';
 import 'newsletter_screen.dart';
 import 'announcement_screen.dart';
 import '../utils/developer_session.dart';
+import '../utils/test_mode_manager.dart';
 import '../models/meeting.dart';
 
-class MentorDashboardScreen extends StatelessWidget {
+class MentorDashboardScreen extends StatefulWidget {
   const MentorDashboardScreen({super.key});
+
+  @override
+  State<MentorDashboardScreen> createState() => _MentorDashboardScreenState();
+}
+
+class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize mentor service to load database data if in test mode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final mentorService = Provider.of<MentorService>(context, listen: false);
+      mentorService.initialize();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final mentorService = Provider.of<MentorService>(context);
     
+    // Show loading indicator while data is being loaded
+    if (mentorService.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mentor Dashboard'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Mentor Dashboard'),
+            Text(
+              mentorService.mentorProfile['name'] ?? 'Mentor',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.support_agent),
@@ -93,9 +130,35 @@ class MentorDashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Refresh the mentor service data
+          await mentorService.refresh();
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+          // Debug info in test mode
+          if (TestModeManager.isTestMode && DeveloperSession.isActive)
+            Card(
+              color: Colors.yellow.shade100,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Test Mode Active',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Current Mentor: ${TestModeManager.currentTestMentor?.name} (${TestModeManager.currentTestMentor?.id})'),
+                    Text('Current Mentee: ${TestModeManager.currentTestMentee?.name} (${TestModeManager.currentTestMentee?.id})'),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
           // Mentees Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -197,11 +260,7 @@ class MentorDashboardScreen extends StatelessWidget {
             children: [
               _buildMenteeCard(
                 context,
-                mentee['name'],
-                mentee['program'],
-                mentee['lastMeeting'],
-                mentee['progress'],
-                mentee['assignedBy'],
+                mentee,
                 mentorService,
               ),
               const SizedBox(height: 12),
@@ -268,13 +327,17 @@ class MentorDashboardScreen extends StatelessWidget {
                 context,
                 'Schedule Meetings',
                 Icons.calendar_today,
-                () {
-                  Navigator.push(
+                () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ScheduleMeetingScreen(isMentor: true),
                     ),
                   );
+                  // Refresh when returning from schedule screen
+                  if (mounted) {
+                    mentorService.refresh();
+                  }
                 },
               ),
               _buildQuickActionCard(
@@ -434,6 +497,7 @@ class MentorDashboardScreen extends StatelessWidget {
           
           const SizedBox(height: 16),
         ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -453,14 +517,18 @@ class MentorDashboardScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.event_note),
                   title: const Text('Schedule Meeting'),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ScheduleMeetingScreen(isMentor: true),
                       ),
                     );
+                    // Refresh when returning from schedule screen
+                    if (mounted) {
+                      mentorService.refresh();
+                    }
                   },
                 ),
               ],
@@ -474,13 +542,12 @@ class MentorDashboardScreen extends StatelessWidget {
 
   Widget _buildMenteeCard(
     BuildContext context,
-    String name,
-    String program,
-    String lastMeeting,
-    double progress,
-    String assignedBy,
+    Map<String, dynamic> mentee,
     MentorService mentorService,
   ) {
+    final upcomingMeetings = mentee['upcomingMeetings'] as List<Map<String, dynamic>>? ?? [];
+    final nextMeeting = upcomingMeetings.isNotEmpty ? upcomingMeetings.first : null;
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -498,14 +565,14 @@ class MentorDashboardScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        mentee['name'],
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        program,
+                        mentee['program'],
                         style: const TextStyle(
                           color: Colors.grey,
                         ),
@@ -527,7 +594,7 @@ class MentorDashboardScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              assignedBy,
+                              mentee['assignedBy'],
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.green[700],
@@ -550,8 +617,8 @@ class MentorDashboardScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatScreen(
-                          recipientName: name,
-                          recipientRole: program,
+                          recipientName: mentee['name'],
+                          recipientRole: mentee['program'],
                         ),
                       ),
                     );
@@ -561,24 +628,86 @@ class MentorDashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              lastMeeting,
+              mentee['lastMeeting'],
               style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),
             ),
+            // Display next meeting if available
+            if (nextMeeting != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.event,
+                      size: 20,
+                      color: Colors.blue[700],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Next: ${nextMeeting['title']}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          Text(
+                            '${nextMeeting['date']} ${nextMeeting['time']} - ${nextMeeting['location']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (nextMeeting['isNext'] == true)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CheckInCheckOutScreen(
+                                meetingTitle: nextMeeting['title'] ?? 'Meeting',
+                                mentorName: 'You',
+                                location: nextMeeting['location'] ?? 'TBD',
+                                scheduledTime: '${nextMeeting['date']} ${nextMeeting['time']}',
+                                isMentor: true,
+                                meeting: null, // TODO: Pass actual meeting object
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Check In'),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: LinearProgressIndicator(
-                    value: progress,
+                    value: mentee['progress'],
                     backgroundColor: Colors.blue.withOpacity(0.1),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${(progress * 100).round()}%',
+                  '${(mentee['progress'] * 100).round()}%',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                   ),

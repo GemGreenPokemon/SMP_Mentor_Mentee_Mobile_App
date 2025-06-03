@@ -24,9 +24,9 @@ class _LocalMentorSelectionScreenState extends State<LocalMentorSelectionScreen>
     super.initState();
     _loadMentors();
     
-    // Pre-select current test user if in test mode
-    if (TestModeManager.isTestMode && TestModeManager.currentTestUser != null) {
-      _selectedMentorId = TestModeManager.currentTestUser!.id;
+    // Pre-select current test mentor if in test mode
+    if (TestModeManager.isTestMode && TestModeManager.currentTestMentor != null) {
+      _selectedMentorId = TestModeManager.currentTestMentor!.id;
     }
   }
 
@@ -75,14 +75,30 @@ class _LocalMentorSelectionScreenState extends State<LocalMentorSelectionScreen>
   Future<void> _selectMentor(User mentor) async {
     setState(() => _selectedMentorId = mentor.id);
     
-    // Enable test mode with selected mentor
-    await TestModeManager.enableTestMode(mentor);
+    // Get mentee for this mentor
+    User? selectedMentee;
+    final mentorships = await _localDb.getMentorshipsByMentor(mentor.id);
+    
+    if (mentorships.isNotEmpty) {
+      // Get the first mentee
+      final firstMentorship = mentorships.first;
+      selectedMentee = await _localDb.getUser(firstMentorship.menteeId);
+    }
+    
+    // Enable test mode with selected mentor and auto-selected mentee
+    await TestModeManager.enableTestMode(mentor: mentor, mentee: selectedMentee);
     
     if (mounted) {
+      String message = 'Test mode enabled as ${mentor.name}';
+      if (selectedMentee != null) {
+        message += '\nAuto-selected mentee: ${selectedMentee.name}';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Test mode enabled as ${mentor.name}'),
+          content: Text(message),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
         ),
       );
       Navigator.pop(context, true); // Return true to indicate selection made
