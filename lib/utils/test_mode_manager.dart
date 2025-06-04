@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 
-class TestModeManager {
+class TestModeManager extends ChangeNotifier {
   static const String _testModeKey = 'test_mode_enabled';
   
   // Mentor keys
@@ -20,17 +21,35 @@ class TestModeManager {
   static const String _testUserTypeKey = 'test_user_type';
   static const String _testUserEmailKey = 'test_user_email';
   
-  static bool _isTestMode = false;
-  static User? _currentTestMentor;
-  static User? _currentTestMentee;
+  // Singleton instance
+  static final TestModeManager _instance = TestModeManager._internal();
+  factory TestModeManager() => _instance;
+  TestModeManager._internal();
   
-  static bool get isTestMode => _isTestMode;
-  static User? get currentTestUser => _currentTestMentor; // For backward compatibility
-  static User? get currentTestMentor => _currentTestMentor;
-  static User? get currentTestMentee => _currentTestMentee;
+  // Static getters for backward compatibility
+  static TestModeManager get instance => _instance;
+  static bool get isTestMode => _instance._isTestMode;
+  static User? get currentTestUser => _instance._currentTestMentor; // For backward compatibility
+  static User? get currentTestMentor => _instance._currentTestMentor;
+  static User? get currentTestMentee => _instance._currentTestMentee;
+  static bool get hasCompleteTestData => _instance._isTestMode && _instance._currentTestMentor != null && _instance._currentTestMentee != null;
+  
+  // Instance variables
+  bool _isTestMode = false;
+  User? _currentTestMentor;
+  User? _currentTestMentee;
+  
+  // Instance getters
+  bool get isTestModeInstance => _isTestMode;
+  User? get currentTestMentorInstance => _currentTestMentor;
+  User? get currentTestMenteeInstance => _currentTestMentee;
   
   // Initialize test mode from SharedPreferences
   static Future<void> initialize() async {
+    await _instance._initialize();
+  }
+  
+  Future<void> _initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _isTestMode = prefs.getBool(_testModeKey) ?? false;
     
@@ -75,10 +94,15 @@ class TestModeManager {
         }
       }
     }
+    notifyListeners();
   }
   
   // Enable test mode with both mentor and mentee
   static Future<void> enableTestMode({required User mentor, User? mentee}) async {
+    await _instance._enableTestMode(mentor: mentor, mentee: mentee);
+  }
+  
+  Future<void> _enableTestMode({required User mentor, User? mentee}) async {
     final prefs = await SharedPreferences.getInstance();
     
     _isTestMode = true;
@@ -110,10 +134,16 @@ class TestModeManager {
     await prefs.setString(_testUserNameKey, mentor.name);
     await prefs.setString(_testUserTypeKey, mentor.userType);
     await prefs.setString(_testUserEmailKey, mentor.email);
+    
+    notifyListeners();
   }
   
   // Disable test mode
   static Future<void> disableTestMode() async {
+    await _instance._disableTestMode();
+  }
+  
+  Future<void> _disableTestMode() async {
     final prefs = await SharedPreferences.getInstance();
     
     _isTestMode = false;
@@ -138,20 +168,30 @@ class TestModeManager {
     await prefs.remove(_testUserNameKey);
     await prefs.remove(_testUserTypeKey);
     await prefs.remove(_testUserEmailKey);
+    
+    notifyListeners();
   }
   
   // Toggle test mode
   static Future<void> toggleTestMode() async {
+    await _instance._toggleTestMode();
+  }
+  
+  Future<void> _toggleTestMode() async {
     if (_isTestMode) {
-      await disableTestMode();
+      await _disableTestMode();
     } else {
       // Will need to select a user first
-      await disableTestMode(); // For now, just disable if toggled without user
+      await _disableTestMode(); // For now, just disable if toggled without user
     }
   }
   
   // Get the appropriate test user based on user type
   static User? getTestUserForType(String userType) {
+    return _instance._getTestUserForType(userType);
+  }
+  
+  User? _getTestUserForType(String userType) {
     if (!_isTestMode) return null;
     
     if (userType == 'mentor') {
@@ -161,10 +201,5 @@ class TestModeManager {
     }
     
     return null;
-  }
-  
-  // Check if we have both mentor and mentee for testing
-  static bool get hasCompleteTestData {
-    return _isTestMode && _currentTestMentor != null && _currentTestMentee != null;
   }
 }

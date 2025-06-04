@@ -29,6 +29,9 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
+          create: (_) => TestModeManager.instance,
+        ),
+        ChangeNotifierProvider(
           create: (_) {
             final mentorService = MentorService();
             // Initialize with current test mode state

@@ -210,115 +210,124 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                if (TestModeManager.isTestMode && TestModeManager.hasCompleteTestData)
-                  ListTile(
-                    title: const Text('Messaging Test'),
-                    subtitle: Text('${MessagingService.instance.getMessageCount()} messages'),
-                    trailing: const Icon(Icons.message),
-                    onTap: () {
-                      _showMessagingTestDialog();
-                    },
-                  ),
+                Consumer<TestModeManager>(
+                  builder: (context, testModeManager, child) {
+                    if (testModeManager.isTestModeInstance && 
+                        testModeManager.currentTestMentorInstance != null && 
+                        testModeManager.currentTestMenteeInstance != null) {
+                      return ListTile(
+                        title: const Text('Messaging Test'),
+                        subtitle: Text('${MessagingService.instance.getMessageCount()} messages'),
+                        trailing: const Icon(Icons.message),
+                        onTap: () {
+                          _showMessagingTestDialog();
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
                 const Divider(height: 1),
-                StatefulBuilder(
-                  builder: (context, setLocalState) {
-                    return SwitchListTile(
-                      title: const Text('Test Mode'),
-                      subtitle: TestModeManager.isTestMode
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (TestModeManager.currentTestMentor != null)
-                                  Text('Mentor: ${TestModeManager.currentTestMentor!.name}'),
-                                if (TestModeManager.currentTestMentee != null)
-                                  Text('Mentee: ${TestModeManager.currentTestMentee!.name}'),
-                                if (TestModeManager.currentTestMentor == null && TestModeManager.currentTestMentee == null)
-                                  const Text('No test users selected'),
-                              ],
-                            )
-                          : const Text('Test app as a local database user'),
-                      value: TestModeManager.isTestMode,
-                      onChanged: (bool value) async {
-                        final mentorService = Provider.of<MentorService>(context, listen: false);
-                        
-                        if (value) {
-                          // Navigate to mentor selection screen
-                          final result = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LocalMentorSelectionScreen(),
-                            ),
-                          );
-                          
-                          // Refresh the switch state if a selection was made
-                          if (result == true) {
-                            // Refresh MentorService to load database data
-                            await mentorService.refresh();
-                            setLocalState(() {});
+                Consumer<TestModeManager>(
+                  builder: (context, testModeManager, child) {
+                    return Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text('Test Mode'),
+                          subtitle: testModeManager.isTestModeInstance
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (testModeManager.currentTestMentorInstance != null)
+                                      Text('Mentor: ${testModeManager.currentTestMentorInstance!.name}'),
+                                    if (testModeManager.currentTestMenteeInstance != null)
+                                      Text('Mentee: ${testModeManager.currentTestMenteeInstance!.name}'),
+                                    if (testModeManager.currentTestMentorInstance == null && testModeManager.currentTestMenteeInstance == null)
+                                      const Text('No test users selected'),
+                                  ],
+                                )
+                              : const Text('Test app as a local database user'),
+                          value: testModeManager.isTestModeInstance,
+                          onChanged: (bool value) async {
+                            final mentorService = Provider.of<MentorService>(context, listen: false);
                             
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Test mode enabled - using database data'),
-                                  backgroundColor: Colors.green,
+                            if (value) {
+                              // Navigate to mentor selection screen
+                              final result = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LocalMentorSelectionScreen(),
                                 ),
                               );
+                              
+                              // Refresh the switch state if a selection was made
+                              if (result == true) {
+                                // Refresh MentorService to load database data
+                                await mentorService.refresh();
+                                
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Test mode enabled - using database data'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              }
+                            } else {
+                              // Disable test mode
+                              await TestModeManager.disableTestMode();
+                              // Refresh MentorService to use mock data
+                              await mentorService.refresh();
+                              
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Test mode disabled - using mock data'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                              }
                             }
-                          }
-                        } else {
-                          // Disable test mode
-                          await TestModeManager.disableTestMode();
-                          // Refresh MentorService to use mock data
-                          await mentorService.refresh();
-                          setLocalState(() {});
-                          
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Test mode disabled - using mock data'),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                          }
-                        }
-                      },
+                          },
+                        ),
+                        if (testModeManager.isTestModeInstance)
+                          ListTile(
+                            title: const Text('Change Test Users'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Mentor: ${testModeManager.currentTestMentorInstance?.name ?? "None"}'),
+                                Text('Mentee: ${testModeManager.currentTestMenteeInstance?.name ?? "None"}'),
+                              ],
+                            ),
+                            trailing: const Icon(Icons.group),
+                            onTap: () async {
+                              final result = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LocalMentorSelectionScreen(),
+                                ),
+                              );
+                              
+                              if (result == true && mounted) {
+                                // Refresh MentorService with new test user data
+                                final mentorService = Provider.of<MentorService>(context, listen: false);
+                                await mentorService.refresh();
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Test users updated'),
+                                    backgroundColor: Colors.blue,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                      ],
                     );
                   },
                 ),
-                if (TestModeManager.isTestMode)
-                  ListTile(
-                    title: const Text('Change Test Users'),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Mentor: ${TestModeManager.currentTestMentor?.name ?? "None"}'),
-                        Text('Mentee: ${TestModeManager.currentTestMentee?.name ?? "None"}'),
-                      ],
-                    ),
-                    trailing: const Icon(Icons.group),
-                    onTap: () async {
-                      final result = await Navigator.push<bool>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LocalMentorSelectionScreen(),
-                        ),
-                      );
-                      
-                      if (result == true && mounted) {
-                        // Refresh MentorService with new test user data
-                        final mentorService = Provider.of<MentorService>(context, listen: false);
-                        await mentorService.refresh();
-                        setState(() {}); // Refresh to show new user
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Test users updated'),
-                            backgroundColor: Colors.blue,
-                          ),
-                        );
-                      }
-                    },
-                  ),
               ],
             ),
           ],

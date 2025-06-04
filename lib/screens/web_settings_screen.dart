@@ -1002,11 +1002,15 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
             ],
           ),
           content: Container(
-            width: 500,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            width: 600,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 const Text(
                   'Configure your database location before initialization:',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
@@ -1186,10 +1190,103 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      // User Collection Details
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '          └── users/ (collection)',
+                              style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: Colors.amber[700]),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              '              ├── {userId}/ (document)',
+                              style: TextStyle(fontFamily: 'monospace', color: Colors.blue),
+                            ),
+                            const Text(
+                              '              │   ├── id: String',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── name: String',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── email: String (unique)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── userType: "mentor" | "mentee" | "coordinator"',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── student_id: String (e.g., "JS12345")',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── mentor: String (mentor\'s student_id)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── mentee: String (JSON array of mentee IDs)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── department: String',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── year_major: String',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── acknowledgment_signed: "yes" | "no" | "not_applicable"',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── created_at: Timestamp',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   │',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            ),
+                            const Text(
+                              '              │   ├── checklists/ (subcollection)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.orange),
+                            ),
+                            const Text(
+                              '              │   ├── availability/ (subcollection)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.orange),
+                            ),
+                            const Text(
+                              '              │   ├── messages/ (subcollection)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.orange),
+                            ),
+                            const Text(
+                              '              │   ├── notes/ (subcollection)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.orange),
+                            ),
+                            const Text(
+                              '              │   └── ratings/ (subcollection)',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
+            ),
             ),
           ),
           actions: [

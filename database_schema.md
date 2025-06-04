@@ -171,9 +171,11 @@ CREATE TABLE newsletters (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  created_by TEXT,                           -- User ID of newsletter creator
+  target_audience TEXT CHECK(target_audience IN ('mentors', 'mentees', 'all')),  -- Who should receive this newsletter
+  synced INTEGER DEFAULT 0,                  -- Sync status flag
   created_at INTEGER NOT NULL,
-  FOREIGN KEY (meeting_id) REFERENCES meetings(id),
-  FOREIGN KEY (mentee_id) REFERENCES users(id)
+  FOREIGN KEY (created_by) REFERENCES users(id)
 );
 ```
 
