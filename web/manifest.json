@@ -1,11 +1,11 @@
 {
-    "name": "smp_mentor_mentee_mobile_app",
-    "short_name": "smp_mentor_mentee_mobile_app",
+    "name": "SMP Mentor App",
+    "short_name": "SMP Mentor App",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "University mentorship program management app by Sunset Coding.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
