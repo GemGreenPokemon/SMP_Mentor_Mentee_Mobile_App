@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "690685991196",
+    "project_id": "smp-mobile-app-462206",
+    "storage_bucket": "smp-mobile-app-462206.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690685991196:android:09f03c0bd12fde6cd882d9",
+        "android_client_info": {
+          "package_name": "com.sunsetcoding.smp_mentor_mentee_mobile_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2VXh-Bdo9gH6Sc_vaSHqBn-uoEVdaS8k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
