@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../utils/developer_session.dart';
 import '../utils/responsive.dart';
 import '../services/excel_parser_service.dart';
+import '../services/cloud_function_service.dart';
+import '../services/auth_service.dart';
+import '../services/direct_database_service.dart';
 import 'firestore_manager_screen.dart';
 import 'local_db_manager_screen.dart';
 
@@ -24,6 +28,8 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
   
   // Excel parser variables
   final ExcelParserService _excelParser = ExcelParserService();
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
   String? _fileName;
   Map<String, dynamic>? _parseResults;
@@ -260,7 +266,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                         'Initialize Firestore Database',
                         'Configure state, city, and campus',
                         Icons.add_circle_outline,
-                        () => _showFirestoreInitializerDialog(),
+                        () => _handleDatabaseInitialization(),
                       ),
                     ],
                   ),
@@ -1302,22 +1308,67 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                         _isInitializing = true;
                       });
                       
-                      // TODO: Implement actual Firestore initialization
-                      await Future.delayed(const Duration(seconds: 2));
-                      
-                      setDialogState(() {
-                        _isInitializing = false;
-                      });
-                      
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Database initialized: $_selectedState/$_selectedCity/$_selectedCampus',
+                      try {
+                        // Get the university name from campus options
+                        final campusOptions = _getCampusOptions(_selectedCity);
+                        final selectedCampusData = campusOptions.firstWhere(
+                          (option) => option['value'] == _selectedCampus,
+                          orElse: () => {'name': _selectedCampus},
+                        );
+                        final universityName = selectedCampusData['name'] ?? _selectedCampus;
+                        
+                        // Use direct database service to bypass CORS issues
+                        Map<String, dynamic> result;
+                        try {
+                          result = await DirectDatabaseService.instance.initializeUniversityDirect(
+                            state: _selectedState,
+                            city: _selectedCity,
+                            campus: _selectedCampus,
+                            universityName: universityName,
+                          );
+                        } catch (e) {
+                          throw Exception('Database Error: ${e.toString()}');
+                        }
+                        
+                        setDialogState(() {
+                          _isInitializing = false;
+                        });
+                        
+                        Navigator.pop(context);
+                        
+                        if (result['success'] == true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Database initialized successfully!'),
+                                  Text('Path: ${result['universityPath']}'),
+                                  Text('Collections: ${(result['collections'] as List).length} created'),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        } else {
+                          throw Exception(result['message'] ?? 'Unknown error occurred');
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          _isInitializing = false;
+                        });
+                        
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to initialize database: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 4),
                           ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                        );
+                      }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F2D52),
@@ -1362,27 +1413,502 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
     switch (city) {
       case 'Merced':
         return [
-          {'value': 'UC_Merced', 'display': 'UC Merced'},
-          {'value': 'Merced_College', 'display': 'Merced College'},
+          {'value': 'UC_Merced', 'display': 'UC Merced', 'name': 'University of California, Merced'},
+          {'value': 'Merced_College', 'display': 'Merced College', 'name': 'Merced College'},
         ];
       case 'Fresno':
         return [
-          {'value': 'Fresno_State', 'display': 'Fresno State'},
-          {'value': 'Fresno_City_College', 'display': 'Fresno City College'},
+          {'value': 'Fresno_State', 'display': 'Fresno State', 'name': 'California State University, Fresno'},
+          {'value': 'Fresno_City_College', 'display': 'Fresno City College', 'name': 'Fresno City College'},
         ];
       case 'Berkeley':
         return [
-          {'value': 'UC_Berkeley', 'display': 'UC Berkeley'},
-          {'value': 'Berkeley_City_College', 'display': 'Berkeley City College'},
+          {'value': 'UC_Berkeley', 'display': 'UC Berkeley', 'name': 'University of California, Berkeley'},
+          {'value': 'Berkeley_City_College', 'display': 'Berkeley City College', 'name': 'Berkeley City College'},
         ];
       case 'Los Angeles':
         return [
-          {'value': 'UCLA', 'display': 'UCLA'},
-          {'value': 'USC', 'display': 'USC'},
-          {'value': 'LA_City_College', 'display': 'LA City College'},
+          {'value': 'UCLA', 'display': 'UCLA', 'name': 'University of California, Los Angeles'},
+          {'value': 'USC', 'display': 'USC', 'name': 'University of Southern California'},
+          {'value': 'LA_City_College', 'display': 'LA City College', 'name': 'Los Angeles City College'},
         ];
       default:
         return [];
     }
+  }
+
+  // Handle database initialization with Cloud Functions
+  Future<void> _handleDatabaseInitialization() async {
+    // Show options dialog - Cloud Function vs Direct (for testing)
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cloud_upload, color: Color(0xFF0F2D52)),
+            SizedBox(width: 8),
+            Text('Initialize Database'),
+          ],
+        ),
+        content: const Text(
+          'Choose initialization method:\n\n'
+          '• Cloud Function: Secure, authenticated\n'
+          '• Direct: Development testing only',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'direct'),
+            child: const Text('Direct (Test)'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'cloud'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F2D52),
+            ),
+            child: const Text('Cloud Function'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == 'cloud') {
+      await _handleCloudFunctionInit();
+    } else if (choice == 'direct') {
+      _showFirestoreInitializerDialog();
+    }
+  }
+
+  // Handle Cloud Function initialization with authentication
+  Future<void> _handleCloudFunctionInit() async {
+    // Check if user is authenticated
+    if (!_authService.isLoggedIn) {
+      await _showLoginDialog();
+      return;
+    }
+
+    // Check if user has super admin permissions
+    final isSuperAdmin = await _authService.isSuperAdmin();
+    if (!isSuperAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Super admin permissions required for database initialization'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Proceed with Cloud Function initialization
+    _showCloudFunctionInitializerDialog();
+  }
+
+  void _showCloudFunctionInitializerDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.cloud, color: Color(0xFF0F2D52)),
+              const SizedBox(width: 8),
+              const Text('Initialize with Cloud Function'),
+            ],
+          ),
+          content: Container(
+            width: 600,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                const Text(
+                  'Configure your database location (secure Cloud Function):',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                
+                // State Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'State',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedState,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: ['California'].map((state) {
+                            return DropdownMenuItem(
+                              value: state,
+                              child: Text(state),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedState = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // City Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'City',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCity,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: ['Merced', 'Fresno', 'Berkeley', 'Los Angeles']
+                              .map((city) {
+                            return DropdownMenuItem(
+                              value: city,
+                              child: Text(city),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedCity = value!;
+                              // Update campus options based on city
+                              _updateCampusSelection(value);
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Campus Dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Campus',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCampus,
+                          isExpanded: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          items: _getCampusOptions(_selectedCity).map((campus) {
+                            return DropdownMenuItem(
+                              value: campus['value'] as String,
+                              child: Text(campus['display'] as String),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              _selectedCampus = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // Info Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.security, color: Colors.green, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Secure Cloud Function',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '✓ Authenticated with super admin permissions\n'
+                        '✓ Server-side validation and security\n'
+                        '✓ Proper error handling and logging',
+                        style: TextStyle(fontSize: 12, color: Colors.green),
+                      ),
+                    ],
+                  ),
+                ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isInitializing ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isInitializing
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        _isInitializing = true;
+                      });
+                      
+                      try {
+                        // Get the university name from campus options
+                        final campusOptions = _getCampusOptions(_selectedCity);
+                        final selectedCampusData = campusOptions.firstWhere(
+                          (option) => option['value'] == _selectedCampus,
+                          orElse: () => {'name': _selectedCampus},
+                        );
+                        final universityName = selectedCampusData['name'] ?? _selectedCampus;
+                        
+                        // Call the cloud function to initialize the database
+                        Map<String, dynamic> result;
+                        try {
+                          result = await _cloudFunctions.initializeUniversity(
+                            state: _selectedState,
+                            city: _selectedCity,
+                            campus: _selectedCampus,
+                            universityName: universityName,
+                          );
+                        } on FirebaseFunctionsException catch (e) {
+                          if (e.code == 'cors') {
+                            throw Exception('CORS Error: Please ensure you are authenticated and try again.');
+                          }
+                          throw Exception('Firebase Functions Error: ${e.code} - ${e.message}');
+                        } catch (e) {
+                          throw Exception('Network Error: ${e.toString()}');
+                        }
+                        
+                        setDialogState(() {
+                          _isInitializing = false;
+                        });
+                        
+                        Navigator.pop(context);
+                        
+                        if (result['success'] == true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Database initialized successfully via Cloud Function!'),
+                                  Text('Path: ${result['universityPath']}'),
+                                  Text('Collections: ${(result['collections'] as List).length} created'),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        } else {
+                          throw Exception(result['message'] ?? 'Unknown error occurred');
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          _isInitializing = false;
+                        });
+                        
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to initialize database: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2D52),
+                foregroundColor: Colors.white,
+              ),
+              child: _isInitializing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Initialize via Cloud Function'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Show login dialog
+  Future<void> _showLoginDialog() async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.admin_panel_settings, color: Color(0xFF0F2D52)),
+              SizedBox(width: 8),
+              Text('Admin Login Required'),
+            ],
+          ),
+          content: Container(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Super admin credentials required to initialize database:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                  obscureText: true,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        isLoading = true;
+                      });
+
+                      try {
+                        await _authService.signInWithEmailAndPassword(
+                          email: emailController.text.trim(),
+                          password: passwordController.text,
+                        );
+
+                        // Check if user has super admin role
+                        final isSuperAdmin = await _authService.isSuperAdmin();
+                        if (!isSuperAdmin) {
+                          throw Exception('Super admin permissions required');
+                        }
+
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Logged in successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+
+                        // Now proceed with database initialization
+                        _showFirestoreInitializerDialog();
+                      } catch (e) {
+                        setDialogState(() {
+                          isLoading = false;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Login failed: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2D52),
+                foregroundColor: Colors.white,
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Login'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

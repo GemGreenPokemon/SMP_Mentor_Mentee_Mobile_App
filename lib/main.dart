@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import './screens/login_screen.dart';
 import './screens/web_login_screen.dart';
 import './screens/mentee_dashboard_screen.dart';
@@ -22,8 +24,23 @@ import './utils/test_mode_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize TestModeManager first
-  await TestModeManager.initialize();
+  // Initialize Firebase first
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized successfully');
+  } catch (e) {
+    print('Firebase initialization failed: $e');
+  }
+  
+  // Initialize TestModeManager with timeout for web
+  try {
+    await TestModeManager.initialize().timeout(const Duration(seconds: 5));
+  } catch (e) {
+    print('TestModeManager initialization failed: $e');
+    // Continue without test mode for now
+  }
   
   runApp(
     MultiProvider(
@@ -34,16 +51,20 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) {
             final mentorService = MentorService();
-            // Initialize with current test mode state
-            mentorService.refresh();
+            // Initialize with current test mode state (non-blocking)
+            mentorService.refresh().catchError((e) {
+              print('MentorService refresh failed: $e');
+            });
             return mentorService;
           },
         ),
         ChangeNotifierProvider(
           create: (_) {
             final menteeService = MenteeService();
-            // Initialize with current test mode state
-            menteeService.refresh();
+            // Initialize with current test mode state (non-blocking)
+            menteeService.refresh().catchError((e) {
+              print('MenteeService refresh failed: $e');
+            });
             return menteeService;
           },
         ),

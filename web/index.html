@@ -36,6 +36,36 @@
     // The value below is injected by flutter build, do not touch.
     const serviceWorkerVersion = "{{flutter_service_worker_version}}";
   </script>
+  <!-- Firebase SDKs - Latest compatible versions for 2024 -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
+
+  <!-- Firebase Configuration -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbetcwqLmqhblWFbBejMU8AHQ3V59SAjo",
+      authDomain: "smp-mobile-app-462206.firebaseapp.com",
+      projectId: "smp-mobile-app-462206",
+      storageBucket: "smp-mobile-app-462206.firebasestorage.app",
+      messagingSenderId: "690685991196",
+      appId: "1:690685991196:web:b1daf779e2c3a59dd882d9",
+      measurementId: "G-9GMGQWHPCH"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Set up error handling
+    window.addEventListener('unhandledrejection', function(event) {
+      console.warn('Unhandled promise rejection:', event.reason);
+      // Prevent the error from appearing in console
+      event.preventDefault();
+    });
+  </script>
+
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer></script>
   <style>
@@ -88,21 +118,104 @@
   </div>
   
   <script>
+    // Debug flutter.js loading
+    var flutterLoadAttempts = 0;
+    
     window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp().then(function() {
-              // Hide loading indicator after app starts running
-              document.getElementById('loading').style.display = 'none';
-            });
-          });
+      console.log('Window loaded, waiting for Flutter loader...');
+      console.log('serviceWorkerVersion:', serviceWorkerVersion);
+      
+      // Wait for flutter.js to load and set up _flutter object
+      function initializeFlutter() {
+        flutterLoadAttempts++;
+        console.log('Flutter load attempt #' + flutterLoadAttempts);
+        
+        // Debug what's available
+        console.log('typeof _flutter:', typeof _flutter);
+        if (typeof _flutter !== 'undefined') {
+          console.log('_flutter object:', _flutter);
+          console.log('_flutter.loader:', _flutter.loader);
+          console.log('_flutter.buildConfig:', _flutter.buildConfig);
+          
+          // Check if we need to set buildConfig
+          if (_flutter.loader && !_flutter.buildConfig) {
+            console.log('Setting default buildConfig...');
+            _flutter.buildConfig = {
+              builds: [{
+                "compileTarget": "dartdevc",
+                "renderer": "html"
+              }]
+            };
+          }
         }
-      });
+        
+        if (typeof _flutter !== 'undefined' && _flutter.loader) {
+          console.log('Flutter loader ready, starting initialization...');
+          
+          try {
+            // Download main.dart.js using the new load method
+            _flutter.loader.load({
+              serviceWorkerSettings: {
+                serviceWorkerVersion: serviceWorkerVersion,
+              },
+              onEntrypointLoaded: function(engineInitializer) {
+                console.log('Flutter entrypoint loaded, initializing engine...');
+                console.log('engineInitializer:', engineInitializer);
+                
+                engineInitializer.initializeEngine().then(function(appRunner) {
+                  console.log('Flutter engine initialized, running app...');
+                  console.log('appRunner:', appRunner);
+                  
+                  appRunner.runApp().then(function() {
+                    console.log('Flutter app started successfully!');
+                    // Hide loading indicator after app starts running
+                    document.getElementById('loading').style.display = 'none';
+                  }).catch(function(error) {
+                    console.error('Error running Flutter app:', error);
+                    console.error('Error stack:', error.stack);
+                    document.getElementById('loading').innerHTML = '<p>Error loading application. Please check console.</p>';
+                  });
+                }).catch(function(error) {
+                  console.error('Error initializing Flutter engine:', error);
+                  console.error('Error stack:', error.stack);
+                  document.getElementById('loading').innerHTML = '<p>Error initializing. Please check console.</p>';
+                });
+              }
+            });
+          } catch (error) {
+            console.error('Error calling _flutter.loader.load:', error);
+            console.error('Error stack:', error.stack);
+            document.getElementById('loading').innerHTML = '<p>Error calling Flutter loader. Please check console.</p>';
+          }
+        } else {
+          // Retry after a short delay, but not forever
+          if (flutterLoadAttempts < 50) {
+            console.log('Flutter loader not ready, retrying...');
+            setTimeout(initializeFlutter, 100);
+          } else {
+            console.error('Flutter loader failed to load after 50 attempts');
+            document.getElementById('loading').innerHTML = '<p>Flutter failed to load. Please refresh the page.</p>';
+          }
+        }
+      }
+      
+      // Start initialization
+      initializeFlutter();
+    });
+    
+    // Also listen for the flutter.js script to load
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM Content Loaded');
+      var flutterScript = document.querySelector('script[src="flutter.js"]');
+      if (flutterScript) {
+        console.log('flutter.js script tag found');
+        flutterScript.addEventListener('load', function() {
+          console.log('flutter.js script loaded event fired');
+        });
+        flutterScript.addEventListener('error', function(e) {
+          console.error('flutter.js script failed to load:', e);
+        });
+      }
     });
   </script>
 </body>
