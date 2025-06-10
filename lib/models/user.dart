@@ -9,6 +9,10 @@ class User {
   final String acknowledgmentSigned;
   final String? department; // Added 5/29/25
   final String? yearMajor; // Added 5/29/25
+  final String? careerAspiration; // Added for Excel import
+  final List<String>? topics; // Added for Excel import  
+  final String? importSource; // Added for Excel import tracking
+  final String? importBatchId; // Added for Excel import tracking
   final DateTime createdAt;
 
   User({
@@ -22,6 +26,10 @@ class User {
     this.acknowledgmentSigned = 'not_applicable',
     this.department,
     this.yearMajor,
+    this.careerAspiration,
+    this.topics,
+    this.importSource,
+    this.importBatchId,
     required this.createdAt,
   });
 
@@ -37,6 +45,10 @@ class User {
       acknowledgmentSigned: map['acknowledgment_signed'] ?? 'not_applicable',
       department: map['department'],
       yearMajor: map['year_major'],
+      careerAspiration: map['career_aspiration'],
+      topics: map['topics'] != null ? List<String>.from(map['topics']) : null,
+      importSource: map['import_source'],
+      importBatchId: map['import_batch_id'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
     );
   }
@@ -53,6 +65,10 @@ class User {
       'acknowledgment_signed': acknowledgmentSigned,
       'department': department,
       'year_major': yearMajor,
+      'career_aspiration': careerAspiration,
+      'topics': topics,
+      'import_source': importSource,
+      'import_batch_id': importBatchId,
       'created_at': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -68,6 +84,10 @@ class User {
     String? acknowledgmentSigned,
     String? department,
     String? yearMajor,
+    String? careerAspiration,
+    List<String>? topics,
+    String? importSource,
+    String? importBatchId,
     DateTime? createdAt,
   }) {
     return User(
@@ -81,6 +101,10 @@ class User {
       acknowledgmentSigned: acknowledgmentSigned ?? this.acknowledgmentSigned,
       department: department ?? this.department,
       yearMajor: yearMajor ?? this.yearMajor,
+      careerAspiration: careerAspiration ?? this.careerAspiration,
+      topics: topics ?? this.topics,
+      importSource: importSource ?? this.importSource,
+      importBatchId: importBatchId ?? this.importBatchId,
       createdAt: createdAt ?? this.createdAt,
     );
   }

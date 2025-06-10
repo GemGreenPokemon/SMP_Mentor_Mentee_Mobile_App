@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../widgets/settings_section_wrapper.dart';
 import '../../../services/excel_parser_service.dart';
+import '../../../services/excel_to_user_transformation_service.dart';
+import '../../../services/cloud_function_service.dart';
 import '../../../models/mentorship.dart';
+import '../../../utils/developer_session.dart';
 
 class ExcelUploadSection extends StatefulWidget {
   const ExcelUploadSection({super.key});
@@ -13,9 +16,13 @@ class ExcelUploadSection extends StatefulWidget {
 
 class _ExcelUploadSectionState extends State<ExcelUploadSection> {
   final ExcelParserService _excelParser = ExcelParserService();
+  final ExcelToUserTransformationService _transformationService = ExcelToUserTransformationService();
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
   bool _isLoading = false;
+  bool _isImporting = false;
   String? _fileName;
   Map<String, dynamic>? _parseResults;
+  TransformationResult? _transformationResult;
   
   // Search variables
   final TextEditingController _searchController = TextEditingController();
@@ -125,6 +132,29 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
                       foregroundColor: Colors.white,
                     ),
                   ),
+                  
+                  // Import to Database button - only show if we have parse results and in developer mode
+                  if (_parseResults != null && !_isLoading && DeveloperSession.isActive) ...[
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: _isImporting ? null : _handleImportToDatabase,
+                      icon: _isImporting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload),
+                      label: Text(_isImporting ? 'Importing...' : 'Import to Database'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[700],
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               if (_parseResults != null) ...[
@@ -517,4 +547,297 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
       );
     }
   }
+
+  /// Handle importing Excel data to the database
+  Future<void> _handleImportToDatabase() async {
+    if (_parseResults == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No Excel data to import'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog first
+    final confirmed = await _showImportConfirmationDialog();
+    if (!confirmed) return;
+
+    setState(() {
+      _isImporting = true;
+    });
+
+    try {
+      // Step 1: Transform Excel data to User model format
+      print('🔄 Starting Excel to User transformation...');
+      final assignments = _excelParser.getAllAssignments();
+      final menteeInfo = _excelParser.getAllMenteeInfo();
+      
+      final transformationResult = _transformationService.transformToUsers(
+        assignments, 
+        menteeInfo,
+        importBatchId: 'excel_import_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      setState(() {
+        _transformationResult = transformationResult;
+      });
+
+      if (transformationResult.hasCriticalErrors) {
+        throw Exception('Transformation failed with critical errors: ${transformationResult.errors.where((e) => e.isCritical).join(', ')}');
+      }
+
+      print('🔄 Transformation completed: ${transformationResult.users.length} users prepared');
+
+      // Step 2: Bulk create users in database
+      print('🔄 Starting bulk user creation...');
+      final universityPath = _cloudFunctions.getCurrentUniversityPath();
+      
+      final createResult = await _cloudFunctions.bulkCreateUsers(
+        universityPath: universityPath,
+        users: transformationResult.users,
+      );
+
+      if (createResult['success'] != true) {
+        throw Exception('User creation failed: ${createResult['message']}');
+      }
+
+      final userResults = createResult['results'];
+      print('🔄 User creation completed: ${userResults['success']} users created, ${userResults['failed']} failed');
+
+      // Step 3: Bulk assign mentors if we have valid mentorships
+      if (transformationResult.validMentorships.isNotEmpty) {
+        print('🔄 Starting mentor assignments...');
+        print('🔄 Valid mentorships: ${transformationResult.validMentorships.length}, Skipped: ${transformationResult.skippedMentorships.length}');
+        
+        final mentorshipMappings = transformationResult.validMentorships.map((m) => m.toMap()).toList();
+        
+        final assignResult = await _cloudFunctions.bulkAssignMentors(
+          universityPath: universityPath,
+          assignments: mentorshipMappings,
+        );
+
+        if (assignResult['success'] != true) {
+          print('⚠️ Mentor assignment had issues: ${assignResult['message']}');
+        } else {
+          final assignResults = assignResult['results'];
+          print('🔄 Mentor assignment completed: ${assignResults['success']} assignments made');
+        }
+      }
+
+      // Show success message with details
+      _showImportSuccessDialog(createResult, transformationResult);
+
+    } catch (error) {
+      print('❌ Import failed: $error');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Import failed: ${error.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isImporting = false;
+      });
+    }
+  }
+
+  /// Show confirmation dialog before importing
+  Future<bool> _showImportConfirmationDialog() async {
+    final stats = _transformationService.getTransformationStats(
+      _transformationService.transformToUsers(
+        _excelParser.getAllAssignments(),
+        _excelParser.getAllMenteeInfo(),
+      )
+    );
+
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.cloud_upload, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Import to Database'),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will import the Excel data to the database:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 16),
+              _buildStatRow('Total Users:', '${stats.totalUsers}'),
+              _buildStatRow('Mentors:', '${stats.mentors}'),
+              _buildStatRow('Mentees:', '${stats.mentees}'),
+              _buildStatRow('Total Mentorships:', '${stats.mentorships}'),
+              _buildStatRow('Valid Mentorships:', '${stats.successfulMentorships}'),
+              if (stats.skippedMentorships > 0)
+                _buildStatRow('Skipped Mentorships:', '${stats.skippedMentorships}'),
+              const SizedBox(height: 16),
+              if (stats.warnings > 0) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${stats.warnings} warnings detected. Check transformation details.',
+                          style: TextStyle(color: Colors.orange[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const Text(
+                'Continue with import?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  /// Show success dialog with import results
+  void _showImportSuccessDialog(Map<String, dynamic> createResult, TransformationResult transformationResult) {
+    final userResults = createResult['results'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 32),
+            SizedBox(width: 12),
+            Text('Import Successful!'),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Excel data has been successfully imported to the database:',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              _buildStatRow('Users Created:', '${userResults['success']}'),
+              if (userResults['failed'] > 0)
+                _buildStatRow('Users Failed:', '${userResults['failed']}'),
+              _buildStatRow('Mentorships Created:', '${transformationResult.validMentorships.length}'),
+              if (transformationResult.skippedMentorships.isNotEmpty)
+                _buildStatRow('Mentorships Skipped:', '${transformationResult.skippedMentorships.length}'),
+              const SizedBox(height: 16),
+              if (transformationResult.skippedMentorships.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${transformationResult.skippedMentorships.length} mentorships were skipped due to missing mentors. Mentees were created but need manual mentor assignment.',
+                          style: TextStyle(fontSize: 14, color: Colors.orange[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'View the imported users in the User Management section.',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F2D52),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build a statistics row for dialogs
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
 }

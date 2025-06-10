@@ -431,6 +431,68 @@ class CloudFunctionService {
     }
   }
 
+  // --- Bulk Import Functions ---
+
+  /// Bulk create users from Excel import
+  Future<Map<String, dynamic>> bulkCreateUsers({
+    required String universityPath,
+    required List<Map<String, dynamic>> users,
+  }) async {
+    try {
+      print('🔍 bulkCreateUsers: Starting request with ${users.length} users');
+      print('🔍 bulkCreateUsers: universityPath: $universityPath');
+      
+      final HttpsCallable callable = _functions.httpsCallable('bulkCreateUserAccounts');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'users': users,
+      });
+      
+      print('🔍 bulkCreateUsers: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 bulkCreateUsers: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 bulkCreateUsers: Exception details: ${e.details}');
+      rethrow;
+    } catch (e) {
+      print('🔍 bulkCreateUsers: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Bulk assign mentors to mentees
+  Future<Map<String, dynamic>> bulkAssignMentors({
+    required String universityPath,
+    required List<Map<String, dynamic>> assignments,
+  }) async {
+    try {
+      print('🔍 bulkAssignMentors: Starting request with ${assignments.length} assignments');
+      print('🔍 bulkAssignMentors: universityPath: $universityPath');
+      
+      final HttpsCallable callable = _functions.httpsCallable('bulkAssignMentorAccounts');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'assignments': assignments,
+      });
+      
+      print('🔍 bulkAssignMentors: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 bulkAssignMentors: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 bulkAssignMentors: Exception details: ${e.details}');
+      rethrow;
+    } catch (e) {
+      print('🔍 bulkAssignMentors: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
   /// Get current university path from user context
   String getCurrentUniversityPath() {
     // TODO: Implement logic to get university path from current user context
