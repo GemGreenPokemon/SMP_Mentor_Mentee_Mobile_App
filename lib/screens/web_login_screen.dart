@@ -27,12 +27,12 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    DeveloperSession.isActive = false;
+  void _login() async {
+    await DeveloperSession.disable();
     // In development mode, only check if a role is selected
     if (_devMode) {
       if (_selectedRole == 'Developer') {
-        DeveloperSession.isActive = true;
+        await DeveloperSession.enable();
       }
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -62,21 +62,24 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
   }
   
   void _navigateToDashboard() {
-    // Navigate to the appropriate screen based on role
-    switch (_selectedRole) {
-      case 'Mentee':
-        Navigator.pushReplacementNamed(context, '/mentee');
-        break;
-      case 'Mentor':
-        Navigator.pushReplacementNamed(context, '/mentor');
-        break;
-      case 'Coordinator':
-        Navigator.pushReplacementNamed(context, '/coordinator');
-        break;
-      case 'Developer':
-        Navigator.pushReplacementNamed(context, '/dev');
-        break;
-    }
+    // Use addPostFrameCallback to avoid Navigator re-entrance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Navigate to the appropriate screen based on role
+      switch (_selectedRole) {
+        case 'Mentee':
+          Navigator.pushReplacementNamed(context, '/mentee');
+          break;
+        case 'Mentor':
+          Navigator.pushReplacementNamed(context, '/mentor');
+          break;
+        case 'Coordinator':
+          Navigator.pushReplacementNamed(context, '/coordinator');
+          break;
+        case 'Developer':
+          Navigator.pushReplacementNamed(context, '/dev');
+          break;
+      }
+    });
   }
 
   @override

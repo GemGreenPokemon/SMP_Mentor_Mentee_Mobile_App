@@ -12,7 +12,7 @@ export function getDB() {
  * Generate university document path
  */
 export function getUniversityPath(state: string, city: string, campus: string): string {
-  return `${state}/${city}/${campus}`;
+  return `${state}_${city}_${campus}`.toLowerCase().replace(/\s+/g, '_');
 }
 
 /**

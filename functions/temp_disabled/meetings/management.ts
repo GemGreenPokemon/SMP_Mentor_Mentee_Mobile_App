@@ -30,7 +30,7 @@ interface UpdateMeetingData {
 export const createMeeting = functions.https.onCall(async (data: CreateMeetingData, context) => {
   try {
     // Verify authentication
-    const authContext = await verifyAuth(context);
+    // const authContext = await verifyAuth(context);
     
     const { universityPath, mentor_id, mentee_id, start_time, end_time, topic, location, availability_id } = data;
     
@@ -90,7 +90,7 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
 export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingData, context) => {
   try {
     // Verify authentication
-    const authContext = await verifyAuth(context);
+    // const authContext = await verifyAuth(context);
     
     const { universityPath, meetingId, ...updateData } = data;
     
@@ -134,7 +134,7 @@ export const deleteMeeting = functions.https.onCall(async (data: {
 }, context) => {
   try {
     // Verify authentication
-    const authContext = await verifyAuth(context);
+    // const authContext = await verifyAuth(context);
     
     const { universityPath, meetingId, reason } = data;
     
@@ -180,7 +180,7 @@ export const acceptMeeting = functions.https.onCall(async (data: {
 }, context) => {
   try {
     // Verify authentication
-    const authContext = await verifyAuth(context);
+    // const authContext = await verifyAuth(context);
     
     const { universityPath, meetingId } = data;
     

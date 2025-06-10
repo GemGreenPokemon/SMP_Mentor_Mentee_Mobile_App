@@ -1,0 +1,339 @@
+  Widget _buildEditUserForm() {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        // Form controllers with pre-populated data
+        final nameController = TextEditingController(text: _editingUser?.name ?? '');
+        final emailController = TextEditingController(text: _editingUser?.email ?? '');
+        final studentIdController = TextEditingController(text: _editingUser?.studentId ?? '');
+        final departmentController = TextEditingController(text: _editingUser?.department ?? '');
+        final yearMajorController = TextEditingController(text: _editingUser?.yearMajor ?? '');
+        
+        String selectedUserType = _editingUser?.userType ?? 'mentee';
+        String selectedAcknowledgment = _editingUser?.acknowledgmentSigned ?? 'not_applicable';
+        String? selectedMentor = _editingUser?.mentor;
+        bool isSubmitting = false;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Icon(Icons.edit, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Edit User: ${_editingUser?.name}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 1: Name and Email
+              Responsive.isDesktop(context)
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Name *',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email *',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Name *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+              const SizedBox(height: 16),
+
+              // Row 2: Student ID and User Type
+              Responsive.isDesktop(context)
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: studentIdController,
+                            decoration: const InputDecoration(
+                              labelText: 'Student ID',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: selectedUserType,
+                            decoration: const InputDecoration(
+                              labelText: 'User Type',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'mentee', child: Text('Mentee')),
+                              DropdownMenuItem(value: 'mentor', child: Text('Mentor')),
+                              DropdownMenuItem(value: 'coordinator', child: Text('Coordinator')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedUserType = value!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        TextField(
+                          controller: studentIdController,
+                          decoration: const InputDecoration(
+                            labelText: 'Student ID',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: selectedUserType,
+                          decoration: const InputDecoration(
+                            labelText: 'User Type',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'mentee', child: Text('Mentee')),
+                            DropdownMenuItem(value: 'mentor', child: Text('Mentor')),
+                            DropdownMenuItem(value: 'coordinator', child: Text('Coordinator')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedUserType = value!;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+              const SizedBox(height: 16),
+
+              // Row 3: Department and Year/Major
+              Responsive.isDesktop(context)
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: departmentController,
+                            decoration: const InputDecoration(
+                              labelText: 'Department',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: yearMajorController,
+                            decoration: const InputDecoration(
+                              labelText: 'Year/Major',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        TextField(
+                          controller: departmentController,
+                          decoration: const InputDecoration(
+                            labelText: 'Department',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: yearMajorController,
+                          decoration: const InputDecoration(
+                            labelText: 'Year/Major',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+
+              // Mentee-specific fields
+              if (selectedUserType == 'mentee') ...[
+                const SizedBox(height: 16),
+                
+                // Acknowledgment Status
+                DropdownButtonFormField<String>(
+                  value: selectedAcknowledgment,
+                  decoration: const InputDecoration(
+                    labelText: 'Acknowledgment Status',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'not_applicable', child: Text('Not Applicable')),
+                    DropdownMenuItem(value: 'yes', child: Text('Yes')),
+                    DropdownMenuItem(value: 'no', child: Text('No')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedAcknowledgment = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Mentor Assignment
+                DropdownButtonFormField<String>(
+                  value: selectedMentor,
+                  decoration: const InputDecoration(
+                    labelText: 'Assigned Mentor',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('No Mentor Assigned')),
+                    ..._usersList
+                        .where((user) => user.userType == 'mentor')
+                        .map((mentor) => DropdownMenuItem(
+                              value: mentor.id,
+                              child: Text(mentor.name),
+                            )),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedMentor = value;
+                    });
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isSubmitting ? null : () {
+                      setState(() {
+                        _showEditUserForm = false;
+                        _editingUser = null;
+                      });
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: isSubmitting ? null : () async {
+                      // Validate required fields
+                      if (nameController.text.trim().isEmpty || emailController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Name and Email are required'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() {
+                        isSubmitting = true;
+                      });
+
+                      try {
+                        await _updateUser(
+                          userId: _editingUser!.id,
+                          name: nameController.text.trim(),
+                          email: emailController.text.trim(),
+                          userType: selectedUserType,
+                          studentId: studentIdController.text.trim().isEmpty ? null : studentIdController.text.trim(),
+                          department: departmentController.text.trim().isEmpty ? null : departmentController.text.trim(),
+                          yearMajor: yearMajorController.text.trim().isEmpty ? null : yearMajorController.text.trim(),
+                          acknowledgmentSigned: selectedAcknowledgment,
+                          mentorId: selectedMentor,
+                        );
+
+                        setState(() {
+                          _showEditUserForm = false;
+                          _editingUser = null;
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('User updated successfully'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        setState(() {
+                          isSubmitting = false;
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error updating user: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Update User'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }

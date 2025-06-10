@@ -10,7 +10,8 @@ class CloudFunctionService {
   
   // Initialize with proper configuration
   CloudFunctionService._internal() {
-    _functions = FirebaseFunctions.instance;
+    // Initialize with specific region
+    _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
     
     // Use local emulator when USE_EMULATOR environment variable is set
     const useEmulator = String.fromEnvironment('USE_EMULATOR', defaultValue: 'false');
@@ -75,8 +76,13 @@ class CloudFunctionService {
     String? studentId,
     String? department,
     String? yearMajor,
+    String? acknowledgmentSigned,
   }) async {
     try {
+      print('🔍 createUserAccount: Starting request');
+      print('🔍 createUserAccount: universityPath: $universityPath');
+      print('🔍 createUserAccount: name: $name, email: $email, userType: $userType');
+      
       final HttpsCallable callable = _functions.httpsCallable('createUserAccount');
       final HttpsCallableResult result = await callable.call(<String, dynamic>{
         'universityPath': universityPath,
@@ -86,10 +92,14 @@ class CloudFunctionService {
         'student_id': studentId,
         'department': department,
         'year_major': yearMajor,
+        'acknowledgment_signed': acknowledgmentSigned,
       });
+      
+      print('🔍 createUserAccount: Success - received data: ${result.data}');
       return Map<String, dynamic>.from(result.data ?? {});
     } on FirebaseFunctionsException catch (e) {
-      print('Create user error: ${e.code} ${e.message}');
+      print('🔍 createUserAccount: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 createUserAccount: Exception details: ${e.details}');
       rethrow;
     }
   }
@@ -118,6 +128,45 @@ class CloudFunctionService {
       return Map<String, dynamic>.from(result.data ?? {});
     } on FirebaseFunctionsException catch (e) {
       print('Update user error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Get all users in a university
+  Future<Map<String, dynamic>> getUsersList({
+    required String universityPath,
+  }) async {
+    try {
+      print('🔍 getUsersList: Starting request for universityPath: $universityPath');
+      
+      final HttpsCallable callable = _functions.httpsCallable('getUsersList');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+      });
+      
+      print('🔍 getUsersList: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 getUsersList: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 getUsersList: Exception details: ${e.details}');
+      rethrow;
+    }
+  }
+
+  /// Delete user account
+  Future<Map<String, dynamic>> deleteUserAccount({
+    required String universityPath,
+    required String userId,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('deleteUserAccount');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'userId': userId,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Delete user error: ${e.code} ${e.message}');
       rethrow;
     }
   }
@@ -386,6 +435,6 @@ class CloudFunctionService {
   String getCurrentUniversityPath() {
     // TODO: Implement logic to get university path from current user context
     // This would typically come from Firebase Auth custom claims or user preferences
-    return 'California/Merced/UC_Merced'; // Default for now
+    return 'california_merced_uc_merced'; // Default for now - matches DirectDatabaseService format
   }
 } 

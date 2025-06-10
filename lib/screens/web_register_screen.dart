@@ -706,7 +706,10 @@ class _WebMentorRegistrationFormState extends State<WebMentorRegistrationForm> {
       const SnackBar(content: Text('Registration successful! Please login.')),
     );
     
-    Navigator.popUntil(context, (route) => route.isFirst);
+    // Use addPostFrameCallback to avoid Navigator re-entrance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.popUntil(context, (route) => route.isFirst);
+    });
   }
 
   @override
@@ -981,7 +984,10 @@ class _WebCoordinatorRegistrationFormState extends State<WebCoordinatorRegistrat
       const SnackBar(content: Text('Registration submitted. Pending approval.')),
     );
     
-    Navigator.popUntil(context, (route) => route.isFirst);
+    // Use addPostFrameCallback to avoid Navigator re-entrance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.popUntil(context, (route) => route.isFirst);
+    });
   }
 
   @override

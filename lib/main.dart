@@ -20,6 +20,7 @@ import './services/mentor_service.dart';
 import './services/mentee_service.dart';
 import './utils/responsive.dart';
 import './utils/test_mode_manager.dart';
+import './utils/developer_session.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,14 @@ void main() async {
   } catch (e) {
     print('TestModeManager initialization failed: $e');
     // Continue without test mode for now
+  }
+  
+  // Initialize DeveloperSession with timeout for web
+  try {
+    await DeveloperSession.initialize().timeout(const Duration(seconds: 5));
+  } catch (e) {
+    print('DeveloperSession initialization failed: $e');
+    // Continue without developer session for now
   }
   
   runApp(

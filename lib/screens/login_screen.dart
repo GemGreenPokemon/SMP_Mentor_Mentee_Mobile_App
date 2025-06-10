@@ -26,12 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    DeveloperSession.isActive = false;
+  void _login() async {
+    await DeveloperSession.disable();
     // In development mode, only check if a role is selected
     if (_devMode) {
       if (_selectedRole == 'Developer') {
-        DeveloperSession.isActive = true;
+        await DeveloperSession.enable();
       }
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
