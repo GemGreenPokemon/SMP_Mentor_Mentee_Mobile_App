@@ -24,6 +24,78 @@ export function getUniversityCollection(universityPath: string, collectionName: 
 }
 
 /**
+ * Generate user document ID from name
+ */
+export function generateUserDocumentId(name: string): string {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Name is required for ID generation');
+  }
+
+  // Split name by spaces and join with underscores
+  // "Toby Sunset Jackson" -> "Toby_Sunset_Jackson"
+  // "John Smith" -> "John_Smith"
+  const cleanName = name
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-']/g, '') // Remove special chars except spaces, hyphens, apostrophes
+    .replace(/[-']/g, '_') // Convert hyphens and apostrophes to underscores
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+
+  if (!cleanName) {
+    throw new Error('Name resulted in empty ID after processing');
+  }
+
+  return cleanName;
+}
+
+/**
+ * Check if document ID already exists and generate unique ID
+ */
+export async function generateUniqueUserId(
+  collectionRef: FirebaseFirestore.CollectionReference,
+  baseName: string
+): Promise<string> {
+  const baseId = generateUserDocumentId(baseName);
+  let uniqueId = baseId;
+  let counter = 2;
+
+  // Check for collisions and append numbers if needed
+  while (true) {
+    const doc = await collectionRef.doc(uniqueId).get();
+    if (!doc.exists) {
+      return uniqueId;
+    }
+    uniqueId = `${baseId}_${counter}`;
+    counter++;
+  }
+}
+
+/**
+ * Create document with custom ID
+ */
+export async function createDocumentWithCustomId<T extends { [x: string]: any }>(
+  collectionRef: FirebaseFirestore.CollectionReference,
+  data: T,
+  customId: string
+): Promise<DatabaseResult<{ id: string }>> {
+  try {
+    await collectionRef.doc(customId).set(data);
+    return {
+      success: true,
+      data: { id: customId },
+      message: 'Document created successfully'
+    };
+  } catch (error) {
+    console.error('Error creating document with custom ID:', error);
+    return {
+      success: false,
+      error: 'Failed to create document'
+    };
+  }
+}
+
+/**
  * Create document with auto-generated ID
  */
 export async function createDocument<T extends { [x: string]: any }>(

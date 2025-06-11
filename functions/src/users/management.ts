@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import { verifyCoordinator, verifyAuth, setUserClaims } from '../utils/auth';
-import { getUniversityCollection, createDocument, updateDocument, deleteDocument } from '../utils/database';
+import { getUniversityCollection, createDocument, updateDocument, deleteDocument, createDocumentWithCustomId, generateUniqueUserId } from '../utils/database';
 import { User } from '../types';
 
 interface CreateUserData {
@@ -92,7 +92,10 @@ export const createUser = functions.https.onCall(async (data: CreateUserData, co
     }
 
     const usersCollection = getUniversityCollection(universityPath, 'users');
-    const result = await createDocument(usersCollection, user);
+    
+    // Generate unique user ID from name
+    const userId = await generateUniqueUserId(usersCollection, name);
+    const result = await createDocumentWithCustomId(usersCollection, user, userId);
 
     if (result.success && result.data) {
       // Skip user claims for testing
@@ -361,7 +364,9 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
           user.mentee = []; // Default empty array if no mentees
         }
 
-        const result = await createDocument(usersCollection, user);
+        // Generate unique user ID from name
+        const userId = await generateUniqueUserId(usersCollection, userData.name);
+        const result = await createDocumentWithCustomId(usersCollection, user, userId);
 
         if (result.success && result.data) {
           results.success++;
