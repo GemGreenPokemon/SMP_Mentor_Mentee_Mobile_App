@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 import '../models/user.dart';
 import 'excel_parser_service.dart';
 
@@ -150,14 +151,13 @@ class ExcelToUserTransformationService {
       'import_batch_id': importBatchId,
       'student_id': _generatePlaceholderStudentId('M'),
       'department': 'TBD', // To be determined manually
-      'year_major': 'Graduate/Alumni', // Assumption for mentors
-      'career_aspiration': 'Mentoring and professional development',
-      'topics': _extractMentorTopics(menteeAssignments) as dynamic,
+      'year_major': 'Graduate/Alumni', // Default assumption for mentors
     };
 
     // Add mentee relationships if available
     if (assignedMentees.isNotEmpty) {
-      userData['mentee'] = assignedMentees; // Array of mentee names
+      // Convert to JSON string as expected by database schema
+      userData['mentee'] = jsonEncode(assignedMentees);
     }
     
     return userData;
@@ -188,38 +188,30 @@ class ExcelToUserTransformationService {
       userData['mentor'] = assignment.mentor!.trim();
     }
 
-    // Add menteeInfo data if available
+    // Add menteeInfo data if available - now properly mapped from corrected parser
     if (menteeInfo != null) {
+      // department field gets the major
       if (menteeInfo.major.isNotEmpty) {
         userData['department'] = menteeInfo.major.trim();
       }
-      if (menteeInfo.year.isNotEmpty) {
+      
+      // year_major field combines year and major for display
+      if (menteeInfo.year.isNotEmpty && menteeInfo.major.isNotEmpty) {
+        userData['year_major'] = '${menteeInfo.year.trim()}, ${menteeInfo.major.trim()}';
+      } else if (menteeInfo.year.isNotEmpty) {
         userData['year_major'] = menteeInfo.year.trim();
+      } else if (menteeInfo.major.isNotEmpty) {
+        userData['year_major'] = menteeInfo.major.trim();
       }
-      if (menteeInfo.careerAspiration.isNotEmpty) {
-        userData['career_aspiration'] = menteeInfo.careerAspiration.trim();
-      }
-      if (menteeInfo.topics.isNotEmpty) {
-        userData['topics'] = menteeInfo.topics as dynamic; // Keep as List<String> for database
-      }
+      
+      // Skip career_aspiration and topics as they're not in the database schema
+      // These fields can be added later when the schema is updated
     }
 
     // Generate placeholder student ID if not available
     userData['student_id'] = _generatePlaceholderStudentId('E');
 
     return userData;
-  }
-
-  /// Extract relevant topics for a mentor based on their mentees
-  List<String> _extractMentorTopics(List<MenteeAssignment> menteeAssignments) {
-    // This would be enhanced with actual mentee topic data
-    // For now, return general mentoring topics
-    return [
-      'Career Development',
-      'Academic Guidance', 
-      'Professional Networking',
-      'Skill Development'
-    ];
   }
 
   /// Generate a placeholder email based on name and role
