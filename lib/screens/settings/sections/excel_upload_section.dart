@@ -65,12 +65,20 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
     // Search mentees
     for (var assignment in _excelParser.getAllAssignments()) {
       if (assignment.mentee.toLowerCase().contains(searchTerm)) {
+        // Get additional mentee info if available
+        final menteeInfo = _getMenteeInfoByName(assignment.mentee);
+        
         results.add({
           'name': assignment.mentee,
           'type': 'Mentee',
           'mentor': assignment.mentor,
           'acknowledgmentSigned': assignment.acknowledgmentSigned,
           'notes': assignment.notes,
+          'email': menteeInfo?.email,
+          'major': menteeInfo?.major,
+          'year': menteeInfo?.year,
+          'careerAspiration': menteeInfo?.careerAspiration,
+          'topics': menteeInfo?.topics,
         });
       }
     }
@@ -364,6 +372,19 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
               ),
               const SizedBox(height: 8),
             ],
+            if (_selectedPerson!['email'] != null &&
+                _selectedPerson!['email'].toString().isNotEmpty) ...[
+              Row(
+                children: [
+                  const Text(
+                    'Email: ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(_selectedPerson!['email']),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 const Text(
@@ -402,6 +423,88 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
                   ),
                   Expanded(
                     child: Text(_selectedPerson!['notes']),
+                  ),
+                ],
+              ),
+            ],
+            
+            // Additional mentee information
+            if (_selectedPerson!['major'] != null &&
+                _selectedPerson!['major'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Major: ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Expanded(
+                    child: Text(_selectedPerson!['major']),
+                  ),
+                ],
+              ),
+            ],
+            if (_selectedPerson!['year'] != null &&
+                _selectedPerson!['year'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Year: ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(_selectedPerson!['year']),
+                ],
+              ),
+            ],
+            if (_selectedPerson!['careerAspiration'] != null &&
+                _selectedPerson!['careerAspiration'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Career Aspiration: ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Expanded(
+                    child: Text(_selectedPerson!['careerAspiration']),
+                  ),
+                ],
+              ),
+            ],
+            if (_selectedPerson!['topics'] != null &&
+                _selectedPerson!['topics'] is List<String> &&
+                (_selectedPerson!['topics'] as List<String>).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Topics of Interest:',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: (_selectedPerson!['topics'] as List<String>).map((topic) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue[300]!),
+                        ),
+                        child: Text(
+                          topic,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -838,6 +941,24 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
         ],
       ),
     );
+  }
+
+  /// Helper method to get mentee info by name
+  MenteeInfo? _getMenteeInfoByName(String menteeName) {
+    try {
+      final allMenteeInfo = _excelParser.getAllMenteeInfo();
+      print('🔍 Looking for mentee: "$menteeName"');
+      print('🔍 Available mentees: ${allMenteeInfo.map((m) => m.name).toList()}');
+      
+      final found = allMenteeInfo.firstWhere(
+        (info) => info.name.toLowerCase().trim() == menteeName.toLowerCase().trim(),
+      );
+      print('🔍 Found mentee info: ${found.name}, major: ${found.major}, year: ${found.year}');
+      return found;
+    } catch (e) {
+      print('🔍 No mentee info found for: "$menteeName" - Error: $e');
+      return null;
+    }
   }
 
 }

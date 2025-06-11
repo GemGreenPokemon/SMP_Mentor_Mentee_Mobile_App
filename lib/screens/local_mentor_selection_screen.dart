@@ -236,7 +236,7 @@ class _LocalMentorSelectionScreenState extends State<LocalMentorSelectionScreen>
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'ID: ${mentor.studentId ?? mentor.id.substring(0, 8)}',
+                                      'ID: ${mentor.id.substring(0, 8)}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],

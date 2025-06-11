@@ -2388,7 +2388,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                         ..._usersList
                             .where((user) => user.userType == 'mentor')
                             .map((mentor) => DropdownMenuItem(
-                                  value: mentor.studentId ?? mentor.id,
+                                  value: mentor.id,
                                   child: Text(
                                     mentor.name,
                                     overflow: TextOverflow.ellipsis, // Handle long names

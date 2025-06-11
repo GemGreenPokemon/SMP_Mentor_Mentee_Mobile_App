@@ -108,20 +108,22 @@ class ExcelParserService {
     // Skip header row
     for (int i = 1; i < sheet.maxRows; i++) {
       var row = sheet.row(i);
-      if (row.isEmpty || row[0]?.value == null) continue;
-
-      String name = row[0]?.value?.toString() ?? '';
-      String email = row[1]?.value?.toString() ?? '';
-      String major = row[2]?.value?.toString() ?? '';
-      String year = row[3]?.value?.toString() ?? '';
-      String careerAspiration = row[4]?.value?.toString() ?? '';
+      if (row.isEmpty || row[1]?.value == null) continue; // Check column 1 for name
       
-      // Parse topics (assuming they're in columns 5+)
+      // Adjust column indices to skip Recorded Date (column 0)
+      String name = row[1]?.value?.toString() ?? '';         // Column 1: First and last name
+      String email = row[2]?.value?.toString() ?? '';        // Column 2: UC Merced Email
+      String major = row[3]?.value?.toString() ?? '';        // Column 3: Major
+      String year = row[4]?.value?.toString() ?? '';         // Column 4: Year in college
+      String careerAspiration = row[5]?.value?.toString() ?? ''; // Column 5: Career aspiration
+      
+      // Parse topics from column 23: "Which topics would you like to focus on in mentoring?"
       List<String> topics = [];
-      for (int j = 5; j < row.length; j++) {
-        String? topic = row[j]?.value?.toString();
-        if (topic != null && topic.isNotEmpty) {
-          topics.add(topic);
+      if (row.length > 23) {
+        String? topicsString = row[23]?.value?.toString();
+        if (topicsString != null && topicsString.isNotEmpty) {
+          // Topics are comma-separated in a single cell
+          topics = topicsString.split(',').map((topic) => topic.trim()).toList();
         }
       }
 
