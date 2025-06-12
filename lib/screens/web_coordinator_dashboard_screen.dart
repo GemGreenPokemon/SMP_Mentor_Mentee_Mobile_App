@@ -8,6 +8,7 @@ import 'web_settings_screen.dart';
 import 'announcement_screen.dart';
 import 'web_newsletter_screen.dart';
 import '../services/mentor_service.dart';
+import '../services/auth_service.dart';
 import '../utils/responsive.dart';
 
 class WebCoordinatorDashboardScreen extends StatefulWidget {
@@ -131,9 +132,10 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                               child: Text('Logout'),
                             ),
                           ],
-                          onSelected: (value) {
+                          onSelected: (value) async {
                             if (value == 'logout') {
-                              Navigator.of(context).pushReplacementNamed('/');
+                              await AuthService().signOut();
+                              // Navigation will be handled automatically by AuthWrapper
                             }
                           },
                         ),

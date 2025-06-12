@@ -21,6 +21,7 @@ import './services/mentee_service.dart';
 import './utils/responsive.dart';
 import './utils/test_mode_manager.dart';
 import './utils/developer_session.dart';
+import './widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,9 +109,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => Responsive.isWeb() 
-            ? const WebLoginScreen() 
-            : const LoginScreen(),
+        '/': (context) => const AuthWrapper(),
         '/dev': (context) => const DeveloperHomeScreen(),
         '/mentee': (context) => Responsive.isWeb()
             ? const WebMenteeDashboardScreen()

@@ -19,9 +19,8 @@ export const initializeUniversity = functions.https.onCall(
     try {
       console.log('🔥 initializeUniversity function called with data:', data);
       
-      // Temporarily bypass auth for initial setup
-      // TODO: Re-enable after initial setup: const authContext = await verifySuperAdmin(context);
-      const authContext = { uid: 'temp-admin', email: 'temp@admin.com' };
+      // Re-enable authentication for production
+      const authContext = await verifySuperAdmin(context);
       
       const { state, city, campus, universityName } = data;
       
@@ -125,8 +124,8 @@ export const initializeUniversity = functions.https.onCall(
  */
 export const getUniversities = functions.https.onCall(async (data, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // await verifySuperAdmin(context);
+    // Re-enable authentication for production
+    await verifySuperAdmin(context);
     
     const db = getDB();
     const universitiesSnapshot = await db.collection('universities').get();
@@ -157,9 +156,8 @@ export const getUniversities = functions.https.onCall(async (data, context) => {
  */
 export const deleteUniversity = functions.https.onCall(async (data: { universityPath: string }, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifySuperAdmin(context);
-    const authContext = { uid: 'test-admin' };
+    // Re-enable authentication for production
+    const authContext = await verifySuperAdmin(context);
     
     const { universityPath } = data;
     

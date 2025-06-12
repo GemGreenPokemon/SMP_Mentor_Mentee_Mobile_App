@@ -59,8 +59,8 @@ interface BulkAssignMentorsData {
  */
 export const createUser = functions.https.onCall(async (data: CreateUserData, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath, name, email, userType, student_id, department, year_major, acknowledgment_signed, mentor, mentee } = data;
     
@@ -129,19 +129,19 @@ export const createUser = functions.https.onCall(async (data: CreateUserData, co
  */
 export const updateUser = functions.https.onCall(async (data: UpdateUserData, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyAuth(context);
+    // Re-enable authentication for production
+    const authContext = await verifyAuth(context);
     
     const { universityPath, userId, ...updateData } = data;
     
-    // Skip permission checks for testing
-    // if (authContext.uid !== userId && !['coordinator', 'super_admin'].includes(authContext.role || '')) {
-    //   throw new functions.https.HttpsError('permission-denied', 'Can only update own profile');
-    // }
+    // Re-enable permission checks for production
+    if (authContext.uid !== userId && !['coordinator', 'super_admin'].includes(authContext.role || '')) {
+      throw new functions.https.HttpsError('permission-denied', 'Can only update own profile');
+    }
 
-    // if (['coordinator'].includes(authContext.role || '') && authContext.university_path !== universityPath) {
-    //   throw new functions.https.HttpsError('permission-denied', 'Access denied for this university');
-    // }
+    if (['coordinator'].includes(authContext.role || '') && authContext.university_path !== universityPath) {
+      throw new functions.https.HttpsError('permission-denied', 'Access denied for this university');
+    }
 
     const usersCollection = getUniversityCollection(universityPath, 'users');
     const result = await updateDocument(usersCollection, userId, {
@@ -171,8 +171,8 @@ export const updateUser = functions.https.onCall(async (data: UpdateUserData, co
  */
 export const deleteUser = functions.https.onCall(async (data: { universityPath: string; userId: string }, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath, userId } = data;
     
@@ -207,8 +207,8 @@ export const getAllUsers = functions.https.onCall(async (data: { universityPath:
   try {
     console.log('🔥 getAllUsers function called with data:', data);
     
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath } = data;
     
@@ -251,8 +251,8 @@ export const assignMentor = functions.https.onCall(async (data: {
   menteeId: string 
 }, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath, mentorId, menteeId } = data;
     
@@ -273,7 +273,7 @@ export const assignMentor = functions.https.onCall(async (data: {
     await createDocument(mentorshipsCollection, {
       mentor_id: mentorId,
       mentee_id: menteeId,
-      assigned_by: 'test-admin',
+      assigned_by: authContext.uid,
       overall_progress: 0.0,
       created_at: new Date()
     });
@@ -301,8 +301,8 @@ export const assignMentor = functions.https.onCall(async (data: {
  */
 export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUserData, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath, users } = data;
     
@@ -417,8 +417,8 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
  */
 export const bulkAssignMentors = functions.https.onCall(async (data: BulkAssignMentorsData, context) => {
   try {
-    // Temporarily skip authentication for testing
-    // const authContext = await verifyCoordinator(context, data.universityPath);
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
     
     const { universityPath, assignments } = data;
     
@@ -489,7 +489,7 @@ export const bulkAssignMentors = functions.https.onCall(async (data: BulkAssignM
         await createDocument(mentorshipsCollection, {
           mentor_id: mentor.id,
           mentee_id: mentee.id,
-          assigned_by: 'excel-import',
+          assigned_by: authContext.uid,
           overall_progress: 0.0,
           notes: assignment.notes || '',
           created_at: new Date()
@@ -533,5 +533,49 @@ export const bulkAssignMentors = functions.https.onCall(async (data: BulkAssignM
     }
     
     throw new functions.https.HttpsError('internal', 'Failed to bulk assign mentors');
+  }
+});
+
+/**
+ * Validate if a name is approved for registration (NAME-ONLY WHITELIST)
+ * Used during registration to check if user is allowed to sign up
+ */
+export const validateNameForRegistration = functions.https.onCall(async (data: { 
+  universityPath: string; 
+  name: string 
+}, context) => {
+  try {
+    console.log('🔥 validateNameForRegistration function called with data:', data);
+    
+    // This function doesn't require authentication as it's used during registration
+    // before the user has an account
+    
+    const { universityPath, name } = data;
+    
+    if (!universityPath || !name) {
+      throw new functions.https.HttpsError('invalid-argument', 'University path and name are required');
+    }
+
+    const usersCollection = getUniversityCollection(universityPath, 'users');
+    const snapshot = await usersCollection.where('name', '==', name.trim()).get();
+    
+    const isApproved = !snapshot.empty;
+    
+    console.log(`Name validation for "${name}" in ${universityPath}: ${isApproved ? 'APPROVED' : 'NOT APPROVED'}`);
+
+    return {
+      success: true,
+      approved: isApproved,
+      message: isApproved ? 'Name found in approved list' : 'Name not found in approved list'
+    };
+
+  } catch (error) {
+    console.error('Error validating name for registration:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to validate name for registration');
   }
 });

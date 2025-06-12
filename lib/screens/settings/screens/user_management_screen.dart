@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../../services/auth_service.dart';
 import '../../../services/cloud_function_service.dart';
-import '../../../services/real_time_user_service.dart';
+import '../../../services/real_time_user_service.dart' as rts;
 import '../../../models/user.dart';
 import '../../../utils/responsive.dart';
 import '../widgets/auth_overlay.dart';
@@ -17,7 +17,7 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
   final AuthService _authService = AuthService();
-  final RealTimeUserService _realTimeUserService = RealTimeUserService();
+  final rts.RealTimeUserService _realTimeUserService = rts.RealTimeUserService();
   
   // User management variables
   List<User> _usersList = [];
@@ -29,6 +29,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   
   // Real-time user service
   StreamSubscription<List<User>>? _usersStreamSubscription;
+  StreamSubscription? _connectionStateSubscription;
   
   // Auth overlay variables
   bool _showAuthOverlayFlag = false;
@@ -44,6 +45,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   void dispose() {
     _usersStreamSubscription?.cancel();
+    _connectionStateSubscription?.cancel();
     _realTimeUserService.stopListening();
     super.dispose();
   }
@@ -59,6 +61,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             backgroundColor: const Color(0xFF0F2D52),
             foregroundColor: Colors.white,
             elevation: 0,
+            actions: [
+              _buildConnectionStatusIndicator(),
+              const SizedBox(width: 16),
+            ],
           ),
           body: IgnorePointer(
             ignoring: _showAuthOverlayFlag,
@@ -1038,6 +1044,59 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildConnectionStatusIndicator() {
+    return StreamBuilder<rts.ConnectionState>(
+      stream: _realTimeUserService.connectionStateStream,
+      initialData: _realTimeUserService.connectionState,
+      builder: (context, snapshot) {
+        final connectionState = snapshot.data ?? rts.ConnectionState.disconnected;
+        
+        switch (connectionState) {
+          case rts.ConnectionState.connected:
+            return const Tooltip(
+              message: 'Connected to database',
+              child: Icon(
+                Icons.cloud_done,
+                color: Colors.green,
+                size: 20,
+              ),
+            );
+          case rts.ConnectionState.connecting:
+            return const Tooltip(
+              message: 'Connecting to database...',
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                ),
+              ),
+            );
+          case rts.ConnectionState.error:
+            return Tooltip(
+              message: 'Database connection error: ${_realTimeUserService.lastError ?? "Unknown error"}',
+              child: const Icon(
+                Icons.cloud_off,
+                color: Colors.red,
+                size: 20,
+              ),
+            );
+          case rts.ConnectionState.disconnected:
+          default:
+            return const Tooltip(
+              message: 'Disconnected from database',
+              child: Icon(
+                Icons.cloud_off,
+                color: Colors.grey,
+                size: 20,
+              ),
+            );
+        }
+      },
     );
   }
 }

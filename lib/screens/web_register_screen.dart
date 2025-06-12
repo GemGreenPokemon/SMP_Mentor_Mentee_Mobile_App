@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'web_mentee_acknowledgment_screen.dart';
+import 'email_verification_screen.dart';
 import '../utils/responsive.dart';
+import '../services/auth_service.dart';
 
 class WebRegisterScreen extends StatefulWidget {
   const WebRegisterScreen({super.key});
@@ -405,6 +408,9 @@ class _WebMenteeRegistrationFormState extends State<WebMenteeRegistrationForm> {
   final _studentIdController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isRegistering = false;
+  
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -416,18 +422,86 @@ class _WebMenteeRegistrationFormState extends State<WebMenteeRegistrationForm> {
     super.dispose();
   }
 
-  void _register() {
+  void _register() async {
     if (_formKey.currentState?.validate() != true) {
       return;
     }
     
-    // TODO: Implement registration with Firebase
+    setState(() {
+      _isRegistering = true;
+    });
     
-    // Navigate to web mentee acknowledgment screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const WebMenteeAcknowledgmentScreen()),
-    );
+    try {
+      // Register with name-only whitelist validation
+      await _authService.registerWithNameValidation(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      
+      // Show success message and navigate to email verification screen
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful! Please check your email to verify your account.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // Navigate to email verification screen instead of acknowledgment
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EmailVerificationScreen(),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String errorMessage;
+        switch (e.code) {
+          case 'name-not-approved':
+            errorMessage = 'Your name is not on the approved list. Please contact your coordinator.';
+            break;
+          case 'email-already-in-use':
+            errorMessage = 'An account with this email already exists.';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password is too weak. Please choose a stronger password.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          default:
+            errorMessage = 'Registration failed: ${e.message}';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRegistering = false;
+        });
+      }
+    }
   }
 
   @override
@@ -683,6 +757,9 @@ class _WebMentorRegistrationFormState extends State<WebMentorRegistrationForm> {
   final _departmentController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isRegistering = false;
+  
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -694,22 +771,86 @@ class _WebMentorRegistrationFormState extends State<WebMentorRegistrationForm> {
     super.dispose();
   }
 
-  void _register() {
+  void _register() async {
     if (_formKey.currentState?.validate() != true) {
       return;
     }
     
-    // TODO: Implement registration with Firebase
-    
-    // Show success message and navigate back to login
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration successful! Please login.')),
-    );
-    
-    // Use addPostFrameCallback to avoid Navigator re-entrance
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+    setState(() {
+      _isRegistering = true;
     });
+    
+    try {
+      // Register with name-only whitelist validation
+      await _authService.registerWithNameValidation(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      
+      // Show success message and navigate to email verification screen
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful! Please check your email to verify your account.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // Navigate to email verification screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EmailVerificationScreen(),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String errorMessage;
+        switch (e.code) {
+          case 'name-not-approved':
+            errorMessage = 'Your name is not on the approved list. Please contact your coordinator.';
+            break;
+          case 'email-already-in-use':
+            errorMessage = 'An account with this email already exists.';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password is too weak. Please choose a stronger password.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          default:
+            errorMessage = 'Registration failed: ${e.message}';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRegistering = false;
+        });
+      }
+    }
   }
 
   @override
@@ -961,6 +1102,9 @@ class _WebCoordinatorRegistrationFormState extends State<WebCoordinatorRegistrat
   final _roleController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isRegistering = false;
+  
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -972,22 +1116,86 @@ class _WebCoordinatorRegistrationFormState extends State<WebCoordinatorRegistrat
     super.dispose();
   }
 
-  void _register() {
+  void _register() async {
     if (_formKey.currentState?.validate() != true) {
       return;
     }
     
-    // TODO: Implement registration with Firebase
-    
-    // Show success message and navigate back to login
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration submitted. Pending approval.')),
-    );
-    
-    // Use addPostFrameCallback to avoid Navigator re-entrance
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+    setState(() {
+      _isRegistering = true;
     });
+    
+    try {
+      // Register with name-only whitelist validation
+      await _authService.registerWithNameValidation(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      
+      // Show success message and navigate to email verification screen
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful! Please check your email to verify your account.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        
+        // Navigate to email verification screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EmailVerificationScreen(),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String errorMessage;
+        switch (e.code) {
+          case 'name-not-approved':
+            errorMessage = 'Your name is not on the approved list. Please contact your coordinator.';
+            break;
+          case 'email-already-in-use':
+            errorMessage = 'An account with this email already exists.';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password is too weak. Please choose a stronger password.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          default:
+            errorMessage = 'Registration failed: ${e.message}';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRegistering = false;
+        });
+      }
+    }
   }
 
   @override

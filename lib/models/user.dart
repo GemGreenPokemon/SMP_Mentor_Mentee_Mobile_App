@@ -14,6 +14,9 @@ class User {
   final String? importSource; // Added for Excel import tracking
   final String? importBatchId; // Added for Excel import tracking
   final DateTime createdAt;
+  final String? firebaseUid; // Firebase Auth UID
+  final bool emailVerified; // Firebase Auth email verification status
+  final DateTime? accountCreatedAt; // Firebase Auth account creation timestamp
 
   User({
     required this.id,
@@ -31,6 +34,9 @@ class User {
     this.importSource,
     this.importBatchId,
     required this.createdAt,
+    this.firebaseUid,
+    this.emailVerified = false,
+    this.accountCreatedAt,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -50,6 +56,11 @@ class User {
       importSource: map['import_source'],
       importBatchId: map['import_batch_id'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
+      firebaseUid: map['firebase_uid'],
+      emailVerified: map['email_verified'] ?? false,
+      accountCreatedAt: map['account_created_at'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(map['account_created_at']) 
+          : null,
     );
   }
 
@@ -70,6 +81,9 @@ class User {
       'import_source': importSource,
       'import_batch_id': importBatchId,
       'created_at': createdAt.millisecondsSinceEpoch,
+      'firebase_uid': firebaseUid,
+      'email_verified': emailVerified,
+      'account_created_at': accountCreatedAt?.millisecondsSinceEpoch,
     };
   }
 
@@ -89,6 +103,9 @@ class User {
     String? importSource,
     String? importBatchId,
     DateTime? createdAt,
+    String? firebaseUid,
+    bool? emailVerified,
+    DateTime? accountCreatedAt,
   }) {
     return User(
       id: id ?? this.id,
@@ -106,6 +123,9 @@ class User {
       importSource: importSource ?? this.importSource,
       importBatchId: importBatchId ?? this.importBatchId,
       createdAt: createdAt ?? this.createdAt,
+      firebaseUid: firebaseUid ?? this.firebaseUid,
+      emailVerified: emailVerified ?? this.emailVerified,
+      accountCreatedAt: accountCreatedAt ?? this.accountCreatedAt,
     );
   }
 }

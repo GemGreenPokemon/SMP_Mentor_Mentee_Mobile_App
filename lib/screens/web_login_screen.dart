@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'web_register_screen.dart';
+import 'email_verification_screen.dart';
 import '../utils/responsive.dart';
 import '../utils/developer_session.dart';
+import '../services/auth_service.dart';
 
 class WebLoginScreen extends StatefulWidget {
   const WebLoginScreen({super.key});
@@ -13,12 +16,12 @@ class WebLoginScreen extends StatefulWidget {
 class _WebLoginScreenState extends State<WebLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String? _selectedRole;
   bool _isPasswordVisible = false;
+  bool _isLoggingIn = false;
+  bool _isInitializingDatabase = false;
   final _formKey = GlobalKey<FormState>();
   
-  // Development mode flag - set to true to bypass validation
-  final bool _devMode = true;
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -28,56 +31,154 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
   }
 
   void _login() async {
-    await DeveloperSession.disable();
-    // In development mode, only check if a role is selected
-    if (_devMode) {
-      if (_selectedRole == 'Developer') {
-        await DeveloperSession.enable();
-      }
-      if (_selectedRole == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a role')),
-        );
-        return;
-      }
-      
-      // Navigate based on selected role
-      _navigateToDashboard();
-      return;
-    }
-    
-    // Normal validation for production
     if (_formKey.currentState?.validate() != true) {
       return;
     }
     
-    if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a role')),
+    setState(() {
+      _isLoggingIn = true;
+    });
+    
+    try {
+      // Sign in with Firebase Auth
+      await _authService.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
-      return;
+      
+      // Check if email is verified (bypass for dev account)
+      final isDevAccount = _emailController.text.trim() == 'sunsetcoding.dev@gmail.com';
+      if (!_authService.isEmailVerified && !isDevAccount) {
+        // Navigate to email verification screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const EmailVerificationScreen(),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Show database initialization status for regular users
+      if (_emailController.text.trim() != 'sunsetcoding.dev@gmail.com') {
+        setState(() {
+          _isInitializingDatabase = true;
+        });
+      }
+      
+      // Get user role and navigate to appropriate dashboard
+      final userRole = await _authService.getUserRole();
+      
+      if (mounted) {
+        setState(() {
+          _isInitializingDatabase = false;
+        });
+      }
+      
+      if (mounted) {
+        // Handle special developer mode (including dev account)
+        final isDevAccount = _emailController.text.trim() == 'sunsetcoding.dev@gmail.com';
+        if (userRole?.toLowerCase() == 'developer' || userRole?.toLowerCase() == 'super_admin' || _emailController.text.contains('developer') || isDevAccount) {
+          await DeveloperSession.enable();
+        } else {
+          await DeveloperSession.disable();
+        }
+        
+        _navigateToDashboard(userRole);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String errorMessage;
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'No account found with this email address.';
+            break;
+          case 'wrong-password':
+            errorMessage = 'Incorrect password.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          case 'user-disabled':
+            errorMessage = 'This account has been disabled.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Too many failed attempts. Please try again later.';
+            break;
+          default:
+            errorMessage = 'Login failed: ${e.message}';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingIn = false;
+        });
+      }
     }
-
-    _navigateToDashboard();
   }
   
-  void _navigateToDashboard() {
+  void _navigateToDashboard(String? userRole) {
     // Use addPostFrameCallback to avoid Navigator re-entrance
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Navigate to the appropriate screen based on role
-      switch (_selectedRole) {
-        case 'Mentee':
+      // Check if widget is still mounted before navigation
+      if (!mounted) return;
+      
+      // Special handling for dev account - always route to developer dashboard
+      final isDevAccount = _emailController.text.trim() == 'sunsetcoding.dev@gmail.com';
+      if (isDevAccount) {
+        print('🔧 Login screen: Navigating dev account to /dev');
+        Navigator.pushReplacementNamed(context, '/dev');
+        return;
+      }
+      
+      // Navigate to the appropriate screen based on user role from database
+      switch (userRole?.toLowerCase()) {
+        case 'mentee':
           Navigator.pushReplacementNamed(context, '/mentee');
           break;
-        case 'Mentor':
+        case 'mentor':
           Navigator.pushReplacementNamed(context, '/mentor');
           break;
-        case 'Coordinator':
+        case 'coordinator':
           Navigator.pushReplacementNamed(context, '/coordinator');
           break;
-        case 'Developer':
+        case 'developer':
+        case 'super_admin':
           Navigator.pushReplacementNamed(context, '/dev');
           break;
+        default:
+          // If no role found, sign out and show error
+          print('🔧 Login screen: No valid role found, signing out');
+          _authService.signOut();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unable to determine user role. Please contact support.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
       }
     });
   }
@@ -301,7 +402,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                   alignment: Alignment.centerRight,
                                   child: TextButton(
                                     onPressed: () {
-                                      // TODO: Implement forgot password flow
+                                      _showForgotPasswordDialog();
                                     },
                                     child: const Text(
                                       'Forgot Password?',
@@ -311,101 +412,6 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-                                
-                                // Role selection label
-                                const Text(
-                                  'Login as a...',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                
-                                // Role selection container - horizontal on desktop, vertical on mobile
-                                Container(
-                                  width: double.infinity,
-                                  child: isDesktop || isTablet
-                                      ? Column(
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: _buildRoleButton(
-                                                    context,
-                                                    'Mentee',
-                                                    Icons.school,
-                                                    _selectedRole == 'Mentee',
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: _buildRoleButton(
-                                                    context,
-                                                    'Mentor',
-                                                    Icons.psychology,
-                                                    _selectedRole == 'Mentor',
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: _buildRoleButton(
-                                                    context,
-                                                    'Coordinator',
-                                                    Icons.admin_panel_settings,
-                                                    _selectedRole == 'Coordinator',
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            if (_devMode) ...[
-                                              const SizedBox(height: 12),
-                                              _buildRoleButton(
-                                                context,
-                                                'Developer',
-                                                Icons.developer_mode,
-                                                _selectedRole == 'Developer',
-                                              ),
-                                            ],
-                                          ],
-                                        )
-                                      : Column(
-                                          children: [
-                                            _buildRoleButton(
-                                              context,
-                                              'Mentee',
-                                              Icons.school,
-                                              _selectedRole == 'Mentee',
-                                            ),
-                                            const SizedBox(height: 12),
-                                            _buildRoleButton(
-                                              context,
-                                              'Mentor',
-                                              Icons.psychology,
-                                              _selectedRole == 'Mentor',
-                                            ),
-                                            const SizedBox(height: 12),
-                                            _buildRoleButton(
-                                              context,
-                                              'Coordinator',
-                                              Icons.admin_panel_settings,
-                                              _selectedRole == 'Coordinator',
-                                            ),
-                                            if (_devMode) ...[
-                                              const SizedBox(height: 12),
-                                              _buildRoleButton(
-                                                context,
-                                                'Developer',
-                                                Icons.developer_mode,
-                                                _selectedRole == 'Developer',
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                ),
-                                
                                 const SizedBox(height: 32),
                                 
                                 // Login button
@@ -413,7 +419,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                   width: double.infinity,
                                   height: 50,
                                   child: ElevatedButton(
-                                    onPressed: _login,
+                                    onPressed: (_isLoggingIn || _isInitializingDatabase) ? null : _login,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0F2D52),
                                       foregroundColor: Colors.white,
@@ -421,15 +427,50 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: const Text(
-                                      'SIGN IN',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    child: (_isLoggingIn || _isInitializingDatabase)
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : const Text(
+                                            'SIGN IN',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                   ),
                                 ),
+                                
+                                // Status message for database initialization
+                                if (_isInitializingDatabase) ...[
+                                  const SizedBox(height: 16),
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0F2D52)),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Connecting to database...',
+                                        style: TextStyle(
+                                          color: Color(0xFF0F2D52),
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 
                                 const SizedBox(height: 24),
                                 
@@ -467,58 +508,79 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
     );
   }
 
-  Widget _buildRoleButton(
-    BuildContext context,
-    String text,
-    IconData icon,
-    bool isSelected,
-  ) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedRole = text;
-        });
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        height: 52,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0F2D52) : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: const Color(0xFF0F2D52),
-            width: 1.5,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF0F2D52).withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+  void _showForgotPasswordDialog() {
+    final emailController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        title: const Text('Reset Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : const Color(0xFF0F2D52),
-              size: 20,
+            const Text(
+              'Enter your email address and we\'ll send you a link to reset your password.',
             ),
-            const SizedBox(width: 8),
-            Text(
-              text,
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF0F2D52),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
               ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your email address'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              try {
+                await _authService.sendPasswordResetEmail(email);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Password reset email sent! Check your inbox.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F2D52),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Send Reset Email'),
+          ),
+        ],
       ),
     );
   }

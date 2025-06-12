@@ -6,7 +6,7 @@ admin.initializeApp();
 
 // Import function modules - temporarily only core database functions
 import { initializeUniversity } from './university/initialization';
-import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors } from './users/management';
+import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors, validateNameForRegistration } from './users/management';
 // Temporarily commented out to avoid build errors:
 // import { createMeeting, updateMeeting, deleteMeeting } from './meetings/management';
 // import { sendMessage, getChatHistory } from './messaging/chat';
@@ -24,6 +24,7 @@ export const deleteUserAccount = deleteUser;
 export const getUsersList = getAllUsers;
 export const bulkCreateUserAccounts = bulkCreateUsers;
 export const bulkAssignMentorAccounts = bulkAssignMentors;
+export const validateUserNameForRegistration = validateNameForRegistration;
 
 // Temporarily commented out to avoid build errors:
 // Meeting Management Functions

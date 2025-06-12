@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 
+enum ConnectionState { disconnected, connecting, connected, error }
+
 class RealTimeUserService {
   static final RealTimeUserService _instance = RealTimeUserService._internal();
   factory RealTimeUserService() => _instance;
@@ -10,38 +12,61 @@ class RealTimeUserService {
 
   FirebaseFirestore? _firestore;
   bool _isFirestoreInitialized = false;
+  ConnectionState _connectionState = ConnectionState.disconnected;
+  String? _lastError;
   
   // Initialize Firestore with emulator settings
   void _initializeFirestore() {
+    print('🔥 === FIRESTORE INITIALIZATION DEBUG ===');
+    print('🔥 Is already initialized: $_isFirestoreInitialized');
+    print('🔥 Current Firestore instance: $_firestore');
+    
     if (_isFirestoreInitialized) {
-      print('🔥 RealTimeUserService: Firestore already initialized, skipping');
+      print('🔥 Firestore already initialized, skipping');
+      print('🔥 Existing instance: $_firestore');
       return;
     }
     
+    print('🔥 Creating new Firestore instance...');
     _firestore = FirebaseFirestore.instance;
+    print('🔥 New Firestore instance created: $_firestore');
     
     // Use emulator when running locally
     const useEmulator = String.fromEnvironment('USE_EMULATOR', defaultValue: 'false');
+    print('🔥 USE_EMULATOR environment variable: $useEmulator');
+    print('🔥 kDebugMode: $kDebugMode');
+    
     if (useEmulator == 'true' || kDebugMode) {
       try {
+        print('🔥 Attempting to connect to Firestore emulator at 127.0.0.1:8080...');
         _firestore!.useFirestoreEmulator('127.0.0.1', 8080);
-        print('🔥 RealTimeUserService: Using Firestore emulator');
+        print('🔥 ✅ Successfully connected to Firestore emulator');
       } catch (e) {
-        print('🔥 RealTimeUserService: Emulator already connected or error: $e');
+        print('🔥 ⚠️ Emulator connection failed or already connected: $e');
+        print('🔥 Error type: ${e.runtimeType}');
       }
     } else {
-      print('🔥 RealTimeUserService: Using production Firestore');
+      print('🔥 Using production Firestore (not emulator)');
     }
     
     _isFirestoreInitialized = true;
+    print('🔥 Firestore initialization completed');
+    print('🔥 Final instance: $_firestore');
+    print('🔥 === END FIRESTORE INITIALIZATION ===');
   }
   StreamSubscription<QuerySnapshot>? _usersSubscription;
   
-  // Stream controller for real-time user updates
+  // Stream controllers
   final StreamController<List<User>> _usersController = StreamController<List<User>>.broadcast();
+  final StreamController<ConnectionState> _connectionStateController = StreamController<ConnectionState>.broadcast();
   
-  // Public stream that screens can listen to
+  // Public streams
   Stream<List<User>> get usersStream => _usersController.stream;
+  Stream<ConnectionState> get connectionStateStream => _connectionStateController.stream;
+  
+  // Public getters
+  ConnectionState get connectionState => _connectionState;
+  String? get lastError => _lastError;
   
   // Current users list
   List<User> _currentUsers = [];
@@ -49,11 +74,20 @@ class RealTimeUserService {
 
   /// Start listening to real-time user updates for a university
   void startListening(String universityPath) {
-    print('🔥 RealTimeUserService: Starting to listen for universityPath: $universityPath');
-    print('🔥 RealTimeUserService: Full path will be: $universityPath/data/users');
+    print('🔥 === REALTIMEUSERSERVICE DATABASE CONNECTION DEBUG ===');
+    print('🔥 Starting to listen for universityPath: $universityPath');
+    print('🔥 Full collection path will be: $universityPath/data/users');
+    print('🔥 Firestore instance initialized: ${_isFirestoreInitialized}');
+    print('🔥 Firestore instance: $_firestore');
+    
+    // Update connection state
+    _updateConnectionState(ConnectionState.connecting);
     
     // Initialize Firestore if not already done
     _initializeFirestore();
+    
+    print('🔥 After initialization - Firestore instance: $_firestore');
+    print('🔥 After initialization - Is initialized: $_isFirestoreInitialized');
     
     // Cancel any existing subscription
     stopListening();
@@ -65,12 +99,39 @@ class RealTimeUserService {
           .doc('data')
           .collection('users');
       
-      print('🔥 RealTimeUserService: Created collection reference: ${usersCollection.path}');
+      print('🔥 Created collection reference successfully');
+      print('🔥 Collection reference path: ${usersCollection.path}');
+      print('🔥 Collection reference type: ${usersCollection.runtimeType}');
       
       // Start listening to real-time updates
+      print('🔥 Starting snapshots listener...');
       _usersSubscription = usersCollection.snapshots().listen(
         (QuerySnapshot snapshot) {
-          print('🔥 RealTimeUserService: Received snapshot with ${snapshot.docs.length} documents');
+          print('🔥 === SNAPSHOT RECEIVED ===');
+          print('🔥 Snapshot received with ${snapshot.docs.length} documents');
+          print('🔥 Snapshot metadata: ${snapshot.metadata}');
+          print('🔥 Snapshot from cache: ${snapshot.metadata.isFromCache}');
+          print('🔥 Snapshot has pending writes: ${snapshot.metadata.hasPendingWrites}');
+          
+          // Update connection state based on snapshot
+          if (snapshot.docs.isNotEmpty || !snapshot.metadata.isFromCache) {
+            _updateConnectionState(ConnectionState.connected);
+          }
+          
+          if (snapshot.docs.isNotEmpty) {
+            print('🔥 Raw documents in snapshot:');
+            for (var i = 0; i < snapshot.docs.length; i++) {
+              final doc = snapshot.docs[i];
+              final data = doc.data() as Map<String, dynamic>;
+              print('🔥   Document $i: ID="${doc.id}"');
+              print('🔥   Document $i: name="${data['name']}", email="${data['email']}"');
+              print('🔥   Document $i: userType="${data['userType']}", firebase_uid="${data['firebase_uid']}"');
+              print('🔥   Document $i: Full data keys: ${data.keys.toList()}');
+            }
+          } else {
+            print('🔥 ❌ No documents found in snapshot!');
+            print('🔥 This means the collection is empty or connection failed');
+          }
           
           // Convert documents to User objects
           final users = snapshot.docs.map((doc) {
@@ -104,20 +165,10 @@ class RealTimeUserService {
                 print('🔥 RealTimeUserService: Converted mentor list to string for ${doc.id}');
               }
               
-              // Handle Firestore timestamps
-              if (data['created_at'] is Timestamp) {
-                data['created_at'] = (data['created_at'] as Timestamp).millisecondsSinceEpoch;
-              } else if (data['created_at'] is Map) {
-                // Handle Firestore timestamp format from cloud functions
-                final timestamp = data['created_at'] as Map<String, dynamic>;
-                if (timestamp['_seconds'] != null) {
-                  data['created_at'] = timestamp['_seconds'] * 1000;
-                }
-              }
-              
-              if (data['updated_at'] is Timestamp) {
-                data['updated_at'] = (data['updated_at'] as Timestamp).millisecondsSinceEpoch;
-              }
+              // Handle Firestore timestamps - convert all timestamp fields
+              _convertTimestampField(data, 'created_at');
+              _convertTimestampField(data, 'updated_at');
+              _convertTimestampField(data, 'account_created_at');
               
               print('🔥 RealTimeUserService: Successfully parsed user ${doc.id}: ${data['name']}');
               return User.fromMap(data);
@@ -132,15 +183,24 @@ class RealTimeUserService {
           _currentUsers = users;
           _usersController.add(users);
           
-          print('🔥 RealTimeUserService: Updated users list with ${users.length} users');
+          print('🔥 === FINAL USER LIST UPDATE ===');
+          print('🔥 Successfully parsed and updated users list with ${users.length} users');
+          print('🔥 Final user list summary:');
+          for (var i = 0; i < users.length; i++) {
+            final user = users[i];
+            print('🔥   User $i: ${user.name} (${user.email}) - Type: ${user.userType}, Firebase UID: ${user.firebaseUid}');
+          }
+          print('🔥 === END REALTIMEUSERSERVICE DEBUG ===');
         },
         onError: (error) {
           print('🔥 RealTimeUserService: Error listening to users: $error');
+          _updateConnectionState(ConnectionState.error, error.toString());
           _usersController.addError(error);
         },
       );
     } catch (e) {
       print('🔥 RealTimeUserService: Error starting listener: $e');
+      _updateConnectionState(ConnectionState.error, e.toString());
       _usersController.addError(e);
     }
   }
@@ -150,6 +210,7 @@ class RealTimeUserService {
     print('🔥 RealTimeUserService: Stopping listener');
     _usersSubscription?.cancel();
     _usersSubscription = null;
+    _updateConnectionState(ConnectionState.disconnected);
   }
 
   /// Update a user and the change will be reflected in real-time
@@ -235,9 +296,85 @@ class RealTimeUserService {
     return _currentUsers.where((user) => user.userType == userType).toList();
   }
 
+  /// Helper method to convert timestamp fields to milliseconds
+  void _convertTimestampField(Map<String, dynamic> data, String fieldName) {
+    if (data[fieldName] == null) return;
+    
+    try {
+      if (data[fieldName] is Timestamp) {
+        // Convert Firestore Timestamp to milliseconds
+        data[fieldName] = (data[fieldName] as Timestamp).millisecondsSinceEpoch;
+        print('🔥 RealTimeUserService: Converted $fieldName Timestamp to milliseconds');
+      } else if (data[fieldName] is Map) {
+        // Handle Firestore timestamp format from cloud functions
+        final timestamp = data[fieldName] as Map<String, dynamic>;
+        if (timestamp['_seconds'] != null) {
+          data[fieldName] = (timestamp['_seconds'] as int) * 1000;
+          print('🔥 RealTimeUserService: Converted $fieldName Map timestamp to milliseconds');
+        }
+      } else if (data[fieldName] is int) {
+        // Already in correct format (milliseconds)
+        print('🔥 RealTimeUserService: $fieldName already in correct format (int)');
+      } else {
+        print('🔥 RealTimeUserService: Warning - $fieldName has unexpected type: ${data[fieldName].runtimeType}');
+        // Convert to null if we can't handle the format
+        data[fieldName] = null;
+      }
+    } catch (e) {
+      print('🔥 RealTimeUserService: Error converting $fieldName timestamp: $e');
+      // Set to null on error to prevent User.fromMap from failing
+      data[fieldName] = null;
+    }
+  }
+
+  /// Wait for database connection to be established
+  Future<bool> waitForConnection({Duration timeout = const Duration(seconds: 10)}) async {
+    if (_connectionState == ConnectionState.connected) {
+      return true;
+    }
+    
+    final completer = Completer<bool>();
+    late StreamSubscription subscription;
+    
+    subscription = _connectionStateController.stream.listen((state) {
+      if (state == ConnectionState.connected) {
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+        subscription.cancel();
+      } else if (state == ConnectionState.error) {
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+        subscription.cancel();
+      }
+    });
+    
+    // Set timeout
+    Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+      subscription.cancel();
+    });
+    
+    return completer.future;
+  }
+
+  /// Helper method to update connection state
+  void _updateConnectionState(ConnectionState newState, [String? error]) {
+    if (_connectionState != newState) {
+      _connectionState = newState;
+      _lastError = error;
+      _connectionStateController.add(newState);
+      print('🔥 Connection state changed to: $newState${error != null ? ' (Error: $error)' : ''}');
+    }
+  }
+
   /// Dispose resources
   void dispose() {
     stopListening();
     _usersController.close();
+    _connectionStateController.close();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/test_mode_manager.dart';
+import '../services/auth_service.dart';
 
 class DeveloperHomeScreen extends StatelessWidget {
   const DeveloperHomeScreen({Key? key}) : super(key: key);
@@ -16,7 +17,19 @@ class DeveloperHomeScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Developer Mode')),
+      appBar: AppBar(
+        title: const Text('Developer Mode'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () async {
+              await AuthService().signOut();
+              // Navigation will be handled automatically by AuthWrapper
+            },
+          ),
+        ],
+      ),
       body: Consumer<TestModeManager>(
         builder: (context, testModeManager, child) {
           return Column(
