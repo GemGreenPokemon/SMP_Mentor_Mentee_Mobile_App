@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import { verifyCoordinator, verifyAuth, setUserClaims } from '../utils/auth';
-import { getUniversityCollection, createDocument, updateDocument, deleteDocument, createDocumentWithCustomId, generateUniqueUserId } from '../utils/database';
+import { getUniversityCollection, createDocument, updateDocument, deleteDocument, createDocumentWithCustomId, generateUniqueUserId, initializeUserSubcollections } from '../utils/database';
 import { User } from '../types';
 
 interface CreateUserData {
@@ -109,6 +109,24 @@ export const createUser = functions.https.onCall(async (data: CreateUserData, co
       // }
 
       console.log(`User created: ${result.data.id} in ${universityPath}`);
+      
+      // Initialize user subcollections
+      try {
+        const subcollectionResult = await initializeUserSubcollections(
+          universityPath, 
+          result.data.id, 
+          authContext.uid || 'system'
+        );
+        
+        if (subcollectionResult.success) {
+          console.log(`✅ Subcollections initialized for user ${result.data.id}: ${subcollectionResult.data?.createdSubcollections.join(', ')}`);
+        } else {
+          console.warn(`⚠️ Failed to initialize some subcollections for user ${result.data.id}: ${subcollectionResult.error}`);
+        }
+      } catch (subcollectionError) {
+        console.error(`Error initializing subcollections for user ${result.data.id}:`, subcollectionError);
+        // Don't fail the entire user creation if subcollections fail
+      }
     }
 
     return result;
@@ -319,7 +337,12 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
       success: 0,
       failed: 0,
       errors: [] as Array<{ index: number; error: string; userData: any }>,
-      createdUsers: [] as Array<{ id: string; name: string; email: string }>
+      createdUsers: [] as Array<{ id: string; name: string; email: string }>,
+      subcollectionStats: {
+        successful: 0,
+        failed: 0,
+        errors: [] as Array<{ userId: string; error: string }>
+      }
     };
 
     // Process users in batch
@@ -377,6 +400,35 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
           });
           
           console.log(`Bulk: User created ${result.data.id} (${userData.name}) in ${universityPath}`);
+          
+          // Initialize subcollections for the created user
+          try {
+            const subcollectionResult = await initializeUserSubcollections(
+              universityPath, 
+              result.data.id, 
+              authContext.uid || 'system'
+            );
+            
+            if (subcollectionResult.success) {
+              results.subcollectionStats.successful++;
+              console.log(`Bulk: ✅ Subcollections initialized for user ${result.data.id}: ${subcollectionResult.data?.createdSubcollections.join(', ')}`);
+            } else {
+              results.subcollectionStats.failed++;
+              results.subcollectionStats.errors.push({
+                userId: result.data.id,
+                error: subcollectionResult.error || 'Unknown subcollection error'
+              });
+              console.warn(`Bulk: ⚠️ Failed to initialize subcollections for user ${result.data.id}: ${subcollectionResult.error}`);
+            }
+          } catch (subcollectionError) {
+            results.subcollectionStats.failed++;
+            results.subcollectionStats.errors.push({
+              userId: result.data.id,
+              error: subcollectionError instanceof Error ? subcollectionError.message : String(subcollectionError)
+            });
+            console.error(`Bulk: Error initializing subcollections for user ${result.data.id}:`, subcollectionError);
+            // Don't fail the entire user creation if subcollections fail
+          }
         } else {
           throw new Error(result.error || 'Failed to create user');
         }
@@ -394,10 +446,11 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
     }
 
     console.log(`Bulk import completed: ${results.success} created, ${results.failed} failed in ${universityPath}`);
+    console.log(`Subcollections: ${results.subcollectionStats.successful} successful, ${results.subcollectionStats.failed} failed`);
 
     return {
       success: results.failed === 0,
-      message: `Bulk import completed: ${results.success} users created, ${results.failed} failed`,
+      message: `Bulk import completed: ${results.success} users created, ${results.failed} failed. Subcollections: ${results.subcollectionStats.successful} successful, ${results.subcollectionStats.failed} failed`,
       results
     };
 
@@ -533,6 +586,197 @@ export const bulkAssignMentors = functions.https.onCall(async (data: BulkAssignM
     }
     
     throw new functions.https.HttpsError('internal', 'Failed to bulk assign mentors');
+  }
+});
+
+/**
+ * Migrate existing users to add missing subcollections
+ */
+export const migrateUserSubcollections = functions.https.onCall(async (data: {
+  universityPath: string;
+  userIds?: string[];  // Optional: migrate specific users, otherwise migrate all
+  dryRun?: boolean;    // Optional: just check what would be migrated without doing it
+}, context) => {
+  try {
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
+    
+    const { universityPath, userIds, dryRun = false } = data;
+    
+    if (!universityPath) {
+      throw new functions.https.HttpsError('invalid-argument', 'University path required');
+    }
+
+    const usersCollection = getUniversityCollection(universityPath, 'users');
+    
+    // Get users to migrate
+    let usersToCheck: Array<{ id: string; name: string; userType: string }>;
+    
+    if (userIds && userIds.length > 0) {
+      // Migrate specific users
+      usersToCheck = [];
+      for (const userId of userIds) {
+        try {
+          const userDoc = await usersCollection.doc(userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            usersToCheck.push({
+              id: userId,
+              name: userData?.name || 'Unknown',
+              userType: userData?.userType || 'unknown'
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch user ${userId}:`, error);
+        }
+      }
+    } else {
+      // Migrate all users
+      const usersSnapshot = await usersCollection.get();
+      usersToCheck = usersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || 'Unknown',
+        userType: doc.data().userType || 'unknown'
+      }));
+    }
+
+    const subcollections = ['checklists', 'availability', 'requestedMeetings', 'messages', 'notes', 'ratings'];
+    const migrationResults = {
+      totalUsers: usersToCheck.length,
+      usersNeedingMigration: 0,
+      usersAlreadyMigrated: 0,
+      migrationSuccessful: 0,
+      migrationFailed: 0,
+      errors: [] as Array<{ userId: string; userName: string; error: string }>,
+      details: [] as Array<{ 
+        userId: string; 
+        userName: string; 
+        missingSubcollections: string[]; 
+        migrated: boolean;
+        error?: string;
+      }>
+    };
+
+    // Check each user for missing subcollections
+    for (const user of usersToCheck) {
+      try {
+        const userDocRef = usersCollection.doc(user.id);
+        const missingSubcollections: string[] = [];
+
+        // Check which subcollections are missing
+        for (const subcollectionName of subcollections) {
+          const metadataDoc = await userDocRef.collection(subcollectionName).doc('_metadata').get();
+          if (!metadataDoc.exists) {
+            missingSubcollections.push(subcollectionName);
+          }
+        }
+
+        if (missingSubcollections.length === 0) {
+          // User already has all subcollections
+          migrationResults.usersAlreadyMigrated++;
+          migrationResults.details.push({
+            userId: user.id,
+            userName: user.name,
+            missingSubcollections: [],
+            migrated: false
+          });
+        } else {
+          // User needs migration
+          migrationResults.usersNeedingMigration++;
+          
+          if (dryRun) {
+            // Just record what would be migrated
+            migrationResults.details.push({
+              userId: user.id,
+              userName: user.name,
+              missingSubcollections,
+              migrated: false
+            });
+          } else {
+            // Perform the migration
+            try {
+              const subcollectionResult = await initializeUserSubcollections(
+                universityPath,
+                user.id,
+                authContext.uid || 'migration'
+              );
+
+              if (subcollectionResult.success) {
+                migrationResults.migrationSuccessful++;
+                migrationResults.details.push({
+                  userId: user.id,
+                  userName: user.name,
+                  missingSubcollections,
+                  migrated: true
+                });
+                console.log(`Migration: ✅ Migrated user ${user.id} (${user.name}): ${subcollectionResult.data?.createdSubcollections.join(', ')}`);
+              } else {
+                migrationResults.migrationFailed++;
+                migrationResults.errors.push({
+                  userId: user.id,
+                  userName: user.name,
+                  error: subcollectionResult.error || 'Unknown error'
+                });
+                migrationResults.details.push({
+                  userId: user.id,
+                  userName: user.name,
+                  missingSubcollections,
+                  migrated: false,
+                  error: subcollectionResult.error
+                });
+                console.error(`Migration: ❌ Failed to migrate user ${user.id} (${user.name}): ${subcollectionResult.error}`);
+              }
+            } catch (migrationError) {
+              migrationResults.migrationFailed++;
+              const errorMessage = migrationError instanceof Error ? migrationError.message : String(migrationError);
+              migrationResults.errors.push({
+                userId: user.id,
+                userName: user.name,
+                error: errorMessage
+              });
+              migrationResults.details.push({
+                userId: user.id,
+                userName: user.name,
+                missingSubcollections,
+                migrated: false,
+                error: errorMessage
+              });
+              console.error(`Migration: ❌ Exception during migration for user ${user.id} (${user.name}):`, migrationError);
+            }
+          }
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        migrationResults.errors.push({
+          userId: user.id,
+          userName: user.name,
+          error: `Failed to check user: ${errorMessage}`
+        });
+        console.error(`Migration: Error checking user ${user.id}:`, error);
+      }
+    }
+
+    const summary = dryRun 
+      ? `Dry run completed: ${migrationResults.usersNeedingMigration} users need migration, ${migrationResults.usersAlreadyMigrated} already migrated`
+      : `Migration completed: ${migrationResults.migrationSuccessful} successful, ${migrationResults.migrationFailed} failed, ${migrationResults.usersAlreadyMigrated} already migrated`;
+
+    console.log(`User subcollection migration - ${summary}`);
+
+    return {
+      success: migrationResults.migrationFailed === 0,
+      message: summary,
+      dryRun,
+      results: migrationResults
+    };
+
+  } catch (error) {
+    console.error('Error in migrateUserSubcollections:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to migrate user subcollections');
   }
 });
 

@@ -28,6 +28,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   String? _userRole;
   bool _isInitializingDatabase = false;
+  bool _isCheckingRole = false;
 
   @override
   void initState() {
@@ -44,29 +45,39 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
+    print('🔧 AuthWrapper: Auth state changed - user: ${user?.email}');
     if (mounted) {
       if (user == null) {
         // User signed out
+        print('🔧 AuthWrapper: User signed out');
         setState(() {
           _isLoading = false;
           _userRole = null;
+          _isCheckingRole = false;
         });
       } else {
         // User signed in, get their role
+        print('🔧 AuthWrapper: User signed in, checking role...');
+        setState(() {
+          _isCheckingRole = true;
+        });
         await _checkCurrentUser();
       }
     }
   }
 
   Future<void> _checkCurrentUser() async {
+    print('🔧 AuthWrapper: _checkCurrentUser called');
     try {
       final user = _authService.currentUser;
       
       if (user == null) {
         // No user signed in
+        print('🔧 AuthWrapper: No user signed in');
         setState(() {
           _isLoading = false;
           _userRole = null;
+          _isCheckingRole = false;
         });
         return;
       }
@@ -107,9 +118,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
       
       if (mounted) {
+        print('🔧 AuthWrapper: Setting role to: $role');
         setState(() {
           _isLoading = false;
           _userRole = role;
+          _isCheckingRole = false;
         });
       }
     } catch (e) {
@@ -120,10 +133,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final isDevAccount = user?.email == 'sunsetcoding.dev@gmail.com';
       
       if (mounted) {
+        print('🔧 AuthWrapper: Error handler - setting role to: ${isDevAccount ? 'developer' : 'null'}');
         setState(() {
           _isLoading = false;
           // For dev account, ensure developer role even if there's an error
           _userRole = isDevAccount ? 'developer' : null;
+          _isCheckingRole = false;
         });
       }
       
@@ -140,6 +155,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    print('🔧 AuthWrapper build: _isLoading=$_isLoading, _isCheckingRole=$_isCheckingRole, _userRole=$_userRole');
+    
     if (_isLoading) {
       return _LoadingScreen(
         isInitializingDatabase: _isInitializingDatabase,
@@ -160,16 +177,27 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return const EmailVerificationScreen();
     }
 
+    // If we're still checking the role after login, show loading
+    if (_isCheckingRole) {
+      print('🔧 AuthWrapper: Still checking role, showing loading screen');
+      return _LoadingScreen(
+        isInitializingDatabase: _isInitializingDatabase,
+      );
+    }
+
     // User signed in and email verified - navigate based on role
     return _buildDashboardForRole(_userRole);
   }
 
   Widget _buildDashboardForRole(String? role) {
+    print('🔧 AuthWrapper: _buildDashboardForRole called with role: $role');
+    
     // Special handling for dev account - always grant developer access
     final user = _authService.currentUser;
     final isDevAccount = user?.email == 'sunsetcoding.dev@gmail.com';
     
     if (isDevAccount) {
+      print('🔧 AuthWrapper: Dev account detected, returning DeveloperHomeScreen');
       return const DeveloperHomeScreen();
     }
     
@@ -179,6 +207,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             ? const WebMenteeDashboardScreen() 
             : const MenteeDashboardScreen();
       case 'mentor':
+        print('🔧 AuthWrapper: Mentor role detected, returning mentor dashboard');
         return Responsive.isWeb() 
             ? const WebMentorDashboardScreen() 
             : const MentorDashboardScreen();
@@ -191,6 +220,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return const DeveloperHomeScreen();
       default:
         // Unknown role - sign out and show error
+        print('🔧 AuthWrapper: WARNING - Unknown role, showing error screen. Role was: $role');
+        print('🔧 AuthWrapper: Stack trace:');
+        print(StackTrace.current);
         return _UnknownRoleScreen(onSignOut: () async {
           await _authService.signOut();
         });

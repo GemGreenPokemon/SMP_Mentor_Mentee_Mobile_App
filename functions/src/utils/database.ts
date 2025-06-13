@@ -221,3 +221,76 @@ export async function queryCollection<T>(
     };
   }
 }
+
+/**
+ * Initialize user subcollections with metadata documents
+ */
+export async function initializeUserSubcollections(
+  universityPath: string,
+  userId: string,
+  createdBy: string = 'system'
+): Promise<DatabaseResult<{ createdSubcollections: string[]; failedSubcollections: string[] }>> {
+  try {
+    const db = getDB();
+    const userDocRef = db.collection(universityPath).doc('data').collection('users').doc(userId);
+    
+    // Define all subcollections that should be created for each user
+    const subcollections = [
+      'checklists',
+      'availability', 
+      'requestedMeetings',
+      'messages',
+      'notes',
+      'ratings'
+    ];
+
+    const createdSubcollections: string[] = [];
+    const failedSubcollections: string[] = [];
+    const batch = db.batch();
+
+    // Create metadata document in each subcollection
+    for (const subcollectionName of subcollections) {
+      try {
+        const subcollectionRef = userDocRef.collection(subcollectionName);
+        const metadataDoc = subcollectionRef.doc('_metadata');
+        
+        batch.set(metadataDoc, {
+          initialized: true,
+          user_id: userId,
+          collection_name: subcollectionName,
+          created_at: new Date(),
+          created_by: createdBy,
+          version: 1
+        });
+        
+        createdSubcollections.push(subcollectionName);
+      } catch (error) {
+        console.error(`Failed to prepare subcollection ${subcollectionName} for user ${userId}:`, error);
+        failedSubcollections.push(subcollectionName);
+      }
+    }
+
+    // Commit all subcollection creations in a single batch
+    if (createdSubcollections.length > 0) {
+      await batch.commit();
+      console.log(`✅ Initialized ${createdSubcollections.length} subcollections for user ${userId}: ${createdSubcollections.join(', ')}`);
+    }
+
+    if (failedSubcollections.length > 0) {
+      console.warn(`⚠️ Failed to initialize ${failedSubcollections.length} subcollections for user ${userId}: ${failedSubcollections.join(', ')}`);
+    }
+
+    return {
+      success: true,
+      data: { createdSubcollections, failedSubcollections },
+      message: `Initialized ${createdSubcollections.length}/${subcollections.length} subcollections for user ${userId}`
+    };
+
+  } catch (error) {
+    console.error(`Error initializing subcollections for user ${userId}:`, error);
+    return {
+      success: false,
+      error: `Failed to initialize subcollections: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}

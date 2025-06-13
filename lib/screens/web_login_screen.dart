@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'web_register_screen.dart';
 import 'email_verification_screen.dart';
 import '../utils/responsive.dart';
-import '../utils/developer_session.dart';
 import '../services/auth_service.dart';
 
 class WebLoginScreen extends StatefulWidget {
@@ -68,26 +67,22 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
         });
       }
       
-      // Get user role and navigate to appropriate dashboard
-      final userRole = await _authService.getUserRole();
-      
+      // Show success message
       if (mounted) {
         setState(() {
           _isInitializingDatabase = false;
         });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
       
-      if (mounted) {
-        // Handle special developer mode (including dev account)
-        final isDevAccount = _emailController.text.trim() == 'sunsetcoding.dev@gmail.com';
-        if (userRole?.toLowerCase() == 'developer' || userRole?.toLowerCase() == 'super_admin' || _emailController.text.contains('developer') || isDevAccount) {
-          await DeveloperSession.enable();
-        } else {
-          await DeveloperSession.disable();
-        }
-        
-        _navigateToDashboard(userRole);
-      }
+      // AuthWrapper will handle navigation based on auth state change
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String errorMessage;
@@ -137,51 +132,6 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       }
     }
   }
-  
-  void _navigateToDashboard(String? userRole) {
-    // Use addPostFrameCallback to avoid Navigator re-entrance
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Check if widget is still mounted before navigation
-      if (!mounted) return;
-      
-      // Special handling for dev account - always route to developer dashboard
-      final isDevAccount = _emailController.text.trim() == 'sunsetcoding.dev@gmail.com';
-      if (isDevAccount) {
-        print('🔧 Login screen: Navigating dev account to /dev');
-        Navigator.pushReplacementNamed(context, '/dev');
-        return;
-      }
-      
-      // Navigate to the appropriate screen based on user role from database
-      switch (userRole?.toLowerCase()) {
-        case 'mentee':
-          Navigator.pushReplacementNamed(context, '/mentee');
-          break;
-        case 'mentor':
-          Navigator.pushReplacementNamed(context, '/mentor');
-          break;
-        case 'coordinator':
-          Navigator.pushReplacementNamed(context, '/coordinator');
-          break;
-        case 'developer':
-        case 'super_admin':
-          Navigator.pushReplacementNamed(context, '/dev');
-          break;
-        default:
-          // If no role found, sign out and show error
-          print('🔧 Login screen: No valid role found, signing out');
-          _authService.signOut();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Unable to determine user role. Please contact support.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -194,8 +144,9 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              child: Row(
-                children: [
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
                   // Left side decorative panel - only visible on desktop/tablet
                   if (isDesktop || isTablet)
                     Expanded(
@@ -324,6 +275,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF0F2D52),
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 8),
                           const Text(
@@ -332,6 +284,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                               fontSize: 16,
                               color: Color(0xFF6B7280),
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 32),
                           Form(
@@ -449,10 +402,10 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                 // Status message for database initialization
                                 if (_isInitializingDatabase) ...[
                                   const SizedBox(height: 16),
-                                  const Row(
+                                  Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      SizedBox(
+                                      const SizedBox(
                                         width: 16,
                                         height: 16,
                                         child: CircularProgressIndicator(
@@ -460,12 +413,16 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0F2D52)),
                                         ),
                                       ),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        'Connecting to database...',
-                                        style: TextStyle(
-                                          color: Color(0xFF0F2D52),
-                                          fontSize: 14,
+                                      const SizedBox(width: 12),
+                                      Flexible(
+                                        child: Text(
+                                          'Connecting to database...',
+                                          style: TextStyle(
+                                            color: Color(0xFF0F2D52),
+                                            fontSize: 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
                                         ),
                                       ),
                                     ],
@@ -490,6 +447,8 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                                       style: TextStyle(
                                         color: Color(0xFF0F2D52),
                                       ),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ),
@@ -501,6 +460,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
           ),

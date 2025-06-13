@@ -78,12 +78,15 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           width: 40,
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          'SMP Mentor',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        const Expanded(
+                          child: Text(
+                            'SMP Mentor',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -111,6 +114,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   );
                                 },
                               ),
@@ -210,14 +214,17 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                   ),
                   child: Row(
                     children: [
-                      Text(
-                        _sidebarItems[_selectedIndex],
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          _sidebarItems[_selectedIndex],
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.support_agent),
                         onPressed: () {
@@ -378,11 +385,14 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Your Mentees',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          const Expanded(
+                            child: Text(
+                              'Your Mentees',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           TextButton(
@@ -429,11 +439,14 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Upcoming Meetings',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          const Expanded(
+                            child: Text(
+                              'Upcoming Meetings',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           TextButton(
@@ -810,6 +823,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -829,6 +843,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -842,10 +857,13 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 color: Colors.grey,
               ),
               const SizedBox(width: 4),
-              Text(
-                time,
-                style: const TextStyle(
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  time,
+                  style: const TextStyle(
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -859,10 +877,13 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 color: Colors.grey,
               ),
               const SizedBox(width: 4),
-              Text(
-                location,
-                style: const TextStyle(
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  location,
+                  style: const TextStyle(
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

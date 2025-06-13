@@ -493,6 +493,41 @@ class CloudFunctionService {
     }
   }
 
+  /// Migrate existing users to add missing subcollections
+  Future<Map<String, dynamic>> migrateUserSubcollections({
+    required String universityPath,
+    List<String>? userIds,  // Optional: migrate specific users
+    bool dryRun = false,    // Optional: just check what would be migrated
+  }) async {
+    try {
+      print('🔍 migrateUserSubcollections: Starting migration${dryRun ? ' (dry run)' : ''}');
+      print('🔍 migrateUserSubcollections: universityPath: $universityPath');
+      if (userIds != null) {
+        print('🔍 migrateUserSubcollections: targeting ${userIds.length} specific users');
+      }
+      
+      final HttpsCallable callable = _functions.httpsCallable('migrateUserSubcollectionsForUniversity');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        if (userIds != null) 'userIds': userIds,
+        'dryRun': dryRun,
+      });
+      
+      print('🔍 migrateUserSubcollections: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 migrateUserSubcollections: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 migrateUserSubcollections: Exception details: ${e.details}');
+      rethrow;
+    } catch (e) {
+      print('🔍 migrateUserSubcollections: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
   /// Get current university path from user context
   String getCurrentUniversityPath() {
     // TODO: Implement logic to get university path from current user context
