@@ -81,7 +81,7 @@ class DashboardDataService {
             print('🔥 Dashboard: Raw mentee data: $menteeNames');
           }
           
-          // Handle nested array format: [["Dasarathi Narayanan","Justin Moskovics","Kalea Knox"]]
+          // Handle mentee array format: ["Name1", "Name2", "Name3"]
           List<String> menteeNameList = [];
           
           if (menteeNames is List) {
@@ -89,32 +89,11 @@ class DashboardDataService {
               print('🔥 Dashboard: menteeNames is a List with ${menteeNames.length} items');
             }
             
-            for (int i = 0; i < menteeNames.length; i++) {
-              var item = menteeNames[i];
-              if (kDebugMode) {
-                print('🔥 Dashboard: Item $i type: ${item.runtimeType}, value: $item');
-              }
-              
-              if (item is List) {
-                // If it's a nested array, flatten it
-                if (kDebugMode) {
-                  print('🔥 Dashboard: Flattening nested array with ${item.length} items');
-                }
-                for (var nestedItem in item) {
-                  if (nestedItem is String) {
-                    menteeNameList.add(nestedItem.trim());
-                    if (kDebugMode) {
-                      print('🔥 Dashboard: Added from nested: "${nestedItem.trim()}"');
-                    }
-                  }
-                }
-              } else if (item is String) {
-                // If it's a string, add it directly
-                menteeNameList.add(item.trim());
-                if (kDebugMode) {
-                  print('🔥 Dashboard: Added directly: "${item.trim()}"');
-                }
-              }
+            // Simply cast to List<String> and trim names
+            menteeNameList = menteeNames.cast<String>().map((name) => name.trim()).toList();
+            
+            if (kDebugMode) {
+              print('🔥 Dashboard: Processed mentee names: $menteeNameList');
             }
           } else if (menteeNames is String) {
             menteeNameList = [menteeNames.trim()];

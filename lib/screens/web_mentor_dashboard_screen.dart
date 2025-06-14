@@ -61,21 +61,27 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
 
   Future<void> _loadDashboardData() async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
       
       final data = await _dataService.getMentorDashboardData();
-      setState(() {
-        _dashboardData = data;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _dashboardData = data;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -421,12 +427,12 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
     
     final mentees = List<Map<String, dynamic>>.from(_dashboardData!['mentees'] ?? []);
     final announcements = List<Map<String, dynamic>>.from(_dashboardData!['announcements'] ?? []);
-    return Column(
-      children: [
-        const SizedBox(height: 24),
-        
-        // Middle row - Mentees and upcoming meetings
-        Row(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          // Middle row - Mentees and upcoming meetings
+          Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Mentees overview
@@ -517,60 +523,66 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMeetingItem(
-                              context,
-                              'Weekly Check-in',
-                              'Alice Johnson',
-                              'Tomorrow at 2:00 PM',
-                              'KL 109',
-                              Colors.blue,
-                              () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const CheckInCheckOutScreen(
-                                      meetingTitle: 'Weekly Check-in',
-                                      mentorName: 'Sarah Martinez',
-                                      location: 'KL 109',
-                                      scheduledTime: 'Tomorrow at 2:00 PM',
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 280,
+                              child: _buildMeetingItem(
+                                context,
+                                'Weekly Check-in',
+                                'Alice Johnson',
+                                'Tomorrow at 2:00 PM',
+                                'KL 109',
+                                Colors.blue,
+                                () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const CheckInCheckOutScreen(
+                                        meetingTitle: 'Weekly Check-in',
+                                        mentorName: 'Sarah Martinez',
+                                        location: 'KL 109',
+                                        scheduledTime: 'Tomorrow at 2:00 PM',
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildMeetingItem(
-                              context,
-                              'Resume Review',
-                              'Bob Wilson',
-                              'Friday at 4:30 PM',
-                              'Library Study Room 3',
-                              Colors.green,
-                              () {
-                                // Navigate to check-in screen
-                              },
+                            const SizedBox(width: 16),
+                            SizedBox(
+                              width: 280,
+                              child: _buildMeetingItem(
+                                context,
+                                'Resume Review',
+                                'Bob Wilson',
+                                'Friday at 4:30 PM',
+                                'Library Study Room 3',
+                                Colors.green,
+                                () {
+                                  // Navigate to check-in screen
+                                },
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildMeetingItem(
-                              context,
-                              'Career Planning',
-                              'Carlos Rodriguez',
-                              'Next Monday at 11:00 AM',
-                              'Virtual (Zoom)',
-                              Colors.orange,
-                              () {
-                                // Navigate to check-in screen
-                              },
+                            const SizedBox(width: 16),
+                            SizedBox(
+                              width: 280,
+                              child: _buildMeetingItem(
+                                context,
+                                'Career Planning',
+                                'Carlos Rodriguez',
+                                'Next Monday at 11:00 AM',
+                                'Virtual (Zoom)',
+                                Colors.orange,
+                                () {
+                                  // Navigate to check-in screen
+                                },
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -695,7 +707,8 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
             ),
           ],
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1481,6 +1494,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
       builder: (context) => Dialog(
         child: Container(
           width: 600,
+          height: 700,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1530,14 +1544,20 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
               ),
               const SizedBox(height: 24),
               
-              // Goals section
-              const Text(
-                'Goals',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // Scrollable content area
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Goals section
+                      const Text(
+                        'Goals',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               const SizedBox(height: 12),
               if (mentee['goals'] != null && mentee['goals'].isNotEmpty)
                 ...mentee['goals'].map<Widget>((goal) => Padding(
@@ -1640,8 +1660,12 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 )).toList()
               else
                 const Text('No action items'),
+                    ],
+                  ),
+                ),
+              ),
               
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
