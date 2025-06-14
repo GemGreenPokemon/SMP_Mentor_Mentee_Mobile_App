@@ -4,6 +4,7 @@ import 'web_register_screen.dart';
 import 'email_verification_screen.dart';
 import '../utils/responsive.dart';
 import '../services/auth_service.dart';
+import 'dart:math' as math;
 
 class WebLoginScreen extends StatefulWidget {
   const WebLoginScreen({super.key});
@@ -135,336 +136,601 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen width to implement responsive design
-    bool isDesktop = Responsive.isDesktop(context);
-    bool isTablet = Responsive.isTablet(context);
+    final screenSize = MediaQuery.of(context).size;
+    final isDesktop = Responsive.isDesktop(context);
+    final isTablet = Responsive.isTablet(context);
+    final isMobile = !isDesktop && !isTablet;
     
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
-                  // Left side decorative panel - only visible on desktop/tablet
-                  if (isDesktop || isTablet)
-                    Expanded(
-                      flex: isDesktop ? 4 : 3,
-                      child: Container(
-                        height: MediaQuery.of(context).size.height - 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F2D52),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        margin: const EdgeInsets.all(24),
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/images/My_SMP_Logo.png',
-                              height: 180,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(height: 40),
-                            const Text(
-                              'Student Mentorship Program',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            const Text(
-                              'Access your SMP dashboard to manage mentorship activities, track progress, and stay connected with your mentors and mentees.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 18,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 40),
-                            Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '✓ Access resources and materials',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    '✓ Schedule and manage meetings',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    '✓ Track mentorship progress',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    '✓ Complete tasks and assignments',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+      body: Container(
+        height: screenSize.height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF0F2D52),
+              const Color(0xFF1E3A5F),
+              const Color(0xFF2D4A6E),
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            _buildBackgroundPattern(),
+            
+            // Main content
+            if (isMobile) _buildMobileLayout() else _buildDesktopLayout(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Background pattern widget
+  Widget _buildBackgroundPattern() {
+    return Positioned.fill(
+      child: CustomPaint(
+        painter: _BackgroundPatternPainter(),
+      ),
+    );
+  }
+
+  // Desktop/Tablet layout
+  Widget _buildDesktopLayout() {
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 700),
+        margin: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 40,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Row(
+            children: [
+              // Left branding panel
+              Expanded(
+                flex: 3,
+                child: _buildBrandingPanel(),
+              ),
+              // Right login panel
+              Expanded(
+                flex: 2,
+                child: _buildLoginPanel(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Mobile layout
+  Widget _buildMobileLayout() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
+            _buildMobileLogo(),
+            const SizedBox(height: 60),
+            _buildLoginCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Branding panel for desktop
+  Widget _buildBrandingPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0F2D52),
+            const Color(0xFF1A3A5C),
+            const Color(0xFF2D4A6E),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Subtle geometric pattern
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _GeometricPatternPainter(),
+            ),
+          ),
+          
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(60),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Logo with glow effect
+                Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
                       ),
-                    ),
-                  
-                  // Right side login form
-                  Expanded(
-                    flex: isDesktop ? 3 : (isTablet ? 4 : 1),
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: isDesktop || isTablet ? double.infinity : 500,
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isDesktop || isTablet ? 48 : 24,
-                        vertical: 32
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!(isDesktop || isTablet))
-                            Center(
-                              child: Image.asset(
-                                'assets/images/My_SMP_Logo.png',
-                                height: 120,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          if (!(isDesktop || isTablet))
-                            const SizedBox(height: 40),
-                          const Text(
-                            'Welcome back',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F2D52),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Sign in to continue to your dashboard',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF6B7280),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 32),
-                          Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Email field
-                                TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: InputDecoration(
-                                    labelText: 'Email',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    prefixIcon: const Icon(Icons.email),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter your email';
-                                    }
-                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                      return 'Please enter a valid email';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 20),
-                                
-                                // Password field
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: !_isPasswordVisible,
-                                  decoration: InputDecoration(
-                                    labelText: 'Password',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    prefixIcon: const Icon(Icons.lock),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _isPasswordVisible 
-                                          ? Icons.visibility_off 
-                                          : Icons.visibility,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _isPasswordVisible = !_isPasswordVisible;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter your password';
-                                    }
-                                    if (value.length < 6) {
-                                      return 'Password must be at least 6 characters';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                
-                                // Forgot password link
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    onPressed: () {
-                                      _showForgotPasswordDialog();
-                                    },
-                                    child: const Text(
-                                      'Forgot Password?',
-                                      style: TextStyle(
-                                        color: Color(0xFF0F2D52),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
-                                
-                                // Login button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: ElevatedButton(
-                                    onPressed: (_isLoggingIn || _isInitializingDatabase) ? null : _login,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0F2D52),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: (_isLoggingIn || _isInitializingDatabase)
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                            ),
-                                          )
-                                        : const Text(
-                                            'SIGN IN',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                
-                                // Status message for database initialization
-                                if (_isInitializingDatabase) ...[
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0F2D52)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Flexible(
-                                        child: Text(
-                                          'Connecting to database...',
-                                          style: TextStyle(
-                                            color: Color(0xFF0F2D52),
-                                            fontSize: 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                                
-                                const SizedBox(height: 24),
-                                
-                                // Register link
-                                Center(
-                                  child: TextButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context, 
-                                        MaterialPageRoute(
-                                          builder: (context) => const WebRegisterScreen(),
-                                        ),
-                                      );
-                                    },
-                                    child: const Text(
-                                      "Don't have an account? Register",
-                                      style: TextStyle(
-                                        color: Color(0xFF0F2D52),
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                  child: Image.asset(
+                    'assets/images/My_SMP_Logo.png',
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                
+                const SizedBox(height: 40),
+                
+                // Title
+                const Text(
+                  'Student Mentorship\nProgram',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w300,
+                    letterSpacing: 1.2,
+                    height: 1.2,
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Subtitle
+                Text(
+                  'Empowering academic excellence through\nmentorship and collaboration',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+                
+                const SizedBox(height: 50),
+                
+                // Features
+                Column(
+                  children: [
+                    _buildFeatureItem(Icons.school_outlined, 'Access Learning Resources'),
+                    _buildFeatureItem(Icons.calendar_month_outlined, 'Schedule Meetings'),
+                    _buildFeatureItem(Icons.trending_up_outlined, 'Track Progress'),
+                    _buildFeatureItem(Icons.people_outline, 'Connect with Community'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Login panel for desktop
+  Widget _buildLoginPanel() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(60),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Welcome Back',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF0F2D52),
+              letterSpacing: -0.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 8),
+          
+          Text(
+            'Sign in to access your dashboard',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w400,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 40),
+          
+          _buildLoginForm(),
+        ],
+      ),
+    );
+  }
+
+  // Mobile logo
+  Widget _buildMobileLogo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.3),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Image.asset(
+              'assets/images/My_SMP_Logo.png',
+              height: 80,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Student Mentorship Program',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Login card for mobile
+  Widget _buildLoginCard() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Welcome Back',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF0F2D52),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 8),
+          
+          Text(
+            'Sign in to continue',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 32),
+          
+          _buildLoginForm(),
+        ],
+      ),
+    );
+  }
+
+  // Enhanced login form
+  Widget _buildLoginForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Email field
+          _buildPremiumTextField(
+            controller: _emailController,
+            label: 'Email Address',
+            icon: Icons.email_outlined,
+            isPassword: false,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your email';
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Password field
+          _buildPremiumTextField(
+            controller: _passwordController,
+            label: 'Password',
+            icon: Icons.lock_outline,
+            isPassword: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Forgot password
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _showForgotPasswordDialog,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0F2D52),
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+              ),
+              child: const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ),
+          
+          const SizedBox(height: 32),
+          
+          // Sign in button
+          _buildPremiumButton(),
+          
+          // Status message
+          if (_isInitializingDatabase) ...[
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      const Color(0xFF0F2D52),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Connecting to database...',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          
+          const SizedBox(height: 32),
+          
+          // Register link
+          Center(
+            child: TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WebRegisterScreen(),
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0F2D52),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              child: const Text(
+                "Don't have an account? Register",
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Premium text field
+  Widget _buildPremiumTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isPassword,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword ? !_isPasswordVisible : false,
+      keyboardType: isPassword ? TextInputType.text : TextInputType.emailAddress,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          color: Colors.grey[600],
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
         ),
+        prefixIcon: Icon(
+          icon,
+          color: Colors.grey[600],
+          size: 22,
+        ),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey[600],
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF0F2D52), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.red, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      validator: validator,
+    );
+  }
+
+  // Premium button
+  Widget _buildPremiumButton() {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F2D52), Color(0xFF1E3A5F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F2D52).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: (_isLoggingIn || _isInitializingDatabase) ? null : _login,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: (_isLoggingIn || _isInitializingDatabase)
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'Sign In',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+      ),
     );
   }
 
@@ -544,4 +810,96 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       ),
     );
   }
+}
+
+// Custom painter for background pattern
+class _BackgroundPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..style = PaintingStyle.fill;
+    
+    // Create floating circles
+    for (int i = 0; i < 20; i++) {
+      final x = (i * 137.5) % size.width;
+      final y = (i * 89.3) % size.height;
+      final radius = 20.0 + (i % 5) * 15.0;
+      
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+    
+    // Add some geometric shapes
+    paint.color = Colors.white.withOpacity(0.03);
+    for (int i = 0; i < 10; i++) {
+      final x = (i * 234.7) % size.width;
+      final y = (i * 156.8) % size.height;
+      final rect = Rect.fromLTWH(x, y, 60, 60);
+      
+      canvas.save();
+      canvas.translate(x + 30, y + 30);
+      canvas.rotate(i * 0.5);
+      canvas.drawRect(const Rect.fromLTWH(-30, -30, 60, 60), paint);
+      canvas.restore();
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Custom painter for geometric pattern on branding panel
+class _GeometricPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    
+    // Draw diagonal lines
+    for (int i = 0; i < 15; i++) {
+      final y = (i * size.height / 15);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width * 0.3, y - size.height * 0.2),
+        paint,
+      );
+    }
+    
+    // Draw hexagonal pattern
+    paint.color = Colors.white.withOpacity(0.04);
+    paint.style = PaintingStyle.fill;
+    
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 5; j++) {
+        final centerX = (i * 80.0) - 40;
+        final centerY = (j * 100.0) - 50;
+        
+        if (centerX < size.width && centerY < size.height) {
+          _drawHexagon(canvas, Offset(centerX, centerY), 25, paint);
+        }
+      }
+    }
+  }
+  
+  void _drawHexagon(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * math.pi / 3);
+      final x = center.dx + radius * math.cos(angle);
+      final y = center.dy + radius * math.sin(angle);
+      
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 } 
