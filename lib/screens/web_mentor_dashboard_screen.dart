@@ -9,6 +9,7 @@ import 'web_settings_screen.dart';
 import 'web_checklist_screen.dart';
 import '../services/mentor_service.dart';
 import '../services/auth_service.dart';
+import '../services/dashboard_data_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'web_newsletter_screen.dart';
 import 'announcement_screen.dart';
@@ -23,6 +24,10 @@ class WebMentorDashboardScreen extends StatefulWidget {
 
 class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
   int _selectedIndex = 0;
+  final DashboardDataService _dataService = DashboardDataService();
+  Map<String, dynamic>? _dashboardData;
+  bool _isLoading = true;
+  String? _error;
   
   final List<String> _sidebarItems = [
     'Dashboard',
@@ -47,6 +52,32 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
     Icons.campaign,
     Icons.settings,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final data = await _dataService.getMentorDashboardData();
+      setState(() {
+        _dashboardData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,17 +137,13 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Consumer<MentorService>(
-                                builder: (context, mentorService, child) {
-                                  return Text(
-                                    mentorService.mentorProfile['name'] ?? 'Mentor',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  );
-                                },
+                              Text(
+                                _dashboardData?['mentorProfile']?['name'] ?? 'Mentor',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 'Mentor',
@@ -299,12 +326,36 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 // Main content based on selected sidebar item
                 if (_selectedIndex == 0) // Dashboard
                   Expanded(
-                    child: _buildDashboardContent(context, mentorService),
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                                    const SizedBox(height: 16),
+                                    const Text('Error loading dashboard data', style: TextStyle(fontSize: 18)),
+                                    const SizedBox(height: 8),
+                                    Text(_error!, style: const TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: _loadDashboardData,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _buildDashboardContent(context, mentorService),
                   ),
                 
                 if (_selectedIndex == 1) // Mentees
                   Expanded(
-                    child: _buildMenteesContent(context, mentorService),
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                            ? Center(child: Text('Error: $_error'))
+                            : _buildMenteesContent(context, mentorService),
                   ),
                 
                 if (_selectedIndex == 2) // Schedule
@@ -364,6 +415,12 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
   }
 
   Widget _buildDashboardContent(BuildContext context, MentorService mentorService) {
+    if (_dashboardData == null) {
+      return const Center(child: Text('No data available'));
+    }
+    
+    final mentees = List<Map<String, dynamic>>.from(_dashboardData!['mentees'] ?? []);
+    final announcements = List<Map<String, dynamic>>.from(_dashboardData!['announcements'] ?? []);
     return Column(
       children: [
         const SizedBox(height: 24),
@@ -406,7 +463,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      ...mentorService.mentees.take(3).map((mentee) {
+                      ...mentees.take(3).map((mentee) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: _buildMenteeListItem(
@@ -563,7 +620,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      ...mentorService.announcements.take(2).map((announcement) =>
+                      ...announcements.take(2).map((announcement) =>
                         _buildAnnouncementItem(
                           announcement['title'],
                           announcement['content'],
@@ -572,8 +629,8 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                         ),
                       ).toList(),
                       
-                      // Add a third announcement if service has less than 2
-                      if (mentorService.announcements.length < 2)
+                      // Add a third announcement if we have less than 2
+                      if (announcements.length < 2)
                         _buildAnnouncementItem(
                           'End of Semester Survey',
                           'Please remind your mentees to complete the end of semester feedback survey by next Friday.',
@@ -1053,6 +1110,11 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
 
   // Mentees content
   Widget _buildMenteesContent(BuildContext context, MentorService mentorService) {
+    if (_dashboardData == null) {
+      return const Center(child: Text('No data available'));
+    }
+    
+    final mentees = List<Map<String, dynamic>>.from(_dashboardData!['mentees'] ?? []);
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -1117,9 +1179,9 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.5,
               ),
-              itemCount: mentorService.mentees.length,
+              itemCount: mentees.length,
               itemBuilder: (context, index) {
-                final mentee = mentorService.mentees[index];
+                final mentee = mentees[index];
                 return _buildMenteeCard(context, mentee, mentorService);
               },
             ),

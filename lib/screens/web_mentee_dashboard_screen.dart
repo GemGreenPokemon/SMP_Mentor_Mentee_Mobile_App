@@ -11,6 +11,7 @@ import 'announcement_screen.dart';
 import '../services/mentor_service.dart';
 import '../services/mentee_service.dart';
 import '../services/auth_service.dart';
+import '../services/dashboard_data_service.dart';
 import '../utils/responsive.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,10 @@ class WebMenteeDashboardScreen extends StatefulWidget {
 
 class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
   int _selectedIndex = 0;
+  final DashboardDataService _dataService = DashboardDataService();
+  Map<String, dynamic>? _dashboardData;
+  bool _isLoading = true;
+  String? _error;
   
   final List<String> _sidebarItems = [
     'Dashboard',
@@ -45,6 +50,53 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
     Icons.campaign,
     Icons.settings,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final data = await _dataService.getMenteeDashboardData();
+      setState(() {
+        _dashboardData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Color _getColorFromString(String? colorString) {
+    switch (colorString) {
+      case 'blue': return Colors.blue;
+      case 'green': return Colors.green;
+      case 'orange': return Colors.orange;
+      case 'red': return Colors.red;
+      case 'purple': return Colors.purple;
+      default: return Colors.blue;
+    }
+  }
+
+  IconData _getIconFromString(String? iconString) {
+    switch (iconString) {
+      case 'check_circle': return Icons.check_circle;
+      case 'event_available': return Icons.event_available;
+      case 'person_add': return Icons.person_add;
+      case 'folder_open': return Icons.folder_open;
+      default: return Icons.info;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +308,27 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                 // Main content based on selected sidebar item
                 if (_selectedIndex == 0) // Dashboard
                   Expanded(
-                    child: _buildDashboardContent(context, mentorService),
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                                    const SizedBox(height: 16),
+                                    const Text('Error loading dashboard data', style: TextStyle(fontSize: 18)),
+                                    const SizedBox(height: 8),
+                                    Text(_error!, style: const TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: _loadDashboardData,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _buildDashboardContent(context, mentorService),
                   ),
                 
                 if (_selectedIndex == 1) // Schedule
@@ -312,6 +384,14 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
   }
 
   Widget _buildDashboardContent(BuildContext context, MentorService mentorService) {
+    if (_dashboardData == null) {
+      return const Center(child: Text('No data available'));
+    }
+    
+    final mentorData = _dashboardData!['mentor'];
+    final progress = _dashboardData!['progress'] ?? {};
+    final announcements = List<Map<String, dynamic>>.from(_dashboardData!['announcements'] ?? []);
+    final upcomingMeetings = List<Map<String, dynamic>>.from(_dashboardData!['upcomingMeetings'] ?? []);
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: SingleChildScrollView(

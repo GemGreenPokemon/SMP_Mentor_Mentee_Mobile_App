@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:convert';
 import '../models/user.dart';
 import 'excel_parser_service.dart';
 
@@ -140,9 +139,9 @@ class ExcelToUserTransformationService {
     final email = _generatePlaceholderEmail(mentorName, 'mentor');
     
     // Extract mentee names from assignments
-    final assignedMentees = menteeAssignments.map((a) => a.mentee.trim()).toList();
+    final List<String> assignedMentees = menteeAssignments.map((a) => a.mentee.trim()).toList();
     
-    final userData = {
+    final Map<String, dynamic> userData = {
       'name': mentorName.trim(),
       'email': email,
       'userType': 'mentor',
@@ -156,8 +155,8 @@ class ExcelToUserTransformationService {
 
     // Add mentee relationships if available
     if (assignedMentees.isNotEmpty) {
-      // Convert to JSON string as expected by database schema
-      userData['mentee'] = jsonEncode(assignedMentees);
+      // Store as array directly in the mentee field (keeping original field name)
+      userData['mentee'] = assignedMentees;
     }
     
     return userData;
@@ -174,7 +173,7 @@ class ExcelToUserTransformationService {
         ? menteeInfo!.email.toLowerCase().trim()
         : _generatePlaceholderEmail(assignment.mentee, 'mentee');
 
-    final userData = {
+    final Map<String, dynamic> userData = {
       'name': assignment.mentee.trim(),
       'email': email,
       'userType': 'mentee',

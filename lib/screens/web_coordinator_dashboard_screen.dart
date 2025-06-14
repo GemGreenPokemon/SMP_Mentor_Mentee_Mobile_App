@@ -9,6 +9,7 @@ import 'announcement_screen.dart';
 import 'web_newsletter_screen.dart';
 import '../services/mentor_service.dart';
 import '../services/auth_service.dart';
+import '../services/dashboard_data_service.dart';
 import '../utils/responsive.dart';
 
 class WebCoordinatorDashboardScreen extends StatefulWidget {
@@ -20,6 +21,10 @@ class WebCoordinatorDashboardScreen extends StatefulWidget {
 
 class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardScreen> {
   int _selectedIndex = 0;
+  final DashboardDataService _dataService = DashboardDataService();
+  Map<String, dynamic>? _dashboardData;
+  bool _isLoading = true;
+  String? _error;
   
   final List<String> _sidebarItems = [
     'Dashboard',
@@ -46,6 +51,32 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
     Icons.bar_chart,
     Icons.settings,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      
+      final data = await _dataService.getCoordinatorDashboardData();
+      setState(() {
+        _dashboardData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -320,7 +351,27 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                 // Main content based on selected sidebar item
                 if (_selectedIndex == 0) // Dashboard
                   Expanded(
-                    child: _buildDashboardContent(context, mentorService),
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                                    const SizedBox(height: 16),
+                                    const Text('Error loading dashboard data', style: TextStyle(fontSize: 18)),
+                                    const SizedBox(height: 8),
+                                    Text(_error!, style: const TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: _loadDashboardData,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _buildDashboardContent(context, mentorService),
                   ),
                 
                 if (_selectedIndex == 1) // Mentors
@@ -352,6 +403,15 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
 
   // Dashboard content placeholder
   Widget _buildDashboardContent(BuildContext context, MentorService mentorService) {
+    if (_dashboardData == null) {
+      return const Center(child: Text('No data available'));
+    }
+    
+    final stats = _dashboardData!['stats'] ?? {};
+    final mentors = List<Map<String, dynamic>>.from(_dashboardData!['mentors'] ?? []);
+    final mentees = List<Map<String, dynamic>>.from(_dashboardData!['mentees'] ?? []);
+    final recentAssignments = List<Map<String, dynamic>>.from(_dashboardData!['recentAssignments'] ?? []);
+    final announcements = List<Map<String, dynamic>>.from(_dashboardData!['announcements'] ?? []);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -377,25 +437,25 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                     children: [
                       _buildStatCard(
                         'Active Mentors',
-                        '12',
+                        '${stats['totalMentors'] ?? 0}',
                         Icons.psychology,
                         const Color(0xFF2196F3),
                       ),
                       _buildStatCard(
                         'Active Mentees',
-                        '36',
+                        '${stats['totalMentees'] ?? 0}',
                         Icons.school,
                         const Color(0xFF4CAF50),
                       ),
                       _buildStatCard(
                         'Success Rate',
-                        '92%',
+                        '${stats['successRate'] ?? 0}%',
                         Icons.trending_up,
                         const Color(0xFFFFA726),
                       ),
                       _buildStatCard(
                         'Program Completion',
-                        '65%',
+                        '${stats['completionRate'] ?? 0}%',
                         Icons.pie_chart,
                         const Color(0xFF9C27B0),
                       ),

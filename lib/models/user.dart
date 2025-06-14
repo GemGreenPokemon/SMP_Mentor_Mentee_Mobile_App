@@ -6,6 +6,7 @@ class User {
   final String? studentId;
   final String? mentor;
   final String? mentee;
+  final List<String>? mentees; // For mentors with multiple mentees
   final String acknowledgmentSigned;
   final String? department; // Added 5/29/25
   final String? yearMajor; // Added 5/29/25
@@ -26,6 +27,7 @@ class User {
     this.studentId,
     this.mentor,
     this.mentee,
+    this.mentees,
     this.acknowledgmentSigned = 'not_applicable',
     this.department,
     this.yearMajor,
@@ -47,7 +49,8 @@ class User {
       userType: map['userType'],
       studentId: map['student_id'],
       mentor: map['mentor'],
-      mentee: map['mentee'],
+      mentee: map['mentee'] is String ? map['mentee'] : null,
+      mentees: map['mentee'] is List ? List<String>.from(map['mentee']) : null,
       acknowledgmentSigned: map['acknowledgment_signed'] ?? 'not_applicable',
       department: map['department'],
       yearMajor: map['year_major'],
@@ -72,7 +75,7 @@ class User {
       'userType': userType,
       'student_id': studentId,
       'mentor': mentor,
-      'mentee': mentee,
+      'mentee': mentees ?? mentee,
       'acknowledgment_signed': acknowledgmentSigned,
       'department': department,
       'year_major': yearMajor,
@@ -95,6 +98,7 @@ class User {
     String? studentId,
     String? mentor,
     String? mentee,
+    List<String>? mentees,
     String? acknowledgmentSigned,
     String? department,
     String? yearMajor,
@@ -115,6 +119,7 @@ class User {
       studentId: studentId ?? this.studentId,
       mentor: mentor ?? this.mentor,
       mentee: mentee ?? this.mentee,
+      mentees: mentees ?? this.mentees,
       acknowledgmentSigned: acknowledgmentSigned ?? this.acknowledgmentSigned,
       department: department ?? this.department,
       yearMajor: yearMajor ?? this.yearMajor,

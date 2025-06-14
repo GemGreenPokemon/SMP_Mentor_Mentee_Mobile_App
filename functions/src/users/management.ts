@@ -87,8 +87,8 @@ export const createUser = functions.https.onCall(async (data: CreateUserData, co
     if (mentor) user.mentor = mentor;
     if (mentee) {
       user.mentee = Array.isArray(mentee) ? mentee : [mentee];
-    } else {
-      user.mentee = []; // Default empty array if no mentees
+    } else if (userType === 'mentor') {
+      user.mentee = []; // Default empty array for mentors if no mentees
     }
 
     const usersCollection = getUniversityCollection(universityPath, 'users');
@@ -383,8 +383,8 @@ export const bulkCreateUsers = functions.https.onCall(async (data: BulkCreateUse
         if (userData.mentor) user.mentor = userData.mentor.trim();
         if (userData.mentee) {
           user.mentee = Array.isArray(userData.mentee) ? userData.mentee : [userData.mentee];
-        } else {
-          user.mentee = []; // Default empty array if no mentees
+        } else if (userData.userType === 'mentor') {
+          user.mentee = []; // Default empty array for mentors if no mentees
         }
 
         // Generate unique user ID from name
