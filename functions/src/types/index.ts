@@ -16,6 +16,7 @@ export interface User {
   name: string;
   email: string;
   userType: 'mentor' | 'mentee' | 'coordinator';
+  firebase_uid?: string;
   student_id?: string;
   mentor?: string;
   mentee?: string[];
@@ -23,6 +24,8 @@ export interface User {
   department?: string;
   year_major?: string;
   created_at: Date;
+  updated_at?: Date;
+  last_login?: Date;
 }
 
 export interface Meeting {

@@ -1,16 +1,29 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './real_time_user_service.dart';
+import './cloud_function_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
-  AuthService._internal();
+  AuthService._internal() {
+    // Connect to Auth emulator in debug mode
+    if (kDebugMode) {
+      try {
+        _auth.useAuthEmulator('localhost', 9099);
+        print('🔐 Auth service connected to emulator');
+      } catch (e) {
+        // Already connected or emulator not available
+      }
+    }
+  }
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final RealTimeUserService _realTimeUserService = RealTimeUserService();
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -19,7 +32,14 @@ class AuthService {
   bool get isLoggedIn => _auth.currentUser != null;
 
   // Check if user's email is verified
-  bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
+  bool get isEmailVerified {
+    // Bypass email verification in debug mode (emulator)
+    if (kDebugMode) {
+      print('📧 Email verification bypassed in debug mode');
+      return true;
+    }
+    return _auth.currentUser?.emailVerified ?? false;
+  }
 
   // Get university path (hardcoded for now, can be made dynamic later)
   String get universityPath => 'california_merced_uc_merced';
@@ -124,6 +144,56 @@ class AuthService {
       // Step 4: Update user record with Firebase Auth UID
       await _updateUserRecordWithAuthUID(name, credential.user!.uid);
 
+      // Step 5: Set custom claims for the new user
+      try {
+        print('🔐 === SETTING CUSTOM CLAIMS ON REGISTRATION ===');
+        print('🔐 User UID: ${credential.user!.uid}');
+        print('🔐 User email: ${credential.user!.email}');
+        print('🔐 User name: $name');
+        
+        // Call cloud function to set claims
+        print('🔐 Calling setCustomClaimsOnRegistration cloud function...');
+        final result = await _cloudFunctions.setCustomClaimsOnRegistration(
+          uid: credential.user!.uid,
+        );
+        
+        print('🔐 Cloud function result: $result');
+        
+        if (result['success'] == true) {
+          print('🔐 ✅ Cloud function returned success');
+          print('🔐 Claims set: ${result['claims']}');
+          print('🔐 Debug info: ${result['debug']}');
+          
+          // Force token refresh to get the new claims
+          print('🔐 Forcing token refresh to apply new claims...');
+          await credential.user!.getIdToken(true);
+          
+          // Wait a moment for claims to propagate
+          await Future.delayed(const Duration(seconds: 2));
+          
+          // Verify claims were set
+          final tokenResult = await credential.user!.getIdTokenResult();
+          print('🔐 Token after refresh - all claims: ${tokenResult.claims}');
+          print('🔐 Token after refresh - role: ${tokenResult.claims?['role']}');
+          print('🔐 Token after refresh - university_path: ${tokenResult.claims?['university_path']}');
+          
+          if (tokenResult.claims?['role'] != null) {
+            print('🔐 ✅ SUCCESS: Custom claims are now active! Role = ${tokenResult.claims?['role']}');
+          } else {
+            print('🔐 ⚠️ WARNING: Claims may not have propagated yet. They should be available on next login.');
+          }
+        } else {
+          print('🔐 ❌ Cloud function returned failure: ${result['message'] ?? 'Unknown error'}');
+        }
+        
+        print('🔐 === END SETTING CUSTOM CLAIMS ===');
+      } catch (claimsError) {
+        print('🔐 ❌ ERROR setting custom claims during registration: $claimsError');
+        print('🔐 Error type: ${claimsError.runtimeType}');
+        // Don't throw - registration was successful, claims are just missing
+        // User can still use the app, just might need to sync claims on login
+      }
+
       return credential;
     } on FirebaseAuthException catch (e) {
       print('Registration error: ${e.code} - ${e.message}');
@@ -141,6 +211,59 @@ class AuthService {
         email: email,
         password: password,
       );
+      
+      // Sync custom claims after successful login to ensure proper permissions
+      if (credential.user != null) {
+        try {
+          print('🔐 === CUSTOM CLAIMS SYNC START ===');
+          print('🔐 User logged in: ${credential.user!.email} (${credential.user!.uid})');
+          
+          // Check current claims before sync
+          final tokenBeforeSync = await credential.user!.getIdTokenResult();
+          print('🔐 Claims BEFORE sync: ${tokenBeforeSync.claims}');
+          print('🔐 Role in claims BEFORE: ${tokenBeforeSync.claims?['role'] ?? 'NOT SET'}');
+          
+          // Only sync if role is not already set (skip for super_admin who already has claims)
+          final existingRole = tokenBeforeSync.claims?['role'];
+          if (existingRole == null) {
+            print('🔐 No role found, calling syncUserClaimsOnLogin...');
+            final result = await _cloudFunctions.syncUserClaimsOnLogin();
+            
+            if (result['success'] == true) {
+              print('🔐 ✅ Cloud function returned success');
+              print('🔐 Claims set by cloud function: ${result['claims']}');
+              
+              // Force aggressive token refresh
+              print('🔐 Forcing token refresh...');
+              await credential.user!.getIdToken(true);
+              
+              // Wait a bit for claims to propagate
+              await Future.delayed(const Duration(seconds: 1));
+              
+              // Get new token and verify claims
+              final tokenAfterSync = await credential.user!.getIdTokenResult(true);
+              print('🔐 Claims AFTER sync: ${tokenAfterSync.claims}');
+              print('🔐 Role in claims AFTER: ${tokenAfterSync.claims?['role'] ?? 'STILL NOT SET!'}');
+              
+              if (tokenAfterSync.claims?['role'] == null) {
+                print('🔐 ❌ WARNING: Claims still not set after sync!');
+              } else {
+                print('🔐 ✅ SUCCESS: Role is now ${tokenAfterSync.claims?['role']}');
+              }
+            } else {
+              print('🔐 ❌ Claims sync failed: ${result['message'] ?? result['error'] ?? 'Unknown error'}');
+            }
+          } else {
+            print('🔐 ✅ User already has role: $existingRole, skipping sync');
+          }
+          print('🔐 === CUSTOM CLAIMS SYNC END ===');
+        } catch (claimsError) {
+          print('🔐 ❌ Error syncing claims: $claimsError');
+          print('🔐 Error type: ${claimsError.runtimeType}');
+          // Don't fail login if claims sync fails
+        }
+      }
+      
       return credential;
     } on FirebaseAuthException catch (e) {
       print('Auth error: ${e.code} - ${e.message}');
@@ -245,13 +368,27 @@ class AuthService {
   // Get user role from Firestore with retry logic and connection waiting
   Future<String?> getUserRole({int maxRetries = 3, Duration retryDelay = const Duration(seconds: 2)}) async {
     final user = _auth.currentUser;
-    if (user == null) return null;
+    if (user == null) {
+      print('🔧 getUserRole: No current user');
+      return null;
+    }
 
     try {
+      print('🔧 === GET USER ROLE START ===');
+      print('🔧 Getting role for user: ${user.email} (${user.uid})');
+      
       // First try to get role from custom claims
       final tokenResult = await user.getIdTokenResult();
+      print('🔧 Token claims: ${tokenResult.claims}');
       final claimsRole = tokenResult.claims?['role'];
-      if (claimsRole != null) return claimsRole;
+      
+      if (claimsRole != null) {
+        print('🔧 ✅ Role found in custom claims: $claimsRole');
+        print('🔧 === GET USER ROLE END ===');
+        return claimsRole;
+      }
+      
+      print('🔧 ⚠️ No role in custom claims, falling back to database lookup');
       
       // For database lookup, wait for connection and implement retry logic
       return await _getUserRoleFromDatabase(user, maxRetries: maxRetries, retryDelay: retryDelay);

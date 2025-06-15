@@ -6,11 +6,12 @@ admin.initializeApp();
 
 // Import function modules - temporarily only core database functions
 import { initializeUniversity } from './university/initialization';
-import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors, validateNameForRegistration, migrateUserSubcollections } from './users/management';
+import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors, validateNameForRegistration, migrateUserSubcollections, syncUserClaims } from './users/management';
+import { createAnnouncement, updateAnnouncement, deleteAnnouncement, getAnnouncements } from './announcements/management';
+import { setClaimsOnLogin, syncClaimsOnLogin, setClaimsOnRegistration } from './auth/triggers';
 // Temporarily commented out to avoid build errors:
 // import { createMeeting, updateMeeting, deleteMeeting } from './meetings/management';
 // import { sendMessage, getChatHistory } from './messaging/chat';
-// import { createAnnouncement, updateAnnouncement } from './announcements/management';
 // import { generateProgressReport, submitProgressReport } from './reports/progress';
 // import { syncLocalToFirestore } from './sync/data-sync';
 
@@ -26,6 +27,18 @@ export const bulkCreateUserAccounts = bulkCreateUsers;
 export const bulkAssignMentorAccounts = bulkAssignMentors;
 export const validateUserNameForRegistration = validateNameForRegistration;
 export const migrateUserSubcollectionsForUniversity = migrateUserSubcollections;
+export const syncUserClaimsForUniversity = syncUserClaims;
+
+// Auth Functions
+export const onUserCreate = setClaimsOnLogin;
+export const syncUserClaimsOnLogin = syncClaimsOnLogin;
+export const setCustomClaimsOnRegistration = setClaimsOnRegistration;
+
+// Announcement Functions
+export const postAnnouncement = createAnnouncement;
+export const updateAnnouncementDetails = updateAnnouncement;
+export const removeAnnouncement = deleteAnnouncement;
+export const getAnnouncementsList = getAnnouncements;
 
 // Temporarily commented out to avoid build errors:
 // Meeting Management Functions
@@ -36,10 +49,6 @@ export const migrateUserSubcollectionsForUniversity = migrateUserSubcollections;
 // Messaging Functions
 // export const sendChatMessage = sendMessage;
 // export const getChatMessages = getChatHistory;
-
-// Announcement Functions
-// export const postAnnouncement = createAnnouncement;
-// export const updateAnnouncementDetails = updateAnnouncement;
 
 // Progress Reporting Functions
 // export const createProgressReport = generateProgressReport;

@@ -6,16 +6,30 @@ import { AuthContext } from '../types';
  * Verify and extract authentication context from Firebase Auth
  */
 export async function verifyAuth(context: functions.https.CallableContext): Promise<AuthContext> {
+  console.log('🔒 verifyAuth: Checking authentication');
+  
   if (!context.auth) {
+    console.log('🔒 verifyAuth: ❌ No auth context');
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
-  return {
+  console.log('🔒 verifyAuth: Auth UID:', context.auth.uid);
+  console.log('🔒 verifyAuth: Full auth object:', JSON.stringify(context.auth));
+  console.log('🔒 verifyAuth: Token object:', JSON.stringify(context.auth.token));
+  
+  // Custom claims can be at context.auth.token.role or context.auth.token (root level)
+  const role = context.auth.token.role || context.auth.token['role'];
+  const universityPath = context.auth.token.university_path || context.auth.token['university_path'];
+  
+  const authContext = {
     uid: context.auth.uid,
     email: context.auth.token.email,
-    role: context.auth.token.role,
-    university_path: context.auth.token.university_path
+    role: role,
+    university_path: universityPath
   };
+  
+  console.log('🔒 verifyAuth: Extracted auth context:', JSON.stringify(authContext));
+  return authContext;
 }
 
 /**
@@ -52,12 +66,18 @@ export async function verifyCoordinator(context: functions.https.CallableContext
  * Verify mentor permissions
  */
 export async function verifyMentor(context: functions.https.CallableContext): Promise<AuthContext> {
+  console.log('🔒 verifyMentor: Starting verification');
   const authContext = await verifyAuth(context);
   
+  console.log('🔒 verifyMentor: Auth context:', JSON.stringify(authContext));
+  console.log('🔒 verifyMentor: User role:', authContext.role);
+  
   if (!authContext.role || !['mentor', 'coordinator', 'super_admin'].includes(authContext.role)) {
+    console.log('🔒 verifyMentor: ❌ Permission denied. Role:', authContext.role);
     throw new functions.https.HttpsError('permission-denied', 'Mentor access required');
   }
 
+  console.log('🔒 verifyMentor: ✅ Permission granted');
   return authContext;
 }
 

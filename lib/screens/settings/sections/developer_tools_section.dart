@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/settings_section_wrapper.dart';
 import '../../local_db_manager_screen.dart';
 import '../../firestore_manager_screen.dart';
+import '../dialogs/sync_claims_dialog.dart';
 
 class DeveloperToolsSection extends StatelessWidget {
   const DeveloperToolsSection({super.key});
@@ -44,6 +45,17 @@ class DeveloperToolsSection extends StatelessWidget {
           Icons.message,
           () {
             // TODO: Implement messaging loopback test UI
+          },
+        ),
+        _buildListTile(
+          'Sync Auth Claims',
+          'Fix permission issues by syncing custom claims',
+          Icons.sync,
+          () {
+            showDialog(
+              context: context,
+              builder: (context) => const SyncClaimsDialog(),
+            );
           },
         ),
       ],

@@ -534,4 +534,213 @@ class CloudFunctionService {
     // This would typically come from Firebase Auth custom claims or user preferences
     return 'california_merced_uc_merced'; // Default for now - matches DirectDatabaseService format
   }
+
+  // --- Announcement Management Functions ---
+
+  /// Create a new announcement
+  Future<Map<String, dynamic>> createAnnouncement({
+    required String universityPath,
+    required String title,
+    required String content,
+    required String priority,
+    required String targetAudience,
+    String? time,
+  }) async {
+    try {
+      print('🔍 createAnnouncement: Starting request');
+      print('🔍 createAnnouncement: title: $title, priority: $priority, audience: $targetAudience');
+      
+      final HttpsCallable callable = _functions.httpsCallable('postAnnouncement');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'title': title,
+        'content': content,
+        'priority': priority,
+        'target_audience': targetAudience,
+        if (time != null) 'time': time,
+      });
+      
+      print('🔍 createAnnouncement: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 createAnnouncement: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔍 createAnnouncement: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Update an existing announcement
+  Future<Map<String, dynamic>> updateAnnouncement({
+    required String universityPath,
+    required String announcementId,
+    String? title,
+    String? content,
+    String? priority,
+    String? targetAudience,
+    String? time,
+  }) async {
+    try {
+      print('🔍 updateAnnouncement: Starting request for announcement: $announcementId');
+      
+      final HttpsCallable callable = _functions.httpsCallable('updateAnnouncementDetails');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'announcementId': announcementId,
+        if (title != null) 'title': title,
+        if (content != null) 'content': content,
+        if (priority != null) 'priority': priority,
+        if (targetAudience != null) 'target_audience': targetAudience,
+        if (time != null) 'time': time,
+      });
+      
+      print('🔍 updateAnnouncement: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 updateAnnouncement: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔍 updateAnnouncement: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Delete an announcement
+  Future<Map<String, dynamic>> deleteAnnouncement({
+    required String universityPath,
+    required String announcementId,
+  }) async {
+    try {
+      print('🔍 deleteAnnouncement: Starting request for announcement: $announcementId');
+      
+      final HttpsCallable callable = _functions.httpsCallable('removeAnnouncement');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'announcementId': announcementId,
+      });
+      
+      print('🔍 deleteAnnouncement: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 deleteAnnouncement: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔍 deleteAnnouncement: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Get announcements for target audience
+  Future<Map<String, dynamic>> getAnnouncements({
+    required String universityPath,
+    required String userType,
+    int? limit,
+  }) async {
+    try {
+      print('🔍 getAnnouncements: Starting request for userType: $userType');
+      
+      final HttpsCallable callable = _functions.httpsCallable('getAnnouncementsList');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'userType': userType,
+        if (limit != null) 'limit': limit,
+      });
+      
+      print('🔍 getAnnouncements: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 getAnnouncements: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔍 getAnnouncements: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Sync user claims on login to ensure proper permissions
+  Future<Map<String, dynamic>> syncUserClaimsOnLogin() async {
+    try {
+      print('🔐 syncUserClaimsOnLogin: Starting request');
+      
+      final HttpsCallable callable = _functions.httpsCallable('syncUserClaimsOnLogin');
+      final HttpsCallableResult result = await callable.call();
+      
+      print('🔐 syncUserClaimsOnLogin: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔐 syncUserClaimsOnLogin: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔐 syncUserClaimsOnLogin: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Set custom claims for newly registered users
+  Future<Map<String, dynamic>> setCustomClaimsOnRegistration({
+    required String uid,
+  }) async {
+    try {
+      print('🔐 setCustomClaimsOnRegistration: Starting request for UID: $uid');
+      
+      final HttpsCallable callable = _functions.httpsCallable('setCustomClaimsOnRegistration');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'uid': uid,
+      });
+      
+      print('🔐 setCustomClaimsOnRegistration: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔐 setCustomClaimsOnRegistration: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔐 setCustomClaimsOnRegistration: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Sync all user claims for a university (coordinator only)
+  Future<Map<String, dynamic>> syncUserClaimsForUniversity({
+    required String universityPath,
+  }) async {
+    try {
+      print('🔐 syncUserClaimsForUniversity: Starting request for university: $universityPath');
+      
+      final HttpsCallable callable = _functions.httpsCallable('syncUserClaimsForUniversity');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+      });
+      
+      print('🔐 syncUserClaimsForUniversity: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔐 syncUserClaimsForUniversity: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🔐 syncUserClaimsForUniversity: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
 } 

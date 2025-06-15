@@ -98,15 +98,10 @@ export const createUser = functions.https.onCall(async (data: CreateUserData, co
     const result = await createDocumentWithCustomId(usersCollection, user, userId);
 
     if (result.success && result.data) {
-      // Skip user claims for testing
-      // try {
-      //   await setUserClaims(result.data.id, {
-      //     role: userType,
-      //     university_path: universityPath
-      //   });
-      // } catch (error) {
-      //   console.warn('Failed to set user claims:', error);
-      // }
+      // Note: Custom claims will be set when user creates Firebase Auth account
+      // since users created via this function may not have Firebase Auth accounts yet
+      console.log(`User created in database: ${result.data.id} with role=${userType}`);
+      console.log(`Custom claims will be set automatically when user registers with Firebase Auth`);
 
       console.log(`User created: ${result.data.id} in ${universityPath}`);
       
@@ -215,6 +210,94 @@ export const deleteUser = functions.https.onCall(async (data: { universityPath: 
     }
     
     throw new functions.https.HttpsError('internal', 'Failed to delete user');
+  }
+});
+
+/**
+ * Sync user roles to Firebase Auth custom claims for existing users
+ */
+export const syncUserClaims = functions.https.onCall(async (data: { universityPath: string }, context) => {
+  try {
+    console.log('🔄 syncUserClaims function called with data:', data);
+    
+    // Re-enable authentication for production
+    const authContext = await verifyCoordinator(context, data.universityPath);
+    
+    const { universityPath } = data;
+    
+    if (!universityPath) {
+      throw new functions.https.HttpsError('invalid-argument', 'University path required');
+    }
+
+    const usersCollection = getUniversityCollection(universityPath, 'users');
+    const snapshot = await usersCollection.get();
+    
+    const results = {
+      processed: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      details: [] as Array<{userId: string, status: string, message: string}>
+    };
+
+    for (const doc of snapshot.docs) {
+      const userData = doc.data() as User;
+      const userId = doc.id;
+      results.processed++;
+
+      try {
+        // Check if user has Firebase Auth UID
+        if (!userData.firebase_uid) {
+          results.skipped++;
+          results.details.push({
+            userId,
+            status: 'skipped',
+            message: 'No Firebase Auth UID found'
+          });
+          continue;
+        }
+
+        // Set custom claims for this user
+        await setUserClaims(userData.firebase_uid, {
+          role: userData.userType,
+          university_path: universityPath
+        });
+
+        results.updated++;
+        results.details.push({
+          userId,
+          status: 'updated',
+          message: `Claims set: role=${userData.userType}, university=${universityPath}`
+        });
+
+        console.log(`✅ Custom claims updated for user ${userId} (${userData.name}): role=${userData.userType}`);
+
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          userId,
+          status: 'error',
+          message: `Failed to set claims: ${error}`
+        });
+        console.error(`❌ Failed to set claims for user ${userId}:`, error);
+      }
+    }
+
+    console.log(`🔄 Sync completed: ${results.updated} updated, ${results.skipped} skipped, ${results.errors} errors`);
+
+    return {
+      success: true,
+      data: results
+    };
+
+  } catch (error) {
+    console.error('Error syncing user claims:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to sync user claims');
   }
 });
 

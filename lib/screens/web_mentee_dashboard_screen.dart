@@ -671,26 +671,34 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          _buildAnnouncementItem(
-                            'Upcoming Workshop',
-                            'Join us for a career development workshop next week. We\'ll be covering resume writing, interview skills, and networking strategies.',
-                            '2 hours ago',
-                            mentorService.announcements.isNotEmpty ? mentorService.announcements[0]['priority'] : null,
-                          ),
-                          const Divider(),
-                          _buildAnnouncementItem(
-                            'Program Update',
-                            'New resources have been added to the resource hub including study guides and internship opportunities.',
-                            '1 day ago',
-                            mentorService.announcements.length > 1 ? mentorService.announcements[1]['priority'] : null,
-                          ),
-                          const Divider(),
-                          _buildAnnouncementItem(
-                            'End of Semester Survey',
-                            'Please take a moment to complete the end of semester feedback survey.',
-                            '3 days ago',
-                            'medium',
-                          ),
+                          // Display real announcements from database
+                          ...mentorService.announcements.take(3).map((announcement) => 
+                            Column(
+                              children: [
+                                if (mentorService.announcements.indexOf(announcement) > 0) const Divider(),
+                                _buildAnnouncementItem(
+                                  announcement['title'],
+                                  announcement['content'],
+                                  announcement['time'],
+                                  announcement['priority'],
+                                ),
+                              ],
+                            ),
+                          ).toList(),
+                          // Show message if no announcements
+                          if (mentorService.announcements.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20.0),
+                              child: Center(
+                                child: Text(
+                                  'No announcements at this time',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

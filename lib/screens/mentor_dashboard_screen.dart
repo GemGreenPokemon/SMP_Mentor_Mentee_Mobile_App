@@ -30,6 +30,8 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final mentorService = Provider.of<MentorService>(context, listen: false);
       mentorService.initialize();
+      // Also refresh announcements to get latest from Firebase
+      mentorService.refreshAnnouncements();
     });
   }
 

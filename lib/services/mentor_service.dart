@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'local_database_service.dart';
+import 'announcement_service.dart';
 import '../utils/test_mode_manager.dart';
 import '../models/user.dart';
 import '../models/mentorship.dart';
@@ -12,6 +13,7 @@ import '../models/meeting_note.dart';
 
 class MentorService extends ChangeNotifier {
   final LocalDatabaseService _localDb = LocalDatabaseService.instance;
+  final AnnouncementService _announcementService = AnnouncementService();
   
   // Loading states
   bool _isLoading = false;
@@ -394,6 +396,18 @@ class MentorService extends ChangeNotifier {
   /// Load announcements from database
   Future<List<Map<String, dynamic>>> _loadAnnouncementsFromDb() async {
     try {
+      // First try to get from AnnouncementService (Firebase)
+      await _announcementService.fetchAnnouncements();
+      if (_announcementService.announcements.isNotEmpty) {
+        return _announcementService.announcements.map((announcement) => {
+          'title': announcement['title'] ?? '',
+          'content': announcement['content'] ?? '',
+          'time': announcement['time'] ?? 'Recently',
+          'priority': announcement['priority'] ?? 'none',
+        }).toList();
+      }
+      
+      // Fallback to local database if Firebase fails
       final announcements = await _localDb.getAnnouncementsByAudience(['mentors', 'both']);
       return announcements.map((announcement) => {
         'title': announcement.title,
@@ -763,6 +777,16 @@ class MentorService extends ChangeNotifier {
     } else {
       _hasInitialized = true;
       notifyListeners();
+    }
+  }
+  
+  /// Refresh announcements from Firebase
+  Future<void> refreshAnnouncements() async {
+    try {
+      _dbAnnouncements = await _loadAnnouncementsFromDb();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error refreshing announcements: $e');
     }
   }
 

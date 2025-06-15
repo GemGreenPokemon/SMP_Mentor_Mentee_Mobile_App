@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui';
 import 'web_chat_screen.dart';
 import 'web_schedule_meeting_screen.dart';
 import 'meeting_notes_screen.dart';
@@ -12,7 +13,7 @@ import '../services/auth_service.dart';
 import '../services/dashboard_data_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'web_newsletter_screen.dart';
-import 'announcement_screen.dart';
+import 'web_announcements_screen.dart';
 import '../utils/responsive.dart';
 
 class WebMentorDashboardScreen extends StatefulWidget {
@@ -22,12 +23,18 @@ class WebMentorDashboardScreen extends StatefulWidget {
   State<WebMentorDashboardScreen> createState() => _WebMentorDashboardScreenState();
 }
 
-class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
+class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> 
+    with TickerProviderStateMixin {
   int _selectedIndex = 0;
   final DashboardDataService _dataService = DashboardDataService();
   Map<String, dynamic>? _dashboardData;
   bool _isLoading = true;
   String? _error;
+  
+  late AnimationController _sidebarAnimationController;
+  late AnimationController _hoverAnimationController;
+  late Animation<double> _sidebarAnimation;
+  int? _hoveredIndex;
   
   final List<String> _sidebarItems = [
     'Dashboard',
@@ -57,6 +64,31 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
+    
+    // Initialize animations
+    _sidebarAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _hoverAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    
+    _sidebarAnimation = CurvedAnimation(
+      parent: _sidebarAnimationController,
+      curve: Curves.easeInOutCubic,
+    );
+    
+    _sidebarAnimationController.forward();
+  }
+  
+  @override
+  void dispose() {
+    _sidebarAnimationController.dispose();
+    _hoverAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDashboardData() async {
@@ -90,240 +122,470 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
     final mentorService = Provider.of<MentorService>(context);
     
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFB),
       body: Row(
         children: [
-          // Sidebar
-          Card(
-            elevation: 2,
-            margin: EdgeInsets.zero,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
-            ),
-            child: SizedBox(
-              width: 250,
-              child: Column(
-                children: [
-                  // App logo and title
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                    color: const Color(0xFF0F2D52),
-                    child: Row(
-                      children: [
-                        Image.asset(
-                          'assets/images/My_SMP_Logo.png',
-                          height: 40,
-                          width: 40,
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'SMP Mentor',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+          // Premium Sidebar
+          AnimatedBuilder(
+            animation: _sidebarAnimation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(-280 * (1 - _sidebarAnimation.value), 0),
+                child: Container(
+                  width: 280,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF0F2D52),
+                        const Color(0xFF0A2340),
                       ],
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: const Offset(5, 0),
+                      ),
+                    ],
                   ),
-                  // Profile section
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 24,
-                          child: Icon(Icons.person, size: 32),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _dashboardData?['mentorProfile']?['name'] ?? 'Mentor',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                'Mentor',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
+                  child: Column(
+                    children: [
+                      // Premium Logo Section
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuButton(
-                          icon: const Icon(Icons.more_vert),
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'profile',
-                              child: Text('Edit Profile'),
+                              child: Image.asset(
+                                'assets/images/My_SMP_Logo.png',
+                                height: 48,
+                                width: 48,
+                              ),
                             ),
-                            const PopupMenuItem(
-                              value: 'logout',
-                              child: Text('Logout'),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'SMP Mentor Portal',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Excellence in Mentorship',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.7),
+                                fontWeight: FontWeight.w300,
+                              ),
                             ),
                           ],
-                          onSelected: (value) async {
-                            if (value == 'logout') {
-                              await AuthService().signOut();
-                              // Navigation will be handled automatically by AuthWrapper
-                            }
+                        ),
+                      ),
+                      
+                      // Premium Profile Section
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.15),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF4A90E2),
+                                    Color(0xFF357ABD),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _dashboardData?['mentorProfile']?['name'] ?? 'Mentor',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.green.withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.green,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Active',
+                                          style: TextStyle(
+                                            color: Colors.green[300],
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuButton(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                              color: const Color(0xFF1A4A7F),
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'profile',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.person_outline, size: 18, color: Colors.white70),
+                                      SizedBox(width: 8),
+                                      Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'logout',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.logout, size: 18, color: Colors.white70),
+                                      SizedBox(width: 8),
+                                      Text('Logout', style: TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onSelected: (value) async {
+                                if (value == 'logout') {
+                                  await AuthService().signOut();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Premium Navigation Menu
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: _sidebarItems.length,
+                          itemBuilder: (context, index) {
+                            final isSelected = _selectedIndex == index;
+                            final isHovered = _hoveredIndex == index;
+                            
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: MouseRegion(
+                                onEnter: (_) => setState(() => _hoveredIndex = index),
+                                onExit: (_) => setState(() => _hoveredIndex = null),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  decoration: BoxDecoration(
+                                    gradient: isSelected
+                                        ? LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Colors.white.withOpacity(0.2),
+                                              Colors.white.withOpacity(0.1),
+                                            ],
+                                          )
+                                        : null,
+                                    color: !isSelected && isHovered
+                                        ? Colors.white.withOpacity(0.08)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: Colors.white.withOpacity(0.2),
+                                            width: 1,
+                                          )
+                                        : null,
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                    leading: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Colors.white.withOpacity(0.2)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        _sidebarIcons[index],
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withOpacity(0.7),
+                                        size: 22,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      _sidebarItems[index],
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withOpacity(0.85),
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    trailing: isSelected
+                                        ? Container(
+                                            width: 4,
+                                            height: 24,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.white.withOpacity(0.5),
+                                                  blurRadius: 8,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedIndex = index;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
                           },
                         ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  // Navigation menu
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      itemCount: _sidebarItems.length,
-                      itemBuilder: (context, index) {
-                        return ListTile(
-                          leading: Icon(
-                            _sidebarIcons[index],
-                            color: _selectedIndex == index
-                                ? const Color(0xFF0F2D52)
-                                : Colors.grey[600],
-                          ),
-                          title: Text(
-                            _sidebarItems[index],
-                            style: TextStyle(
-                              fontWeight: _selectedIndex == index
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: _selectedIndex == index
-                                  ? const Color(0xFF0F2D52)
-                                  : Colors.grey[800],
+                      ),
+                      
+                      // Premium Footer
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.help_outline,
+                                    size: 18,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Need Help?',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          selected: _selectedIndex == index,
-                          selectedTileColor: const Color(0xFF0F2D52).withOpacity(0.1),
-                          onTap: () {
-                            setState(() {
-                              _selectedIndex = index;
-                            });
-                          },
-                        );
-                      },
-                    ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           
           // Main content area
           Expanded(
             child: Column(
               children: [
-                // Top bar
+                // Premium Top Bar
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.fromLTRB(32, 20, 32, 20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(8),
-                      bottomRight: Radius.circular(8),
-                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: Row(
                     children: [
+                      // Page title with animation
                       Expanded(
-                        child: Text(
-                          _sidebarItems[_selectedIndex],
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.support_agent),
-                        onPressed: () {
-                          // Navigate to coordinator chat
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const WebChatScreen(
-                                recipientName: 'Clarissa Correa',
-                                recipientRole: 'SMP Program Coordinator',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Text(
+                                _sidebarItems[_selectedIndex],
+                                key: ValueKey(_selectedIndex),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F2D52),
+                                  letterSpacing: -0.5,
+                                ),
                               ),
                             ),
-                          );
-                        },
-                        tooltip: 'Message Coordinator',
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: () {
-                          // TODO: Implement search
-                        },
-                        tooltip: 'Search',
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          // Show notifications dialog
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Notifications'),
-                              content: const Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: Icon(Icons.notification_important, color: Colors.red),
-                                    title: Text('New Progress Report Due'),
-                                    subtitle: Text('Due in 2 days'),
-                                  ),
-                                  ListTile(
-                                    leading: Icon(Icons.event, color: Colors.blue),
-                                    title: Text('Upcoming Meeting'),
-                                    subtitle: Text('Tomorrow at 2:00 PM'),
-                                  ),
-                                ],
+                            const SizedBox(height: 4),
+                            Text(
+                              _getPageDescription(_selectedIndex),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w400,
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Premium action buttons
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F7FA),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildTopBarButton(
+                              Icons.search,
+                              'Search',
+                              () {
+                                // TODO: Implement global search
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            _buildTopBarButton(
+                              Icons.support_agent,
+                              'Coordinator',
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const WebChatScreen(
+                                      recipientName: 'Clarissa Correa',
+                                      recipientRole: 'SMP Program Coordinator',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            Stack(
+                              children: [
+                                _buildTopBarButton(
+                                  Icons.notifications_outlined,
+                                  'Notifications',
+                                  () => _showNotificationsPanel(),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                          );
-                        },
-                        tooltip: 'Notifications',
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.help_outline),
-                        onPressed: () {
-                          // TODO: Show help
-                        },
-                        tooltip: 'Help',
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -402,7 +664,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                 if (_selectedIndex == 7) // Announcements
                   Expanded(
                     child: Scaffold(
-                      body: AnnouncementScreen(isCoordinator: false),
+                      body: WebAnnouncementsScreen(),
                     ),
                   ),
                 
@@ -620,12 +882,9 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           ),
                           TextButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AnnouncementScreen(isCoordinator: false),
-                                ),
-                              );
+                              setState(() {
+                                _selectedIndex = 7; // Switch to announcements tab
+                              });
                             },
                             child: const Text('View All'),
                           ),
@@ -640,15 +899,6 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
                           announcement['priority'],
                         ),
                       ).toList(),
-                      
-                      // Add a third announcement if we have less than 2
-                      if (announcements.length < 2)
-                        _buildAnnouncementItem(
-                          'End of Semester Survey',
-                          'Please remind your mentees to complete the end of semester feedback survey by next Friday.',
-                          '3 days ago',
-                          'medium',
-                        ),
                     ],
                   ),
                 ),
@@ -1814,6 +2064,232 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> {
             child: const Text('Remove'),
           ),
         ],
+      ),
+    );
+  }
+
+  String _getPageDescription(int index) {
+    final descriptions = [
+      'Overview of your mentorship activities',
+      'Manage and connect with your mentees',
+      'Schedule and manage meetings',
+      'Track progress and submit reports',
+      'Access helpful resources and materials',
+      'Track your mentorship checklist',
+      'Stay updated with program newsletters',
+      'View important announcements',
+      'Manage your account settings',
+    ];
+    return descriptions[index];
+  }
+
+  Widget _buildTopBarButton(IconData icon, String tooltip, VoidCallback onPressed) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          child: Icon(
+            icon,
+            size: 22,
+            color: const Color(0xFF0F2D52),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showNotificationsPanel() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Dialog(
+          alignment: Alignment.topRight,
+          insetPadding: const EdgeInsets.only(top: 80, right: 32),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            width: 380,
+            constraints: const BoxConstraints(maxHeight: 500),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications,
+                        color: Color(0xFF0F2D52),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Notifications',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F2D52),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {},
+                        child: const Text('Mark all as read'),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: [
+                      _buildNotificationItem(
+                        Icons.assignment,
+                        'New Progress Report Due',
+                        'Submit your monthly progress report by Friday',
+                        '2 hours ago',
+                        Colors.orange,
+                        true,
+                      ),
+                      _buildNotificationItem(
+                        Icons.event,
+                        'Upcoming Meeting',
+                        'Meeting with Alice Johnson tomorrow at 2:00 PM',
+                        '5 hours ago',
+                        Colors.blue,
+                        true,
+                      ),
+                      _buildNotificationItem(
+                        Icons.check_circle,
+                        'Goal Completed',
+                        'Bob Wilson completed "Review study plan"',
+                        'Yesterday',
+                        Colors.green,
+                        false,
+                      ),
+                      _buildNotificationItem(
+                        Icons.message,
+                        'New Message',
+                        'Carlos Rodriguez sent you a message',
+                        '2 days ago',
+                        Colors.purple,
+                        false,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(
+    IconData icon,
+    String title,
+    String description,
+    String time,
+    Color color,
+    bool isUnread,
+  ) {
+    return Container(
+      color: isUnread ? color.withOpacity(0.05) : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isUnread)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

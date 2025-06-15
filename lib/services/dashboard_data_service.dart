@@ -185,23 +185,39 @@ class DashboardDataService {
         'year_major': mentorData['year_major'] ?? '3rd Year, Computer Science Major',
       };
 
+      // Get real announcements from Firebase
+      List<Map<String, dynamic>> announcementsList = [];
+      try {
+        final announcementsResult = await _cloudFunctions.getAnnouncements(
+          universityPath: _universityPath,
+          userType: 'mentor',
+          limit: 10,
+        );
+        
+        if (announcementsResult['success'] == true && announcementsResult['data'] != null) {
+          final List<dynamic> rawAnnouncements = announcementsResult['data'];
+          announcementsList = rawAnnouncements.map((announcement) {
+            final Map<String, dynamic> announcementMap = Map<String, dynamic>.from(announcement);
+            return {
+              'id': announcementMap['id'],
+              'title': announcementMap['title'],
+              'content': announcementMap['content'],
+              'time': _formatAnnouncementTime(announcementMap['created_at']),
+              'priority': announcementMap['priority'] ?? 'none',
+            };
+          }).toList();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: Error fetching announcements: $e');
+        }
+        // Fall back to empty list if error occurs
+      }
+
       return {
         'mentorProfile': mentorProfile,
         'mentees': menteesList,
-        'announcements': [
-          {
-            'title': 'New Program Resources Available',
-            'content': 'Updated study guides and internship opportunities have been added to the resource hub.',
-            'time': '2 hours ago',
-            'priority': 'medium',
-          },
-          {
-            'title': 'Upcoming Workshop',
-            'content': 'Career development workshop scheduled for next week. All mentors and mentees encouraged to attend.',
-            'time': '1 day ago',
-            'priority': 'high',
-          },
-        ],
+        'announcements': announcementsList,
         'recentActivity': [
           {
             'text': 'New mentee assigned: ${menteesList.isNotEmpty ? menteesList.last['name'] : 'None'}',
@@ -222,6 +238,68 @@ class DashboardDataService {
         print('Error fetching mentor dashboard data: $e');
       }
       rethrow;
+    }
+  }
+
+  /// Format announcement timestamp for display
+  String _formatAnnouncementTime(dynamic timestamp) {
+    try {
+      DateTime createdAt;
+      if (timestamp is String) {
+        createdAt = DateTime.parse(timestamp);
+      } else if (timestamp is Map && timestamp['_seconds'] != null) {
+        // Firestore timestamp format
+        createdAt = DateTime.fromMillisecondsSinceEpoch(timestamp['_seconds'] * 1000);
+      } else {
+        return 'Recently';
+      }
+      
+      final now = DateTime.now();
+      final difference = now.difference(createdAt);
+      
+      if (difference.inDays > 0) {
+        return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      return 'Recently';
+    }
+  }
+
+  /// Get announcements for coordinator dashboard
+  Future<List<Map<String, dynamic>>> _getCoordinatorAnnouncements() async {
+    try {
+      final announcementsResult = await _cloudFunctions.getAnnouncements(
+        universityPath: _universityPath,
+        userType: 'coordinator',
+        limit: 10,
+      );
+      
+      if (announcementsResult['success'] == true && announcementsResult['data'] != null) {
+        final List<dynamic> rawAnnouncements = announcementsResult['data'];
+        return rawAnnouncements.map((announcement) {
+          final Map<String, dynamic> announcementMap = Map<String, dynamic>.from(announcement);
+          return {
+            'id': announcementMap['id'],
+            'title': announcementMap['title'],
+            'content': announcementMap['content'],
+            'time': _formatAnnouncementTime(announcementMap['created_at']),
+            'priority': announcementMap['priority'] ?? 'none',
+          };
+        }).toList();
+      }
+      
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔥 Dashboard: Error fetching coordinator announcements: $e');
+      }
+      return [];
     }
   }
 
@@ -249,6 +327,35 @@ class DashboardDataService {
         'assignedDate': 'Feb 1, 2024',
       };
 
+      // Get real announcements from Firebase for mentees
+      List<Map<String, dynamic>> menteeAnnouncementsList = [];
+      try {
+        final announcementsResult = await _cloudFunctions.getAnnouncements(
+          universityPath: _universityPath,
+          userType: 'mentee',
+          limit: 10,
+        );
+        
+        if (announcementsResult['success'] == true && announcementsResult['data'] != null) {
+          final List<dynamic> rawAnnouncements = announcementsResult['data'];
+          menteeAnnouncementsList = rawAnnouncements.map((announcement) {
+            final Map<String, dynamic> announcementMap = Map<String, dynamic>.from(announcement);
+            return {
+              'id': announcementMap['id'],
+              'title': announcementMap['title'],
+              'content': announcementMap['content'],
+              'time': _formatAnnouncementTime(announcementMap['created_at']),
+              'priority': announcementMap['priority'] ?? 'none',
+            };
+          }).toList();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: Error fetching mentee announcements: $e');
+        }
+        // Fall back to empty list if error occurs
+      }
+
       return {
         'menteeProfile': menteeProfile,
         'mentor': mentorData,
@@ -256,20 +363,7 @@ class DashboardDataService {
           'checklistCompletion': 0.7,
           'meetingAttendance': 0.9,
         },
-        'announcements': [
-          {
-            'title': 'Upcoming Workshop',
-            'content': 'Join us for a career development workshop next week. We\'ll be covering resume writing, interview skills, and networking strategies.',
-            'time': '2 hours ago',
-            'priority': 'high',
-          },
-          {
-            'title': 'Program Update',
-            'content': 'New resources have been added to the resource hub including study guides and internship opportunities.',
-            'time': '1 day ago',
-            'priority': 'medium',
-          },
-        ],
+        'announcements': menteeAnnouncementsList,
         'upcomingMeetings': [
           {
             'title': 'Weekly Check-in',
@@ -377,20 +471,7 @@ class DashboardDataService {
             'assignedBy': 'Coordinator',
           };
         }).toList(),
-        'announcements': [
-          {
-            'title': 'Program Update',
-            'content': 'New mentorship guidelines have been released. Please review the updated procedures.',
-            'time': '1 hour ago',
-            'priority': 'high',
-          },
-          {
-            'title': 'Upcoming Training',
-            'content': 'Mentor training session scheduled for next Friday. All mentors are required to attend.',
-            'time': '3 hours ago',
-            'priority': 'medium',
-          },
-        ],
+        'announcements': await _getCoordinatorAnnouncements(),
       };
     } catch (e) {
       if (kDebugMode) {
