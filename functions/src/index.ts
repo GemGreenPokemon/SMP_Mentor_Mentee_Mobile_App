@@ -4,13 +4,23 @@ import * as admin from 'firebase-admin';
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
-// Import function modules - temporarily only core database functions
+// Import function modules
 import { initializeUniversity } from './university/initialization';
 import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors, validateNameForRegistration, migrateUserSubcollections, syncUserClaims } from './users/management';
 import { createAnnouncement, updateAnnouncement, deleteAnnouncement, getAnnouncements } from './announcements/management';
 import { setClaimsOnLogin, syncClaimsOnLogin, setClaimsOnRegistration } from './auth/triggers';
+import { 
+  createMeeting, 
+  updateMeeting, 
+  cancelMeeting, 
+  acceptMeeting, 
+  rejectMeeting,
+  setMentorAvailability,
+  getMentorAvailability,
+  getAvailableSlots,
+  requestMeeting
+} from './meetings/management';
 // Temporarily commented out to avoid build errors:
-// import { createMeeting, updateMeeting, deleteMeeting } from './meetings/management';
 // import { sendMessage, getChatHistory } from './messaging/chat';
 // import { generateProgressReport, submitProgressReport } from './reports/progress';
 // import { syncLocalToFirestore } from './sync/data-sync';
@@ -40,11 +50,18 @@ export const updateAnnouncementDetails = updateAnnouncement;
 export const removeAnnouncement = deleteAnnouncement;
 export const getAnnouncementsList = getAnnouncements;
 
-// Temporarily commented out to avoid build errors:
 // Meeting Management Functions
-// export const scheduleMeeting = createMeeting;
-// export const updateMeetingDetails = updateMeeting;
-// export const cancelMeeting = deleteMeeting;
+export const scheduleMeeting = createMeeting;
+export const updateMeetingDetails = updateMeeting;
+export const deleteMeeting = cancelMeeting;
+export const approveMeeting = acceptMeeting;
+export const declineMeeting = rejectMeeting;
+
+// Availability Management Functions
+export const setAvailability = setMentorAvailability;
+export const getAvailability = getMentorAvailability;
+export const getBookableSlots = getAvailableSlots;
+export const requestMeetingTime = requestMeeting;
 
 // Messaging Functions
 // export const sendChatMessage = sendMessage;

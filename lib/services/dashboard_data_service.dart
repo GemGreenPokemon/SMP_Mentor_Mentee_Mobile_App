@@ -133,15 +133,7 @@ class DashboardDataService {
                     {'goal': 'Complete first semester', 'completed': true},
                     {'goal': 'Join study group', 'completed': false},
                   ],
-                  'upcomingMeetings': [
-                    {
-                      'title': 'Weekly Check-in',
-                      'date': 'Tomorrow',
-                      'time': '2:00 PM - 3:00 PM',
-                      'location': 'KL 109',
-                      'isNext': true,
-                    }
-                  ],
+                  'upcomingMeetings': await _getMenteeUpcomingMeetings(menteeDoc.id, currentUser.uid),
                   'actionItems': [
                     {
                       'item': 'Review biology notes',
@@ -238,6 +230,157 @@ class DashboardDataService {
         print('Error fetching mentor dashboard data: $e');
       }
       rethrow;
+    }
+  }
+
+  /// Get upcoming meetings for a mentee
+  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetings(String menteeId, String mentorId) async {
+    try {
+      _initializeFirestore();
+      
+      final now = DateTime.now();
+      final meetings = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('meetings')
+          .where('mentee_id', isEqualTo: menteeId)
+          .where('mentor_id', isEqualTo: mentorId)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .orderBy('start_time')
+          .limit(3)
+          .get();
+      
+      final upcomingMeetings = <Map<String, dynamic>>[];
+      bool isFirst = true;
+      
+      for (final doc in meetings.docs) {
+        final data = doc.data();
+        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        
+        if (startTime != null && startTime.isAfter(now)) {
+          upcomingMeetings.add({
+            'title': data['topic'] ?? 'Meeting',
+            'date': _formatMeetingDate(startTime),
+            'time': _formatMeetingTime(startTime),
+            'location': data['location'] ?? 'TBD',
+            'isNext': isFirst,
+          });
+          isFirst = false;
+        }
+      }
+      
+      // If no upcoming meetings, return a placeholder
+      if (upcomingMeetings.isEmpty) {
+        upcomingMeetings.add({
+          'title': 'No scheduled meetings',
+          'date': 'Schedule one',
+          'time': 'with your mentor',
+          'location': 'TBD',
+          'isNext': false,
+        });
+      }
+      
+      return upcomingMeetings;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting upcoming meetings: $e');
+      }
+      return [{
+        'title': 'Weekly Check-in',
+        'date': 'Tomorrow',
+        'time': '2:00 PM - 3:00 PM',
+        'location': 'KL 109',
+        'isNext': true,
+      }];
+    }
+  }
+  
+  /// Format meeting date for display
+  String _formatMeetingDate(DateTime date) {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    
+    if (dateOnly == DateTime(now.year, now.month, now.day)) {
+      return 'Today';
+    } else if (dateOnly == tomorrow) {
+      return 'Tomorrow';
+    } else if (date.difference(now).inDays < 7) {
+      final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return weekdays[date.weekday - 1];
+    } else {
+      return '${date.month}/${date.day}';
+    }
+  }
+  
+  /// Format meeting time for display
+  String _formatMeetingTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $period';
+  }
+  
+  /// Get upcoming meetings for mentee dashboard
+  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetingsForDashboard(String menteeId) async {
+    try {
+      _initializeFirestore();
+      
+      final now = DateTime.now();
+      final meetings = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('meetings')
+          .where('mentee_id', isEqualTo: menteeId)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .orderBy('start_time')
+          .limit(3)
+          .get();
+      
+      final upcomingMeetings = <Map<String, dynamic>>[];
+      final colors = ['blue', 'green', 'orange'];
+      int colorIndex = 0;
+      
+      for (final doc in meetings.docs) {
+        final data = doc.data();
+        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        
+        if (startTime != null && startTime.isAfter(now)) {
+          upcomingMeetings.add({
+            'title': data['topic'] ?? 'Meeting with Mentor',
+            'time': '${_formatMeetingDate(startTime)} at ${_formatMeetingTime(startTime)}',
+            'location': data['location'] ?? 'TBD',
+            'color': colors[colorIndex % colors.length],
+          });
+          colorIndex++;
+        }
+      }
+      
+      // If no upcoming meetings, return defaults
+      if (upcomingMeetings.isEmpty) {
+        return [
+          {
+            'title': 'No upcoming meetings',
+            'time': 'Schedule with your mentor',
+            'location': 'TBD',
+            'color': 'grey',
+          }
+        ];
+      }
+      
+      return upcomingMeetings;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting mentee dashboard meetings: $e');
+      }
+      return [
+        {
+          'title': 'Weekly Check-in',
+          'time': 'Tomorrow at 2:00 PM',
+          'location': 'KL 109',
+          'color': 'blue',
+        }
+      ];
     }
   }
 
@@ -364,20 +507,7 @@ class DashboardDataService {
           'meetingAttendance': 0.9,
         },
         'announcements': menteeAnnouncementsList,
-        'upcomingMeetings': [
-          {
-            'title': 'Weekly Check-in',
-            'time': 'Tomorrow at 2:00 PM',
-            'location': 'KL 109',
-            'color': 'blue',
-          },
-          {
-            'title': 'Program Orientation',
-            'time': 'Friday at 10:00 AM',
-            'location': 'Science Building Room 201',
-            'color': 'green',
-          },
-        ],
+        'upcomingMeetings': await _getMenteeUpcomingMeetingsForDashboard(currentUser.uid),
         'recentActivity': [
           {
             'text': 'Completed task "Review mentor feedback"',

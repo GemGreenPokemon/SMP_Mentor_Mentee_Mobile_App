@@ -13,13 +13,39 @@ class CloudFunctionService {
     // Initialize with specific region
     _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
     
-    // Use local emulator when USE_EMULATOR environment variable is set
+    // Check if we should use emulator based on various conditions
+    bool shouldUseEmulator = false;
+    
+    // Method 1: Check compile-time environment variable
     const useEmulator = String.fromEnvironment('USE_EMULATOR', defaultValue: 'false');
     if (useEmulator == 'true') {
-      _functions.useFunctionsEmulator('127.0.0.1', 5001);
-      print('Using local Firebase Functions emulator');
+      shouldUseEmulator = true;
+    }
+    
+    // Method 2: Check if running in debug mode and on localhost
+    if (kDebugMode && kIsWeb) {
+      // Check if running on localhost (development)
+      final uri = Uri.base;
+      if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
+        shouldUseEmulator = true;
+      }
+    }
+    
+    // Method 3: Check for explicit production flag
+    if (kReleaseMode) {
+      shouldUseEmulator = false;  // Never use emulator in release mode
+    }
+    
+    if (shouldUseEmulator) {
+      try {
+        _functions.useFunctionsEmulator('localhost', 5001);
+        print('🔥 Using local Firebase Functions emulator at localhost:5001');
+      } catch (e) {
+        print('⚠️ Failed to connect to emulator: $e');
+        print('🔥 Falling back to production Firebase Functions');
+      }
     } else {
-      print('Using production Firebase Functions');
+      print('🔥 Using production Firebase Functions');
     }
   }
 
@@ -258,7 +284,7 @@ class CloudFunctionService {
     String? reason,
   }) async {
     try {
-      final HttpsCallable callable = _functions.httpsCallable('cancelMeeting');
+      final HttpsCallable callable = _functions.httpsCallable('deleteMeeting');  // Use exported name
       final HttpsCallableResult result = await callable.call(<String, dynamic>{
         'universityPath': universityPath,
         'meetingId': meetingId,
@@ -267,6 +293,229 @@ class CloudFunctionService {
       return Map<String, dynamic>.from(result.data ?? {});
     } on FirebaseFunctionsException catch (e) {
       print('Cancel meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Create a new meeting
+  Future<Map<String, dynamic>> createMeeting({
+    required String universityPath,
+    required String mentorId,
+    required String menteeId,
+    required String date,
+    required String startTime,
+    required String endTime,
+    String? topic,
+    String? location,
+    String? availabilityId,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('scheduleMeeting');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'mentee_id': menteeId,
+        'date': date,
+        'start_time': startTime,
+        'end_time': endTime,
+        'topic': topic,
+        'location': location,
+        'availability_id': availabilityId,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Create meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Update an existing meeting
+  Future<Map<String, dynamic>> updateMeeting({
+    required String universityPath,
+    required String meetingId,
+    String? date,
+    String? startTime,
+    String? endTime,
+    String? topic,
+    String? location,
+    String? status,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('updateMeetingDetails');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+        'date': date,
+        'start_time': startTime,
+        'end_time': endTime,
+        'topic': topic,
+        'location': location,
+        'status': status,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Update meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Accept a meeting invitation (mentor only)
+  Future<Map<String, dynamic>> acceptMeeting({
+    required String universityPath,
+    required String meetingId,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('approveMeeting');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Accept meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Reject a meeting invitation (mentor only)
+  Future<Map<String, dynamic>> rejectMeeting({
+    required String universityPath,
+    required String meetingId,
+    String? reason,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('declineMeeting');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+        'reason': reason,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Reject meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Set mentor availability for a specific day
+  Future<Map<String, dynamic>> setMentorAvailability({
+    required String universityPath,
+    required String mentorId,
+    required String day,
+    required List<Map<String, dynamic>> slots,
+  }) async {
+    try {
+      print('🔍 setMentorAvailability: Starting request');
+      print('🔍 setMentorAvailability: universityPath: $universityPath');
+      print('🔍 setMentorAvailability: mentorId: $mentorId');
+      print('🔍 setMentorAvailability: day: $day');
+      print('🔍 setMentorAvailability: slots count: ${slots.length}');
+      print('🔍 setMentorAvailability: slots data: $slots');
+      
+      final HttpsCallable callable = _functions.httpsCallable(
+        'setAvailability',  // Use the exported name from index.ts
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 30),
+        ),
+      );
+      
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'day': day,
+        'slots': slots,
+      });
+      
+      print('🔍 setMentorAvailability: Success - received data: ${result.data}');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 setMentorAvailability: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      print('🔍 setMentorAvailability: Exception details: ${e.details}');
+      
+      // If it's a CORS error in emulator, provide helpful message
+      if (e.code == 'internal' && e.message == 'internal') {
+        print('⚠️ CORS Error detected. Make sure:');
+        print('   1. Firebase emulators are running (firebase emulators:start)');
+        print('   2. Functions are built (cd functions && npm run build)');
+        print('   3. You are accessing the app via http://localhost:PORT');
+      }
+      
+      rethrow;
+    } catch (e) {
+      print('🔍 setMentorAvailability: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Get mentor availability
+  Future<Map<String, dynamic>> getMentorAvailability({
+    required String universityPath,
+    required String mentorId,
+    String? day,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('getAvailability');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'day': day,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Get mentor availability error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Get available slots for booking (for mentees)
+  Future<Map<String, dynamic>> getAvailableSlots({
+    required String universityPath,
+    required String mentorId,
+    String? day,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('getBookableSlots');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'day': day,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Get available slots error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Request a meeting at a custom time (for mentees)
+  Future<Map<String, dynamic>> requestMeeting({
+    required String universityPath,
+    required String mentorId,
+    required String menteeId,
+    required String date,
+    required String startTime,
+    required String endTime,
+    String? topic,
+    String? location,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('requestMeetingTime');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'mentee_id': menteeId,
+        'date': date,
+        'start_time': startTime,
+        'end_time': endTime,
+        'topic': topic,
+        'location': location,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Request meeting error: ${e.code} ${e.message}');
       rethrow;
     }
   }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../utils/responsive.dart';
-import '../services/local_database_service.dart';
+import '../services/meeting_service.dart';
+import '../services/auth_service.dart';
+import '../services/dashboard_data_service.dart';
 import '../models/availability.dart';
 import '../models/meeting.dart';
 import '../models/user.dart';
 import '../utils/test_mode_manager.dart';
+import 'package:uuid/uuid.dart';
 
 class WebScheduleMeetingScreen extends StatefulWidget {
   final bool isMentor;
@@ -36,11 +39,16 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   String _repeatOption = 'none';
   
   // Database integration
-  final _localDb = LocalDatabaseService.instance;
+  final _meetingService = MeetingService();
+  final _authService = AuthService();
+  final _dashboardService = DashboardDataService();
+  final _uuid = const Uuid();
   List<Availability> _availabilitySlots = [];
   List<Meeting> _meetings = [];
   User? _currentUser;
+  Map<String, dynamic>? _currentUserData;
   Map<DateTime, List<CalendarEvent>> _calendarEvents = {};
+  bool _isLoadingData = false;
   
   // Mock data for mentees/mentors
   final List<String> mentees = [
@@ -78,44 +86,98 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     print('DEBUG: WebScheduleMeetingScreen initState called');
     _selectedDay = _focusedDay;
     _loadCurrentUser();
+    _setupRealtimeListeners();
+  }
+  
+  void _setupRealtimeListeners() {
+    // Subscribe to real-time updates
+    _meetingService.availabilityStream.listen((availability) {
+      if (mounted) {
+        setState(() {
+          _availabilitySlots = availability;
+          _buildCalendarEvents();
+        });
+      }
+    });
+    
+    _meetingService.meetingsStream.listen((meetings) {
+      if (mounted) {
+        setState(() {
+          _meetings = meetings;
+          _buildCalendarEvents();
+        });
+      }
+    });
   }
   
   Future<void> _loadCurrentUser() async {
-    await TestModeManager.initialize();
-    final currentUser = TestModeManager.currentTestUser;
-    print('DEBUG: Current test user: $currentUser');
-    setState(() {
-      _currentUser = currentUser;
-    });
-    if (_currentUser != null) {
-      print('DEBUG: Loading calendar data for: ${_currentUser!.name}');
+    try {
+      // Get current user from Firebase Auth
+      final firebaseUser = _authService.currentUser;
+      if (firebaseUser == null) {
+        print('DEBUG: No authenticated user');
+        return;
+      }
+      
+      // Get user data from dashboard service
+      final dashboardData = widget.isMentor 
+          ? await _dashboardService.getMentorDashboardData()
+          : await _dashboardService.getMenteeDashboardData();
+      
+      setState(() {
+        _currentUserData = widget.isMentor 
+            ? dashboardData['mentorProfile']
+            : dashboardData['menteeProfile'];
+      });
+      
+      print('DEBUG: Loading calendar data for: ${_currentUserData?['name']}');
       await _loadCalendarData();
-    } else {
-      print('DEBUG: No current user set in test mode!');
+      
+      // Subscribe to real-time updates for this user
+      _meetingService.subscribeToAvailability(firebaseUser.uid);
+      _meetingService.subscribeToMeetings(firebaseUser.uid, widget.isMentor);
+    } catch (e) {
+      print('DEBUG: Error loading current user: $e');
     }
   }
   
   Future<void> _loadCalendarData() async {
-    if (_currentUser == null) {
-      print('DEBUG: No current user found!');
+    if (_authService.currentUser == null) {
+      print('DEBUG: No authenticated user found!');
       return;
     }
     
-    print('DEBUG: Loading calendar data for user: ${_currentUser!.name} (${_currentUser!.id})');
-    
-    // Load availability and meetings from database
-    final availability = await _localDb.getAvailabilityByMentor(_currentUser!.id);
-    final meetings = widget.isMentor 
-        ? await _localDb.getMeetingsByMentor(_currentUser!.id)
-        : await _localDb.getMeetingsByMentee(_currentUser!.id);
-    
-    print('DEBUG: Loaded ${availability.length} availability slots and ${meetings.length} meetings');
-    
     setState(() {
-      _availabilitySlots = availability;
-      _meetings = meetings;
-      _buildCalendarEvents();
+      _isLoadingData = true;
     });
+    
+    try {
+      final userId = _authService.currentUser!.uid;
+      print('DEBUG: Loading calendar data for user: ${_currentUserData?['name']} ($userId)');
+      
+      // Load availability and meetings from Firebase
+      final availability = widget.isMentor 
+          ? await _meetingService.getAvailabilityByMentor(userId)
+          : await _meetingService.getAvailableSlots(userId); // For mentees, show available slots
+      
+      final meetings = widget.isMentor 
+          ? await _meetingService.getMeetingsByMentor(userId)
+          : await _meetingService.getMeetingsByMentee(userId);
+      
+      print('DEBUG: Loaded ${availability.length} availability slots and ${meetings.length} meetings');
+      
+      setState(() {
+        _availabilitySlots = availability;
+        _meetings = meetings;
+        _buildCalendarEvents();
+        _isLoadingData = false;
+      });
+    } catch (e) {
+      print('DEBUG: Error loading calendar data: $e');
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
   }
   
   void _buildCalendarEvents() {
@@ -174,6 +236,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
+    _meetingService.dispose();
     super.dispose();
   }
 
@@ -231,7 +294,18 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           ),
         ] : null,
       ),
-      body: SingleChildScrollView(
+      body: _isLoadingData 
+        ? const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading calendar data...'),
+              ],
+            ),
+          )
+        : SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.all(isDesktop ? 48.0 : 24.0),
           child: Center(
@@ -252,12 +326,22 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Select Date',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Select Date',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  tooltip: 'Refresh calendar',
+                                  onPressed: _loadCalendarData,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 16),
                             TableCalendar<CalendarEvent>(
@@ -421,23 +505,54 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                 if (widget.isMentor && _isSettingAvailability) ...[
                                   // Multiple selection for availability
                                   ..._generateTimeSlots().map((time) {
+                                    final timeStr = _formatTime(time);
                                     final isSelected = _selectedAvailabilitySlots.any(
                                       (slot) => slot.hour == time.hour && slot.minute == time.minute
                                     );
+                                    
+                                    // Check if this slot is already saved in the database
+                                    final existingSlot = _availabilitySlots.firstWhere(
+                                      (slot) => slot.day == _formatDateForDatabase(_selectedDay!) && 
+                                                slot.slotStart == timeStr,
+                                      orElse: () => Availability(
+                                        id: '', mentorId: '', day: '', slotStart: '', isBooked: false
+                                      ),
+                                    );
+                                    final isAlreadySaved = existingSlot.id.isNotEmpty;
+                                    
                                     return FilterChip(
-                                      label: Text(_formatTime(time)),
-                                      selected: isSelected,
-                                      selectedColor: Colors.lightBlue,
+                                      label: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(timeStr),
+                                          if (isAlreadySaved) ...[
+                                            const SizedBox(width: 4),
+                                            Icon(Icons.check_circle, size: 14, 
+                                                 color: existingSlot.isBooked ? Colors.red : Colors.green),
+                                          ],
+                                        ],
+                                      ),
+                                      selected: isSelected || isAlreadySaved,
+                                      selectedColor: isAlreadySaved 
+                                          ? (existingSlot.isBooked ? Colors.red.withOpacity(0.3) : Colors.green.withOpacity(0.3))
+                                          : Colors.lightBlue,
                                       checkmarkColor: Colors.white,
-                                      onSelected: (selected) {
+                                      backgroundColor: isAlreadySaved 
+                                          ? (existingSlot.isBooked ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1))
+                                          : null,
+                                      tooltip: isAlreadySaved 
+                                          ? (existingSlot.isBooked ? 'Already booked' : 'Already set as available')
+                                          : null,
+                                      onSelected: existingSlot.isBooked ? null : (selected) {
                                         setState(() {
-                                          if (selected) {
+                                          if (selected && !isAlreadySaved) {
                                             _selectedAvailabilitySlots.add(time);
-                                          } else {
+                                          } else if (!selected && !isAlreadySaved) {
                                             _selectedAvailabilitySlots.removeWhere(
                                               (slot) => slot.hour == time.hour && slot.minute == time.minute
                                             );
                                           }
+                                          // Don't allow deselecting already saved slots
                                         });
                                       },
                                     );
@@ -452,22 +567,61 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     final textColor = _getSlotTextColor(slot.status);
                                     final isAvailable = slot.status == 'Available';
                                     
-                                    return ChoiceChip(
-                                      label: Text(
-                                        slot.time,
-                                        style: TextStyle(
-                                          color: isSelected ? Colors.white : textColor,
+                                    return Stack(
+                                      children: [
+                                        ChoiceChip(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                slot.time,
+                                                style: TextStyle(
+                                                  color: isSelected ? Colors.white : textColor,
+                                                ),
+                                              ),
+                                              if (slot.status == 'Pending' || slot.status == 'Pending Request') ...[
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.hourglass_empty,
+                                                  size: 14,
+                                                  color: isSelected ? Colors.white : textColor,
+                                                ),
+                                              ],
+                                              if (slot.status == 'Booked') ...[
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.lock,
+                                                  size: 14,
+                                                  color: isSelected ? Colors.white : textColor,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          selected: isSelected,
+                                          selectedColor: color,
+                                          backgroundColor: color.withOpacity(0.2),
+                                          onSelected: isAvailable || widget.isMentor ? (selected) {
+                                            setState(() {
+                                              _selectedTime = selected ? _parseTime(slot.time) : null;
+                                              _isCustomTimeRequest = false;
+                                            });
+                                          } : null,
                                         ),
-                                      ),
-                                      selected: isSelected,
-                                      selectedColor: color,
-                                      backgroundColor: color.withOpacity(0.2),
-                                      onSelected: isAvailable || widget.isMentor ? (selected) {
-                                        setState(() {
-                                          _selectedTime = selected ? _parseTime(slot.time) : null;
-                                          _isCustomTimeRequest = false;
-                                        });
-                                      } : null,
+                                        // Notification badge for pending requests (mentor view)
+                                        if (widget.isMentor && slot.status == 'Pending Request')
+                                          Positioned(
+                                            top: -2,
+                                            right: -2,
+                                            child: Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.red,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     );
                                   }).toList(),
                                 ],
@@ -538,6 +692,39 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                             
                             // Show different fields based on mode
                             if (widget.isMentor && _isSettingAvailability) ...[
+                              // Batch operations for availability
+                              Row(
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.select_all, size: 16),
+                                    label: const Text('Select All'),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedAvailabilitySlots = List.from(_generateTimeSlots());
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.clear, size: 16),
+                                    label: const Text('Clear All'),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedAvailabilitySlots.clear();
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.copy, size: 16),
+                                    label: const Text('Copy to Other Days'),
+                                    onPressed: _selectedAvailabilitySlots.isNotEmpty ? () {
+                                      _showCopyAvailabilityDialog();
+                                    } : null,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
                               // For setting availability
                               Container(
                                 padding: const EdgeInsets.all(16),
@@ -801,10 +988,23 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     if (_selectedDay == null) return [];
     
     final events = _calendarEvents[_selectedDay!] ?? [];
-    if (events.isEmpty && widget.isMentor && _isSettingAvailability) {
-      // For mentors setting availability, show all time slots as available
-      return _generateTimeSlots().map((time) => 
-        TimeSlot(_formatTime(time), 'Available')).toList();
+    
+    if (widget.isMentor && _isSettingAvailability) {
+      // For mentors setting availability, show all time slots
+      // and mark which ones are already set as available
+      final allSlots = _generateTimeSlots();
+      
+      return allSlots.map((time) {
+        final timeStr = _formatTime(time);
+        // Check if this time slot already exists in events (meaning it's already saved)
+        final existingEvent = events.firstWhere(
+          (event) => event.time == timeStr,
+          orElse: () => CalendarEvent(type: 'available', time: timeStr, status: 'Not Set'),
+        );
+        
+        // If it exists in events, it's already saved as available
+        return TimeSlot(timeStr, existingEvent.status == 'Available' ? 'Already Set' : 'Not Set');
+      }).toList();
     }
     
     return events.map((event) => TimeSlot(event.time, event.status)).toList();
@@ -929,7 +1129,99 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  void _scheduleMeeting() {
+  String _formatDateForDatabase(DateTime date) {
+    // Format: YYYY-MM-DD
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+  
+  String _extractIdFromSelection(String selection) {
+    // For now, return a placeholder ID. In production, this would parse the actual user ID
+    // from the selection or use a proper user selection mechanism
+    return 'user_${selection.hashCode}';
+  }
+  
+  void _showCopyAvailabilityDialog() {
+    final selectedDays = <DateTime>[];
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Copy Availability to Other Days'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Select days to copy your availability to:'),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(7, (index) {
+                    final date = _selectedDay!.add(Duration(days: index + 1));
+                    final isSelected = selectedDays.contains(date);
+                    return FilterChip(
+                      label: Text(_formatDate(date).split(',')[0]), // Show day name
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setDialogState(() {
+                          if (selected) {
+                            selectedDays.add(date);
+                          } else {
+                            selectedDays.remove(date);
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedDays.isNotEmpty ? () async {
+                Navigator.pop(context);
+                // Copy availability to selected days
+                for (final date in selectedDays) {
+                  final slots = _selectedAvailabilitySlots.map((time) {
+                    return Availability(
+                      id: _uuid.v4(),
+                      mentorId: _authService.currentUser!.uid,
+                      day: _formatDateForDatabase(date),
+                      slotStart: _formatTime(time),
+                      slotEnd: null,
+                      isBooked: false,
+                    );
+                  }).toList();
+                  
+                  await _meetingService.createAvailability(slots);
+                }
+                
+                // Refresh calendar
+                await _loadCalendarData();
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Availability copied to ${selectedDays.length} days'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } : null,
+              child: const Text('Copy'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _scheduleMeeting() async {
     // Different validation for availability vs meeting
     if (widget.isMentor && _isSettingAvailability) {
       // Validate availability setting
@@ -991,7 +1283,78 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       }
     }
     
-    // TODO: Save meeting to database
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      if (widget.isMentor && _isSettingAvailability) {
+        // Set availability
+        final slots = _selectedAvailabilitySlots.map((time) {
+          return Availability(
+            id: _uuid.v4(),
+            mentorId: _authService.currentUser!.uid,
+            day: _formatDateForDatabase(_selectedDay!),
+            slotStart: _formatTime(time),
+            slotEnd: null, // 30 minute slots by default
+            isBooked: false,
+          );
+        }).toList();
+        
+        await _meetingService.createAvailability(slots);
+      } else {
+        // Schedule meeting
+        final mentorId = widget.isMentor ? _authService.currentUser!.uid : _extractIdFromSelection(_selectedMenteeOrMentor!);
+        final menteeId = widget.isMentor ? _extractIdFromSelection(_selectedMenteeOrMentor!) : _authService.currentUser!.uid;
+        
+        if (_isCustomTimeRequest && !widget.isMentor) {
+          // Request custom meeting time
+          await _meetingService.requestCustomMeeting(
+            mentorId: mentorId,
+            menteeId: menteeId,
+            startTime: '${_formatDateForDatabase(_selectedDay!)} ${_formatTime(_selectedTime!)}',
+            topic: _titleController.text,
+            location: _locationController.text,
+          );
+        } else {
+          // Create regular meeting
+          final meeting = Meeting(
+            id: _uuid.v4(),
+            mentorId: mentorId,
+            menteeId: menteeId,
+            startTime: '${_formatDateForDatabase(_selectedDay!)} ${_formatTime(_selectedTime!)}',
+            topic: _titleController.text,
+            location: _locationController.text,
+            status: 'pending',
+          );
+          
+          await _meetingService.createMeeting(meeting);
+        }
+      }
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      // Refresh calendar data
+      await _loadCalendarData();
+    } catch (e) {
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     
     // Show success dialog
     final String dialogTitle = widget.isMentor 
@@ -1108,8 +1471,16 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(context); // Close the success dialog
+              // Reset form and refresh data instead of popping screen
+              setState(() {
+                _selectedAvailabilitySlots.clear();
+                _selectedTime = null;
+                _titleController.clear();
+                _locationController.clear();
+                _selectedMenteeOrMentor = null;
+              });
+              _loadCalendarData(); // Refresh the calendar
             },
             child: const Text('Done'),
           ),
