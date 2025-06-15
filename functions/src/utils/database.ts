@@ -239,6 +239,7 @@ export async function initializeUserSubcollections(
       'checklists',
       'availability', 
       'requestedMeetings',
+      'meetings',
       'messages',
       'notes',
       'ratings'

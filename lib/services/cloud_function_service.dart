@@ -310,6 +310,17 @@ class CloudFunctionService {
     String? availabilityId,
   }) async {
     try {
+      print('🔍 createMeeting: Calling cloud function with:');
+      print('🔍   universityPath: $universityPath');
+      print('🔍   mentor_id: $mentorId');
+      print('🔍   mentee_id: $menteeId');
+      print('🔍   date: $date');
+      print('🔍   start_time: $startTime');
+      print('🔍   end_time: $endTime');
+      print('🔍   topic: $topic');
+      print('🔍   location: $location');
+      print('🔍   availability_id: $availabilityId');
+      
       final HttpsCallable callable = _functions.httpsCallable('scheduleMeeting');  // Use exported name
       final HttpsCallableResult result = await callable.call(<String, dynamic>{
         'universityPath': universityPath,

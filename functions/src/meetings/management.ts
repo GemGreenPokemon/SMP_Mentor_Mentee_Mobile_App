@@ -130,15 +130,52 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
     const meetingsCollection = getUniversityCollection(universityPath, 'meetings');
     const result = await createDocument(meetingsCollection, meeting);
 
-    // If availability_id is provided and meeting created successfully, mark slot as booked
-    if (result.success && availability_id && result.data?.id) {
-      const availabilityCollection = getUniversityCollection(universityPath, 'availability');
-      await updateDocument(availabilityCollection, availability_id, {
-        is_booked: true,
-        mentee_id,
-        meeting_id: result.data.id,
-        updated_at: new Date()
-      });
+    // If meeting created successfully, also add to user subcollections
+    if (result.success && result.data?.id) {
+      const db = admin.firestore();
+      const batch = db.batch();
+      
+      // Get user documents to create subcollections
+      const usersCollection = getUniversityCollection(universityPath, 'users');
+      
+      // Get mentor's user document
+      const mentorQuery = await usersCollection.where('firebase_uid', '==', mentor_id).limit(1).get();
+      if (!mentorQuery.empty) {
+        const mentorDocId = mentorQuery.docs[0].id;
+        const mentorMeetingsRef = usersCollection.doc(mentorDocId).collection('meetings').doc(result.data.id);
+        batch.set(mentorMeetingsRef, {
+          ...meeting,
+          id: result.data.id,
+          role: 'mentor' // To help identify the user's role in this meeting
+        });
+      }
+      
+      // Get mentee's user document
+      const menteeQuery = await usersCollection.where('firebase_uid', '==', mentee_id).limit(1).get();
+      if (!menteeQuery.empty) {
+        const menteeDocId = menteeQuery.docs[0].id;
+        const menteeMeetingsRef = usersCollection.doc(menteeDocId).collection('meetings').doc(result.data.id);
+        batch.set(menteeMeetingsRef, {
+          ...meeting,
+          id: result.data.id,
+          role: 'mentee' // To help identify the user's role in this meeting
+        });
+      }
+      
+      // Commit the batch write
+      await batch.commit();
+      console.log(`Meeting also added to user subcollections for mentor ${mentor_id} and mentee ${mentee_id}`);
+      
+      // If availability_id is provided, mark slot as booked
+      if (availability_id) {
+        const availabilityCollection = getUniversityCollection(universityPath, 'availability');
+        await updateDocument(availabilityCollection, availability_id, {
+          is_booked: true,
+          mentee_id,
+          meeting_id: result.data.id,
+          updated_at: new Date()
+        });
+      }
     }
 
     if (result.success) {
@@ -195,7 +232,35 @@ export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingDa
     });
 
     if (result.success) {
-      console.log(`Meeting updated: ${meetingId} in ${universityPath}`);
+      // Also update user subcollections
+      const db = admin.firestore();
+      const batch = db.batch();
+      const usersCollection = getUniversityCollection(universityPath, 'users');
+      
+      // Update mentor's subcollection
+      const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
+      if (!mentorQuery.empty) {
+        const mentorDocId = mentorQuery.docs[0].id;
+        const mentorMeetingRef = usersCollection.doc(mentorDocId).collection('meetings').doc(meetingId);
+        batch.update(mentorMeetingRef, {
+          ...updateData,
+          updated_at: new Date()
+        });
+      }
+      
+      // Update mentee's subcollection
+      const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
+      if (!menteeQuery.empty) {
+        const menteeDocId = menteeQuery.docs[0].id;
+        const menteeMeetingRef = usersCollection.doc(menteeDocId).collection('meetings').doc(meetingId);
+        batch.update(menteeMeetingRef, {
+          ...updateData,
+          updated_at: new Date()
+        });
+      }
+      
+      await batch.commit();
+      console.log(`Meeting updated: ${meetingId} in ${universityPath} and user subcollections`);
     }
 
     return result;
@@ -247,12 +312,40 @@ export const cancelMeeting = functions.https.onCall(async (data: {
     }
     
     // Instead of deleting, mark as cancelled for audit trail
-    const result = await updateDocument(meetingsCollection, meetingId, {
+    const updateData = {
       status: 'cancelled',
       cancellation_reason: reason,
       cancelled_by: authContext.uid,
       cancelled_at: new Date()
-    });
+    };
+    
+    const result = await updateDocument(meetingsCollection, meetingId, updateData);
+
+    if (result.success) {
+      // Also update user subcollections
+      const db = admin.firestore();
+      const batch = db.batch();
+      const usersCollection = getUniversityCollection(universityPath, 'users');
+      
+      // Update mentor's subcollection
+      const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
+      if (!mentorQuery.empty) {
+        const mentorDocId = mentorQuery.docs[0].id;
+        const mentorMeetingRef = usersCollection.doc(mentorDocId).collection('meetings').doc(meetingId);
+        batch.update(mentorMeetingRef, updateData);
+      }
+      
+      // Update mentee's subcollection
+      const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
+      if (!menteeQuery.empty) {
+        const menteeDocId = menteeQuery.docs[0].id;
+        const menteeMeetingRef = usersCollection.doc(menteeDocId).collection('meetings').doc(meetingId);
+        batch.update(menteeMeetingRef, updateData);
+      }
+      
+      await batch.commit();
+      console.log(`Meeting cancelled: ${meetingId} in ${universityPath} and user subcollections by ${authContext.uid}`);
+    }
 
     // If meeting had an availability slot, free it up
     if (meeting.availability_id) {
@@ -263,10 +356,6 @@ export const cancelMeeting = functions.https.onCall(async (data: {
         meeting_id: null,
         updated_at: new Date()
       });
-    }
-
-    if (result.success) {
-      console.log(`Meeting cancelled: ${meetingId} in ${universityPath} by ${authContext.uid}`);
     }
 
     return result;

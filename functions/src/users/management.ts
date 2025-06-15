@@ -723,7 +723,7 @@ export const migrateUserSubcollections = functions.https.onCall(async (data: {
       }));
     }
 
-    const subcollections = ['checklists', 'availability', 'requestedMeetings', 'messages', 'notes', 'ratings'];
+    const subcollections = ['checklists', 'availability', 'requestedMeetings', 'meetings', 'messages', 'notes', 'ratings'];
     const migrationResults = {
       totalUsers: usersToCheck.length,
       usersNeedingMigration: 0,

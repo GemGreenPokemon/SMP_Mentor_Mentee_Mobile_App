@@ -34,7 +34,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
-  String? _selectedMenteeOrMentor;
+  Map<String, dynamic>? _selectedMenteeOrMentor;
   String _meetingType = 'in-person';
   String _repeatOption = 'none';
   
@@ -52,18 +52,11 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   bool _isSavingData = false;
   Set<String> _pendingOperations = {};
   
-  // Mock data for mentees/mentors
-  final List<String> mentees = [
-    'Alice Johnson - 1st Year, Biology Major',
-    'Bob Wilson - 2nd Year, Psychology Major',
-    'Carlos Rodriguez - 1st Year, Engineering',
-  ];
+  // Real data for mentees/mentors
+  List<Map<String, dynamic>> _menteesList = [];
+  List<Map<String, dynamic>> _mentorsList = [];
   
-  final List<String> mentors = [
-    'Sarah Martinez - 3rd Year, Computer Science Major',
-  ];
-  
-  // Mock mentor availability data
+  // Mock mentor availability data (will be replaced with real data)
   final Map<String, List<TimeSlot>> mentorAvailability = {
     '2024-02-14': [
       TimeSlot('2:00 PM', 'Available'),
@@ -132,6 +125,22 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         _currentUserData = widget.isMentor 
             ? dashboardData['mentorProfile']
             : dashboardData['menteeProfile'];
+            
+        // Load mentees list if user is a mentor
+        if (widget.isMentor && dashboardData['mentees'] != null) {
+          _menteesList = List<Map<String, dynamic>>.from(dashboardData['mentees']).map((mentee) {
+            // Get the user document ID from Firestore to find their firebase_uid
+            return {
+              'id': mentee['id'] ?? '',
+              'firebase_uid': mentee['firebase_uid'] ?? mentee['id'] ?? '', // Use id as fallback
+              'name': mentee['name'] ?? 'Unknown',
+              'program': mentee['program'] ?? '',
+              'display': mentee['name'] ?? 'Unknown', // Just show name to avoid overflow
+            };
+          }).toList();
+          
+          print('DEBUG: Loaded ${_menteesList.length} mentees for mentor');
+        }
       });
       
       print('DEBUG: Loading calendar data for: ${_currentUserData?['name']}');
@@ -499,7 +508,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     const SizedBox(height: 8),
                                     Text(
                                       widget.isMentor 
-                                        ? 'Light blue slots show your available times. You can schedule meetings during these times or add new ones.'
+                                        ? 'Only times you have set as available are shown below. Select one to schedule a meeting with your mentee.'
                                         : 'Light blue slots show when your mentor is available. You can also request a custom time if needed.',
                                       style: const TextStyle(fontSize: 14),
                                     ),
@@ -567,6 +576,30 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                 ),
                               ),
                             ],
+                            // Show message if no available slots for mentor scheduling
+                            if (widget.isMentor && !_isSettingAvailability && _selectedDay != null && _getTimeSlots().isEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber, color: Colors.orange),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        'No available time slots for this day. Please set your availability first or select a different day.',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -600,31 +633,38 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     return Stack(
                                       children: [
                                         FilterChip(
-                                          label: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(timeStr),
-                                              if (_pendingOperations.contains(existingSlot.id)) ...[
-                                                const SizedBox(width: 4),
-                                                const SizedBox(
-                                                  width: 12,
-                                                  height: 12,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2,
+                                          label: IntrinsicWidth(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    timeStr,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                              ] else if (isAlreadySaved) ...[
-                                                const SizedBox(width: 4),
-                                                Icon(Icons.check_circle, size: 14, 
-                                                     color: existingSlot.isBooked ? Colors.red : Colors.green),
+                                                if (_pendingOperations.contains(existingSlot.id)) ...[
+                                                  const SizedBox(width: 4),
+                                                  const SizedBox(
+                                                    width: 12,
+                                                    height: 12,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  ),
+                                                ] else if (isAlreadySaved) ...[
+                                                  const SizedBox(width: 4),
+                                                  Icon(Icons.check_circle, size: 14, 
+                                                       color: existingSlot.isBooked ? Colors.red : Colors.green),
+                                                ],
                                               ],
-                                            ],
+                                            ),
                                           ),
+                                          showCheckmark: false,
                                           selected: isSelected || isAlreadySaved,
                                           selectedColor: isAlreadySaved 
                                               ? (existingSlot.isBooked ? Colors.red.withOpacity(0.3) : Colors.green.withOpacity(0.3))
                                               : Colors.lightBlue,
-                                          checkmarkColor: Colors.white,
                                           backgroundColor: isAlreadySaved 
                                               ? (existingSlot.isBooked ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1))
                                               : null,
@@ -684,32 +724,37 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     return Stack(
                                       children: [
                                         ChoiceChip(
-                                          label: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                slot.time,
-                                                style: TextStyle(
-                                                  color: isSelected ? Colors.white : textColor,
+                                          label: IntrinsicWidth(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    slot.time,
+                                                    style: TextStyle(
+                                                      color: isSelected ? Colors.white : textColor,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
-                                              ),
-                                              if (slot.status == 'Pending' || slot.status == 'Pending Request') ...[
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.hourglass_empty,
-                                                  size: 14,
-                                                  color: isSelected ? Colors.white : textColor,
-                                                ),
+                                                if (slot.status == 'Pending' || slot.status == 'Pending Request') ...[
+                                                  const SizedBox(width: 4),
+                                                  Icon(
+                                                    Icons.hourglass_empty,
+                                                    size: 14,
+                                                    color: isSelected ? Colors.white : textColor,
+                                                  ),
+                                                ],
+                                                if (slot.status == 'Booked') ...[
+                                                  const SizedBox(width: 4),
+                                                  Icon(
+                                                    Icons.lock,
+                                                    size: 14,
+                                                    color: isSelected ? Colors.white : textColor,
+                                                  ),
+                                                ],
                                               ],
-                                              if (slot.status == 'Booked') ...[
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.lock,
-                                                  size: 14,
-                                                  color: isSelected ? Colors.white : textColor,
-                                                ),
-                                              ],
-                                            ],
+                                            ),
                                           ),
                                           selected: isSelected,
                                           selectedColor: color,
@@ -925,25 +970,74 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               const SizedBox(height: 16),
                               
                               // Select mentee/mentor
-                              DropdownButtonFormField<String>(
+                              DropdownButtonFormField<Map<String, dynamic>>(
                                 value: _selectedMenteeOrMentor,
                                 decoration: InputDecoration(
                                   labelText: widget.isMentor ? 'Select Mentee' : 'Select Mentor',
                                   border: const OutlineInputBorder(),
                                   prefixIcon: const Icon(Icons.person),
                                 ),
-                                items: (widget.isMentor ? mentees : mentors).map((person) {
-                                  return DropdownMenuItem(
-                                    value: person,
-                                    child: Text(person),
-                                  );
-                                }).toList(),
+                                isExpanded: true,
+                                items: widget.isMentor 
+                                  ? _menteesList.map((mentee) {
+                                      return DropdownMenuItem<Map<String, dynamic>>(
+                                        value: mentee,
+                                        child: Text(
+                                          mentee['display'],
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList()
+                                  : _mentorsList.isEmpty 
+                                    ? [] 
+                                    : _mentorsList.map((mentor) {
+                                        return DropdownMenuItem<Map<String, dynamic>>(
+                                          value: mentor,
+                                          child: Text(
+                                            mentor['display'],
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        );
+                                      }).toList(),
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedMenteeOrMentor = value;
                                   });
                                 },
+                                validator: (value) {
+                                  if (value == null) {
+                                    return widget.isMentor ? 'Please select a mentee' : 'Please select a mentor';
+                                  }
+                                  return null;
+                                },
                               ),
+                              // Show selected mentee/mentor details
+                              if (_selectedMenteeOrMentor != null && _selectedMenteeOrMentor!['program'].isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.school, size: 16, color: Colors.grey[600]),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedMenteeOrMentor!['program'],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 16),
                             ],
                             
@@ -1189,6 +1283,22 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         // If it exists in events, it's already saved as available
         return TimeSlot(timeStr, existingEvent.status == 'Available' ? 'Already Set' : 'Not Set');
       }).toList();
+    } else if (widget.isMentor && !_isSettingAvailability) {
+      // For mentors scheduling meetings, only show their available (not booked) times
+      final dayStr = _formatDateForDatabase(_selectedDay!);
+      final availableSlots = _availabilitySlots.where((slot) =>
+        slot.day == dayStr &&
+        !slot.isBooked
+      ).map((slot) => TimeSlot(slot.slotStart, 'Available')).toList();
+      
+      // Sort by time
+      availableSlots.sort((a, b) {
+        final aTime = _parseTime(a.time);
+        final bTime = _parseTime(b.time);
+        return aTime.compareTo(bTime);
+      });
+      
+      return availableSlots;
     }
     
     return events.map((event) => TimeSlot(event.time, event.status)).toList();
@@ -1395,10 +1505,37 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
   
-  String _extractIdFromSelection(String selection) {
-    // For now, return a placeholder ID. In production, this would parse the actual user ID
-    // from the selection or use a proper user selection mechanism
-    return 'user_${selection.hashCode}';
+  Future<String?> _findAvailabilitySlot(DateTime date, String time) async {
+    final dayStr = _formatDateForDatabase(date);
+    
+    print('DEBUG: Looking for availability slot on $dayStr at $time');
+    
+    // Get mentor's availability for this day
+    final availableSlots = _availabilitySlots.where((slot) => 
+      slot.day == dayStr && 
+      slot.slotStart == time &&
+      !slot.isBooked
+    ).toList();
+    
+    if (availableSlots.isNotEmpty) {
+      print('DEBUG: Found available slot: ${availableSlots.first.id}');
+      return availableSlots.first.id; // This will be in format "docId_slot_0"
+    }
+    
+    print('DEBUG: No available slot found for $dayStr at $time');
+    return null;
+  }
+  
+  String _createISODateTime(DateTime date, DateTime time) {
+    // Combine date and time into a single DateTime and format as ISO
+    final combined = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    return combined.toIso8601String();
   }
   
   void _showCopyAvailabilityDialog() {
@@ -1667,31 +1804,75 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         await _meetingService.createAvailability(slots);
       } else {
         // Schedule meeting
-        final mentorId = widget.isMentor ? _authService.currentUser!.uid : _extractIdFromSelection(_selectedMenteeOrMentor!);
-        final menteeId = widget.isMentor ? _extractIdFromSelection(_selectedMenteeOrMentor!) : _authService.currentUser!.uid;
+        String mentorId;
+        String menteeId;
         
-        if (_isCustomTimeRequest && !widget.isMentor) {
-          // Request custom meeting time
-          await _meetingService.requestCustomMeeting(
-            mentorId: mentorId,
-            menteeId: menteeId,
-            startTime: '${_formatDateForDatabase(_selectedDay!)} ${_formatTime(_selectedTime!)}',
-            topic: _titleController.text,
-            location: _locationController.text,
-          );
-        } else {
-          // Create regular meeting
+        if (widget.isMentor) {
+          // Mentor is scheduling - use current user as mentor and selected mentee
+          mentorId = _authService.currentUser!.uid;
+          menteeId = _selectedMenteeOrMentor!['firebase_uid'] ?? _selectedMenteeOrMentor!['id'];
+          
+          // Find availability slot for this time
+          final availabilityId = await _findAvailabilitySlot(_selectedDay!, _formatTime(_selectedTime!));
+          
+          if (availabilityId == null && !_isSettingAvailability) {
+            // This time is not in mentor's availability
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select a time from your available slots'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            setState(() {
+              _isSavingData = false;
+            });
+            return;
+          }
+          
+          // Create meeting with availability ID
           final meeting = Meeting(
             id: _uuid.v4(),
             mentorId: mentorId,
             menteeId: menteeId,
-            startTime: '${_formatDateForDatabase(_selectedDay!)} ${_formatTime(_selectedTime!)}',
+            startTime: _createISODateTime(_selectedDay!, _selectedTime!),
+            endTime: _createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))), // 30 min meeting
             topic: _titleController.text,
             location: _locationController.text,
-            status: 'pending',
+            status: 'confirmed', // Since mentor is scheduling, it's auto-confirmed
+            availabilityId: availabilityId, // This links to the availability slot
           );
           
           await _meetingService.createMeeting(meeting);
+        } else {
+          // Mentee is scheduling - use selected mentor and current user as mentee
+          mentorId = _selectedMenteeOrMentor!['firebase_uid'] ?? _selectedMenteeOrMentor!['id'];
+          menteeId = _authService.currentUser!.uid;
+          
+          if (_isCustomTimeRequest) {
+            // Request custom meeting time
+            await _meetingService.requestCustomMeeting(
+              mentorId: mentorId,
+              menteeId: menteeId,
+              startTime: _createISODateTime(_selectedDay!, _selectedTime!),
+              endTime: _createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))),
+              topic: _titleController.text,
+              location: _locationController.text,
+            );
+          } else {
+            // Create regular meeting request
+            final meeting = Meeting(
+              id: _uuid.v4(),
+              mentorId: mentorId,
+              menteeId: menteeId,
+              startTime: _createISODateTime(_selectedDay!, _selectedTime!),
+              endTime: _createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))),
+              topic: _titleController.text,
+              location: _locationController.text,
+              status: 'pending', // Mentee requests need mentor approval
+            );
+            
+            await _meetingService.createMeeting(meeting);
+          }
         }
       }
       
@@ -1775,7 +1956,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text('With: $_selectedMenteeOrMentor'),
+              Text('With: ${_selectedMenteeOrMentor?['name'] ?? 'Unknown'}'),
               Text('Date: ${_formatDate(_selectedDay!)}'),
               Text('Time: ${_formatTime(_selectedTime!)}'),
             ],

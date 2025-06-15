@@ -471,32 +471,62 @@ class MeetingService {
     
     _meetingsSubscription?.cancel();
     
-    final field = isMentor ? 'mentor_id' : 'mentee_id';
-    final collection = _firestore!
+    // First try to get the user document ID from the userId (Firebase UID)
+    final usersCollection = _firestore!
         .collection(_universityPath)
         .doc('data')
-        .collection('meetings')
-        .where(field, isEqualTo: userId);
+        .collection('users');
     
-    _meetingsSubscription = collection.snapshots().listen((snapshot) {
-      final meetings = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Meeting(
-          id: doc.id,
-          mentorId: data['mentor_id'],
-          menteeId: data['mentee_id'],
-          startTime: data['start_time'],
-          endTime: data['end_time'],
-          topic: data['topic'],
-          location: data['location'],
-          status: data['status'] ?? 'pending',
-          availabilityId: data['availability_id'],
-          synced: true,
-        );
-      }).toList();
-      
+    // Find the user document by Firebase UID
+    usersCollection
+        .where('firebase_uid', isEqualTo: userId)
+        .limit(1)
+        .get()
+        .then((userQuery) {
+      if (userQuery.docs.isNotEmpty) {
+        final userDocId = userQuery.docs.first.id;
+        
+        print('DEBUG: Found user document ID: $userDocId for Firebase UID: $userId');
+        
+        // Subscribe to the user's meetings subcollection
+        final collection = usersCollection
+            .doc(userDocId)
+            .collection('meetings');
+        
+        _meetingsSubscription = collection.snapshots().listen((snapshot) {
+          final meetings = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return Meeting(
+              id: doc.id,
+              mentorId: data['mentor_id'],
+              menteeId: data['mentee_id'],
+              startTime: data['start_time'],
+              endTime: data['end_time'],
+              topic: data['topic'],
+              location: data['location'],
+              status: data['status'] ?? 'pending',
+              availabilityId: data['availability_id'],
+              synced: true,
+            );
+          }).toList();
+          
+          print('DEBUG: Meetings snapshot received with ${meetings.length} meetings');
+          
+          if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
+            _meetingsStreamController!.add(meetings);
+          }
+        });
+      } else {
+        print('DEBUG: No user document found for Firebase UID: $userId');
+        // If no user doc found, send empty list
+        if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
+          _meetingsStreamController!.add([]);
+        }
+      }
+    }).catchError((error) {
+      print('ERROR: Failed to get user document: $error');
       if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
-        _meetingsStreamController!.add(meetings);
+        _meetingsStreamController!.add([]);
       }
     });
   }

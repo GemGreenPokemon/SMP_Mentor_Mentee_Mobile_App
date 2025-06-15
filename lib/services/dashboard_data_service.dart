@@ -124,6 +124,7 @@ class DashboardDataService {
                 
                 menteesList.add({
                   'id': menteeDoc.id,
+                  'firebase_uid': menteeData['firebase_uid'] ?? '',
                   'name': menteeData['name'] ?? 'Unknown',
                   'program': '${menteeData['year_major'] ?? 'Unknown Year'}, ${menteeData['department'] ?? 'Unknown Dept'}',
                   'progress': 0.65, // TODO: Calculate from actual progress data
@@ -144,6 +145,7 @@ class DashboardDataService {
 
                 if (kDebugMode) {
                   print('🔥 Dashboard: Added mentee: ${menteeData['name']} (${menteeData['year_major']}, ${menteeData['department']})');
+                  print('🔥 Dashboard: Mentee firebase_uid: ${menteeData['firebase_uid'] ?? 'Not found'}');
                 }
               } else {
                 if (kDebugMode) {
