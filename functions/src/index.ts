@@ -18,7 +18,8 @@ import {
   setMentorAvailability,
   getMentorAvailability,
   getAvailableSlots,
-  requestMeeting
+  requestMeeting,
+  removeAvailabilitySlot
 } from './meetings/management';
 // Temporarily commented out to avoid build errors:
 // import { sendMessage, getChatHistory } from './messaging/chat';
@@ -62,6 +63,7 @@ export const setAvailability = setMentorAvailability;
 export const getAvailability = getMentorAvailability;
 export const getBookableSlots = getAvailableSlots;
 export const requestMeetingTime = requestMeeting;
+export const removeAvailability = removeAvailabilitySlot;
 
 // Messaging Functions
 // export const sendChatMessage = sendMessage;

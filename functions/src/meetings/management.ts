@@ -726,6 +726,137 @@ export const getAvailableSlots = functions.https.onCall(async (data: {
 });
 
 /**
+ * Remove specific availability slots
+ */
+export const removeAvailabilitySlot = functions.https.onCall(async (data: {
+  universityPath: string;
+  mentor_id: string;
+  day: string;
+  slot_start: string;
+}, context) => {
+  try {
+    // Verify authentication
+    const authContext = await verifyAuth(context);
+    
+    const { universityPath, mentor_id, day, slot_start } = data;
+    
+    // Validate input
+    if (!mentor_id || !day || !slot_start) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+    }
+    
+    // Only mentors can remove their own availability
+    if (authContext.role !== 'mentor' || authContext.uid !== mentor_id) {
+      throw new functions.https.HttpsError('permission-denied', 'Can only remove your own availability');
+    }
+    
+    const db = admin.firestore();
+    const batch = db.batch();
+    
+    // Find the user's document ID
+    const usersCollection = getUniversityCollection(universityPath, 'users');
+    const userQuery = await usersCollection.where('firebase_uid', '==', mentor_id).limit(1).get();
+    
+    if (userQuery.empty) {
+      throw new functions.https.HttpsError('not-found', 'User document not found');
+    }
+    
+    const userDocSnapshot = userQuery.docs[0];
+    const userDocId = userDocSnapshot.id;
+    
+    // Get both university and user subcollection references
+    const availabilityCollection = getUniversityCollection(universityPath, 'availability');
+    const userDoc = usersCollection.doc(userDocId);
+    const userAvailabilityCollection = userDoc.collection('availability');
+    
+    // Query for the specific day's availability
+    const universityQuery = await availabilityCollection
+      .where('mentor_id', '==', mentor_id)
+      .where('day', '==', day)
+      .get();
+      
+    const userQuery2 = await userAvailabilityCollection
+      .where('day', '==', day)
+      .get();
+    
+    let slotsUpdated = false;
+    
+    // Update university collection
+    universityQuery.forEach(doc => {
+      const data = doc.data() as Availability;
+      if (data.slots) {
+        // Check if the slot to remove is booked
+        const slotToRemove = data.slots.find(s => s.slot_start === slot_start);
+        if (slotToRemove && slotToRemove.is_booked) {
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            'Cannot remove a booked slot. Please cancel the booking first.'
+          );
+        }
+        
+        // Filter out the specific slot
+        const updatedSlots = data.slots.filter(s => s.slot_start !== slot_start);
+        
+        if (updatedSlots.length !== data.slots.length) {
+          slotsUpdated = true;
+          if (updatedSlots.length > 0) {
+            // Update the document with remaining slots
+            batch.update(doc.ref, {
+              slots: updatedSlots,
+              updated_at: new Date()
+            });
+          } else {
+            // Delete the document if no slots remain
+            batch.delete(doc.ref);
+          }
+        }
+      }
+    });
+    
+    // Update user subcollection
+    userQuery2.forEach(doc => {
+      const data = doc.data() as Availability;
+      if (data.slots) {
+        const updatedSlots = data.slots.filter(s => s.slot_start !== slot_start);
+        
+        if (updatedSlots.length !== data.slots.length) {
+          if (updatedSlots.length > 0) {
+            batch.update(doc.ref, {
+              slots: updatedSlots,
+              updated_at: new Date()
+            });
+          } else {
+            batch.delete(doc.ref);
+          }
+        }
+      }
+    });
+    
+    if (!slotsUpdated) {
+      throw new functions.https.HttpsError('not-found', 'Slot not found');
+    }
+    
+    await batch.commit();
+    
+    console.log(`Removed availability slot for mentor ${mentor_id} on ${day} at ${slot_start}`);
+    
+    return {
+      success: true,
+      message: 'Availability slot removed successfully'
+    };
+    
+  } catch (error) {
+    console.error('Error removing availability slot:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to remove availability slot');
+  }
+});
+
+/**
  * Request a meeting at a custom time (for mentees)
  */
 export const requestMeeting = functions.https.onCall(async (data: {

@@ -49,6 +49,8 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   Map<String, dynamic>? _currentUserData;
   Map<DateTime, List<CalendarEvent>> _calendarEvents = {};
   bool _isLoadingData = false;
+  bool _isSavingData = false;
+  Set<String> _pendingOperations = {};
   
   // Mock data for mentees/mentors
   final List<String> mentees = [
@@ -93,6 +95,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     // Subscribe to real-time updates
     _meetingService.availabilityStream.listen((availability) {
       if (mounted) {
+        print('DEBUG: Stream update - received ${availability.length} availability slots');
         setState(() {
           _availabilitySlots = availability;
           _buildCalendarEvents();
@@ -102,6 +105,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     
     _meetingService.meetingsStream.listen((meetings) {
       if (mounted) {
+        print('DEBUG: Stream update - received ${meetings.length} meetings');
         setState(() {
           _meetings = meetings;
           _buildCalendarEvents();
@@ -131,11 +135,13 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       });
       
       print('DEBUG: Loading calendar data for: ${_currentUserData?['name']}');
-      await _loadCalendarData();
       
       // Subscribe to real-time updates for this user
       _meetingService.subscribeToAvailability(firebaseUser.uid);
       _meetingService.subscribeToMeetings(firebaseUser.uid, widget.isMentor);
+      
+      // Initial load is now triggered just to restore state
+      await _loadCalendarData();
     } catch (e) {
       print('DEBUG: Error loading current user: $e');
     }
@@ -147,6 +153,9 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       return;
     }
     
+    // Preserve current selections before loading
+    final preservedSelections = List<DateTime>.from(_selectedAvailabilitySlots);
+    
     setState(() {
       _isLoadingData = true;
     });
@@ -155,27 +164,36 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       final userId = _authService.currentUser!.uid;
       print('DEBUG: Loading calendar data for user: ${_currentUserData?['name']} ($userId)');
       
-      // Load availability and meetings from Firebase
-      final availability = widget.isMentor 
-          ? await _meetingService.getAvailabilityByMentor(userId)
-          : await _meetingService.getAvailableSlots(userId); // For mentees, show available slots
+      // Don't load data here as the stream will provide it
+      // Just set up the subscriptions
+      _meetingService.subscribeToAvailability(userId);
+      _meetingService.subscribeToMeetings(userId, widget.isMentor);
       
-      final meetings = widget.isMentor 
-          ? await _meetingService.getMeetingsByMentor(userId)
-          : await _meetingService.getMeetingsByMentee(userId);
-      
-      print('DEBUG: Loaded ${availability.length} availability slots and ${meetings.length} meetings');
+      print('DEBUG: Subscribed to real-time updates for user: $userId');
       
       setState(() {
-        _availabilitySlots = availability;
-        _meetings = meetings;
-        _buildCalendarEvents();
         _isLoadingData = false;
+        
+        // Restore selections if they haven't been saved yet
+        if (widget.isMentor && _isSettingAvailability && _selectedDay != null) {
+          // Only restore selections that aren't already saved in the database
+          _selectedAvailabilitySlots = preservedSelections.where((slot) {
+            final timeStr = _formatTime(slot);
+            return !_availabilitySlots.any((dbSlot) => 
+              dbSlot.day == _formatDateForDatabase(_selectedDay!) && 
+              dbSlot.slotStart == timeStr
+            );
+          }).toList();
+        }
       });
     } catch (e) {
       print('DEBUG: Error loading calendar data: $e');
       setState(() {
         _isLoadingData = false;
+        // Restore selections even on error
+        if (widget.isMentor && _isSettingAvailability) {
+          _selectedAvailabilitySlots = preservedSelections;
+        }
       });
     }
   }
@@ -188,6 +206,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     
     // Add availability events
     for (final slot in _availabilitySlots) {
+      print('DEBUG: Processing slot with day: "${slot.day}", slotStart: "${slot.slotStart}"');
       final date = DateTime.tryParse(slot.day);
       print('DEBUG: Processing availability slot: ${slot.day} -> parsed date: $date');
       if (date != null) {
@@ -253,6 +272,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         backgroundColor: const Color(0xFF0F2D52),
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false, // This prevents any back button from appearing
         actions: widget.isMentor ? [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
@@ -498,11 +518,68 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               ),
                               const SizedBox(height: 16),
                             ],
+                            // Custom selected times display
+                            if (widget.isMentor && _isSettingAvailability && _selectedAvailabilitySlots.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Selected Time Slots:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: _selectedAvailabilitySlots.map((slot) {
+                                        final timeStr = _formatTime(slot);
+                                        final isCustom = !_generateTimeSlots().any((t) => 
+                                          t.hour == slot.hour && t.minute == slot.minute
+                                        );
+                                        return Chip(
+                                          label: Text(timeStr),
+                                          deleteIcon: const Icon(Icons.close, size: 18),
+                                          backgroundColor: isCustom 
+                                            ? Colors.purple.withOpacity(0.1) 
+                                            : Colors.lightBlue.withOpacity(0.2),
+                                          onDeleted: () {
+                                            setState(() {
+                                              _selectedAvailabilitySlots.removeWhere((s) => 
+                                                s.hour == slot.hour && s.minute == slot.minute
+                                              );
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
                               children: [
                                 if (widget.isMentor && _isSettingAvailability) ...[
+                                  // Custom time button
+                                  ActionChip(
+                                    avatar: const Icon(Icons.add_alarm, size: 18),
+                                    label: const Text('Add Custom Time'),
+                                    backgroundColor: Colors.purple.withOpacity(0.1),
+                                    onPressed: () => _selectCustomAvailabilityTime(),
+                                  ),
+                                  const SizedBox(width: 16),
                                   // Multiple selection for availability
                                   ..._generateTimeSlots().map((time) {
                                     final timeStr = _formatTime(time);
@@ -520,41 +597,78 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                     );
                                     final isAlreadySaved = existingSlot.id.isNotEmpty;
                                     
-                                    return FilterChip(
-                                      label: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(timeStr),
-                                          if (isAlreadySaved) ...[
-                                            const SizedBox(width: 4),
-                                            Icon(Icons.check_circle, size: 14, 
-                                                 color: existingSlot.isBooked ? Colors.red : Colors.green),
-                                          ],
-                                        ],
-                                      ),
-                                      selected: isSelected || isAlreadySaved,
-                                      selectedColor: isAlreadySaved 
-                                          ? (existingSlot.isBooked ? Colors.red.withOpacity(0.3) : Colors.green.withOpacity(0.3))
-                                          : Colors.lightBlue,
-                                      checkmarkColor: Colors.white,
-                                      backgroundColor: isAlreadySaved 
-                                          ? (existingSlot.isBooked ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1))
-                                          : null,
-                                      tooltip: isAlreadySaved 
-                                          ? (existingSlot.isBooked ? 'Already booked' : 'Already set as available')
-                                          : null,
-                                      onSelected: existingSlot.isBooked ? null : (selected) {
-                                        setState(() {
-                                          if (selected && !isAlreadySaved) {
-                                            _selectedAvailabilitySlots.add(time);
-                                          } else if (!selected && !isAlreadySaved) {
-                                            _selectedAvailabilitySlots.removeWhere(
-                                              (slot) => slot.hour == time.hour && slot.minute == time.minute
-                                            );
-                                          }
-                                          // Don't allow deselecting already saved slots
-                                        });
-                                      },
+                                    return Stack(
+                                      children: [
+                                        FilterChip(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(timeStr),
+                                              if (_pendingOperations.contains(existingSlot.id)) ...[
+                                                const SizedBox(width: 4),
+                                                const SizedBox(
+                                                  width: 12,
+                                                  height: 12,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                ),
+                                              ] else if (isAlreadySaved) ...[
+                                                const SizedBox(width: 4),
+                                                Icon(Icons.check_circle, size: 14, 
+                                                     color: existingSlot.isBooked ? Colors.red : Colors.green),
+                                              ],
+                                            ],
+                                          ),
+                                          selected: isSelected || isAlreadySaved,
+                                          selectedColor: isAlreadySaved 
+                                              ? (existingSlot.isBooked ? Colors.red.withOpacity(0.3) : Colors.green.withOpacity(0.3))
+                                              : Colors.lightBlue,
+                                          checkmarkColor: Colors.white,
+                                          backgroundColor: isAlreadySaved 
+                                              ? (existingSlot.isBooked ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1))
+                                              : null,
+                                          tooltip: isAlreadySaved 
+                                              ? (existingSlot.isBooked ? 'Already booked' : 'Click to remove availability')
+                                              : null,
+                                          onSelected: existingSlot.isBooked || _pendingOperations.contains(existingSlot.id) ? null : (selected) {
+                                            if (isAlreadySaved && !existingSlot.isBooked) {
+                                              // Show confirmation dialog for removing availability
+                                              _showRemoveAvailabilityDialog(existingSlot);
+                                            } else {
+                                              setState(() {
+                                                if (selected && !isAlreadySaved) {
+                                                  _selectedAvailabilitySlots.add(time);
+                                                } else if (!selected && !isAlreadySaved) {
+                                                  _selectedAvailabilitySlots.removeWhere(
+                                                    (slot) => slot.hour == time.hour && slot.minute == time.minute
+                                                  );
+                                                }
+                                              });
+                                            }
+                                          },
+                                        ),
+                                        if (isAlreadySaved && !existingSlot.isBooked)
+                                          Positioned(
+                                            top: -4,
+                                            right: -4,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                              ),
+                                              child: InkWell(
+                                                onTap: () => _showRemoveAvailabilityDialog(existingSlot),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     );
                                   }).toList(),
                                 ] else ...[
@@ -692,6 +806,41 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                             
                             // Show different fields based on mode
                             if (widget.isMentor && _isSettingAvailability) ...[
+                              // Show existing availability summary
+                              if (_selectedDay != null && _availabilitySlots.any((s) => s.day == _formatDateForDatabase(_selectedDay!))) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.event_available, color: Colors.green),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Current Availability',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${_availabilitySlots.where((s) => s.day == _formatDateForDatabase(_selectedDay!)).length} time slots set for this day',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               // Batch operations for availability
                               Row(
                                 children: [
@@ -943,29 +1092,64 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               children: [
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: () => Navigator.pop(context),
+                                    onPressed: () {
+                                      // Clear form data instead of navigating away
+                                      setState(() {
+                                        _selectedAvailabilitySlots.clear();
+                                        _selectedTime = null;
+                                        _titleController.clear();
+                                        _descriptionController.clear();
+                                        _locationController.clear();
+                                        _selectedMenteeOrMentor = null;
+                                        _isCustomTimeRequest = false;
+                                      });
+                                      
+                                      // Show a snackbar to confirm cancellation
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Form cleared'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
                                     style: OutlinedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                     ),
-                                    child: const Text('Cancel'),
+                                    child: const Text('Clear'),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: ElevatedButton(
-                                    onPressed: _scheduleMeeting,
+                                    onPressed: _isSavingData ? null : _scheduleMeeting,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0F2D52),
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                     ),
-                                    child: Text(widget.isMentor 
-                                      ? (_isSettingAvailability 
-                                        ? 'Set Availability' 
-                                        : 'Schedule Meeting')
-                                      : (_isCustomTimeRequest 
-                                        ? 'Request Custom Meeting Time' 
-                                        : 'Request Meeting')),
+                                    child: _isSavingData 
+                                      ? const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                              ),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Saving...'),
+                                          ],
+                                        )
+                                      : Text(widget.isMentor 
+                                          ? (_isSettingAvailability 
+                                            ? 'Set Availability' 
+                                            : 'Schedule Meeting')
+                                          : (_isCustomTimeRequest 
+                                            ? 'Request Custom Meeting Time' 
+                                            : 'Request Meeting')),
                                   ),
                                 ),
                               ],
@@ -1110,6 +1294,83 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     }
   }
 
+  void _selectCustomAvailabilityTime() async {
+    final TimeOfDay? startTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      helpText: 'Select start time for availability',
+    );
+    
+    if (startTime != null && _selectedDay != null) {
+      // Ask for duration
+      final duration = await showDialog<int>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Availability Duration'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('How long will you be available?'),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [30, 45, 60, 90, 120].map((minutes) {
+                  return ChoiceChip(
+                    label: Text('$minutes min'),
+                    selected: false,
+                    onSelected: (selected) {
+                      if (selected) {
+                        Navigator.pop(context, minutes);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      
+      if (duration != null) {
+        setState(() {
+          final customTime = DateTime(
+            _selectedDay!.year,
+            _selectedDay!.month,
+            _selectedDay!.day,
+            startTime.hour,
+            startTime.minute,
+          );
+          
+          // Check if this time already exists
+          final timeStr = _formatTime(customTime);
+          final alreadyExists = _availabilitySlots.any((slot) =>
+            slot.day == _formatDateForDatabase(_selectedDay!) &&
+            slot.slotStart == timeStr
+          );
+          
+          if (alreadyExists) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This time slot already exists'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          } else if (!_selectedAvailabilitySlots.any((slot) => 
+            slot.hour == customTime.hour && slot.minute == customTime.minute)) {
+            _selectedAvailabilitySlots.add(customTime);
+          }
+        });
+      }
+    }
+  }
+
   String _formatTime(DateTime time) {
     final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
     final period = time.hour >= 12 ? 'PM' : 'AM';
@@ -1221,6 +1482,108 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     );
   }
 
+  void _showRemoveAvailabilityDialog(Availability slot) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Remove Availability'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to remove this availability slot?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Date: ${_formatDate(DateTime.parse(slot.day))}'),
+                  Text('Time: ${slot.slotStart}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _removeAvailabilitySlot(slot);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _removeAvailabilitySlot(Availability slot) async {
+    setState(() {
+      _pendingOperations.add(slot.id);
+    });
+
+    try {
+      // Use the new removeAvailabilitySlot method
+      final success = await _meetingService.removeAvailabilitySlot(
+        _authService.currentUser!.uid,
+        slot.day,
+        slot.slotStart,
+      );
+
+      if (success) {
+        // Refresh calendar data
+        await _loadCalendarData();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Availability slot removed successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to remove availability slot'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error removing slot: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _pendingOperations.remove(slot.id);
+      });
+    }
+  }
+
   void _scheduleMeeting() async {
     // Different validation for availability vs meeting
     if (widget.isMentor && _isSettingAvailability) {
@@ -1283,14 +1646,9 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       }
     }
     
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    setState(() {
+      _isSavingData = true;
+    });
     
     try {
       if (widget.isMentor && _isSettingAvailability) {
@@ -1337,15 +1695,9 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         }
       }
       
-      // Close loading dialog
-      Navigator.pop(context);
-      
       // Refresh calendar data
       await _loadCalendarData();
     } catch (e) {
-      // Close loading dialog
-      Navigator.pop(context);
-      
       // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1353,7 +1705,14 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      setState(() {
+        _isSavingData = false;
+      });
       return;
+    } finally {
+      setState(() {
+        _isSavingData = false;
+      });
     }
     
     // Show success dialog
@@ -1471,14 +1830,16 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close the success dialog
-              // Reset form and refresh data instead of popping screen
+              Navigator.pop(context); // Close the success dialog only
+              // Reset form and refresh data
               setState(() {
                 _selectedAvailabilitySlots.clear();
                 _selectedTime = null;
                 _titleController.clear();
+                _descriptionController.clear();
                 _locationController.clear();
                 _selectedMenteeOrMentor = null;
+                _isCustomTimeRequest = false;
               });
               _loadCalendarData(); // Refresh the calendar
             },

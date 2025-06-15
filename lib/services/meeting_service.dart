@@ -22,11 +22,18 @@ class MeetingService {
   String get _universityPath => _cloudFunctions.getCurrentUniversityPath();
 
   // Stream controllers for real-time updates
-  final _availabilityStreamController = StreamController<List<Availability>>.broadcast();
-  final _meetingsStreamController = StreamController<List<Meeting>>.broadcast();
+  StreamController<List<Availability>>? _availabilityStreamController;
+  StreamController<List<Meeting>>? _meetingsStreamController;
   
-  Stream<List<Availability>> get availabilityStream => _availabilityStreamController.stream;
-  Stream<List<Meeting>> get meetingsStream => _meetingsStreamController.stream;
+  Stream<List<Availability>> get availabilityStream {
+    _availabilityStreamController ??= StreamController<List<Availability>>.broadcast();
+    return _availabilityStreamController!.stream;
+  }
+  
+  Stream<List<Meeting>> get meetingsStream {
+    _meetingsStreamController ??= StreamController<List<Meeting>>.broadcast();
+    return _meetingsStreamController!.stream;
+  }
 
   void _initializeFirestore() {
     if (_isFirestoreInitialized) {
@@ -141,9 +148,15 @@ class MeetingService {
         
         // Each document now contains multiple slots for a day
         for (final doc in availabilityDocs) {
+          final String docId = doc['id'];
+          
+          // Skip metadata documents
+          if (docId == '_metadata' || docId.startsWith('_')) {
+            continue;
+          }
+          
           final String day = doc['day'];
           final String mentorId = doc['mentor_id'];
-          final String docId = doc['id'];
           final List<dynamic> slots = doc['slots'] ?? [];
           
           // Convert each slot in the array to an Availability object
@@ -211,6 +224,11 @@ class MeetingService {
           
           // Each document now contains multiple slots for a day
           for (final doc in snapshot.docs) {
+            // Skip metadata documents
+            if (doc.id == '_metadata' || doc.id.startsWith('_')) {
+              continue;
+            }
+            
             final data = doc.data();
             final String day = data['day'] ?? '';
             final String mentorIdFromDoc = data['mentor_id'] ?? '';
@@ -236,17 +254,42 @@ class MeetingService {
           }
           
           print('DEBUG: Total availability slots after processing: ${allSlots.length}');
-          _availabilityStreamController.add(allSlots);
+          if (_availabilityStreamController != null && !_availabilityStreamController!.isClosed) {
+            _availabilityStreamController!.add(allSlots);
+          }
         });
       } else {
         print('DEBUG: No user document found for Firebase UID: $mentorId');
         // If no user doc found, send empty list
-        _availabilityStreamController.add([]);
+        if (_availabilityStreamController != null && !_availabilityStreamController!.isClosed) {
+          _availabilityStreamController!.add([]);
+        }
       }
     }).catchError((error) {
       print('ERROR: Failed to get user document: $error');
-      _availabilityStreamController.add([]);
+      if (_availabilityStreamController != null && !_availabilityStreamController!.isClosed) {
+        _availabilityStreamController!.add([]);
+      }
     });
+  }
+
+  /// Remove specific availability slot
+  Future<bool> removeAvailabilitySlot(String mentorId, String day, String slotStart) async {
+    try {
+      final result = await _cloudFunctions.removeAvailabilitySlot(
+        universityPath: _universityPath,
+        mentorId: mentorId,
+        day: day,
+        slotStart: slotStart,
+      );
+
+      return result['success'] == true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error removing availability slot: $e');
+      }
+      return false;
+    }
   }
 
   /// Update availability
@@ -452,7 +495,9 @@ class MeetingService {
         );
       }).toList();
       
-      _meetingsStreamController.add(meetings);
+      if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
+        _meetingsStreamController!.add(meetings);
+      }
     });
   }
 
@@ -697,7 +742,9 @@ class MeetingService {
   void dispose() {
     _availabilitySubscription?.cancel();
     _meetingsSubscription?.cancel();
-    _availabilityStreamController.close();
-    _meetingsStreamController.close();
+    _availabilityStreamController?.close();
+    _meetingsStreamController?.close();
+    _availabilityStreamController = null;
+    _meetingsStreamController = null;
   }
 }

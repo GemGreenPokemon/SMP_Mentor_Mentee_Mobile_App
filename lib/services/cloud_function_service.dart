@@ -490,6 +490,28 @@ class CloudFunctionService {
     }
   }
 
+  /// Remove specific availability slot
+  Future<Map<String, dynamic>> removeAvailabilitySlot({
+    required String universityPath,
+    required String mentorId,
+    required String day,
+    required String slotStart,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('removeAvailability');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'mentor_id': mentorId,
+        'day': day,
+        'slot_start': slotStart,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Remove availability slot error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
   /// Request a meeting at a custom time (for mentees)
   Future<Map<String, dynamic>> requestMeeting({
     required String universityPath,
