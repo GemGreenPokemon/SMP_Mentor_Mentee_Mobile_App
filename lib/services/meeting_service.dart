@@ -464,12 +464,27 @@ class MeetingService {
   }
 
   /// Subscribe to real-time meeting updates
+  /// TODO: Optimize with date-based filtering to reduce reads:
+  /// - Add startDate/endDate parameters
+  /// - Query meetings within visible calendar range only
+  /// - Example: .where('start_time', isGreaterThan: startDate).where('start_time', isLessThan: endDate)
   StreamSubscription<QuerySnapshot>? _meetingsSubscription;
   
   void subscribeToMeetings(String userId, bool isMentor) {
+    print('\n🔍 === SUBSCRIBE TO MEETINGS START ===${'=' * 50}');
+    print('🔍 Timestamp: ${DateTime.now().toIso8601String()}');
+    print('🔍 User ID (Firebase UID): $userId');
+    print('🔍 Is Mentor: $isMentor');
+    print('🔍 University Path: $_universityPath');
+    
     _initializeFirestore();
     
+    print('🔍 Stream Controller State:');
+    print('  - Controller exists: ${_meetingsStreamController != null}');
+    print('  - Controller closed: ${_meetingsStreamController?.isClosed ?? 'null'}');
+    
     _meetingsSubscription?.cancel();
+    print('🔍 Previous subscription cancelled');
     
     // First try to get the user document ID from the userId (Firebase UID)
     final usersCollection = _firestore!
@@ -477,16 +492,33 @@ class MeetingService {
         .doc('data')
         .collection('users');
     
+    final fullPath = '${_universityPath}/data/users';
+    print('🔍 Users collection path: $fullPath');
+    print('🔍 Searching for user with firebase_uid: $userId');
+    
     // Find the user document by Firebase UID
     usersCollection
         .where('firebase_uid', isEqualTo: userId)
         .limit(1)
         .get()
         .then((userQuery) {
+      print('\n🔍 User query completed:');
+      print('  - Documents found: ${userQuery.docs.length}');
+      print('  - Query metadata: ${userQuery.metadata.isFromCache ? "FROM CACHE" : "FROM SERVER"}');
+      
       if (userQuery.docs.isNotEmpty) {
-        final userDocId = userQuery.docs.first.id;
+        final userDoc = userQuery.docs.first;
+        final userDocId = userDoc.id;
+        final userData = userDoc.data();
         
-        print('DEBUG: Found user document ID: $userDocId for Firebase UID: $userId');
+        print('\n✅ Found user document:');
+        print('  - Document ID: $userDocId');
+        print('  - User name: ${userData['name'] ?? 'Unknown'}');
+        print('  - User type: ${userData['userType'] ?? 'Unknown'}');
+        print('  - Firebase UID in doc: ${userData['firebase_uid'] ?? 'Not set'}');
+        
+        final meetingsPath = '${fullPath}/$userDocId/meetings';
+        print('\n🔍 Subscribing to meetings at path: $meetingsPath');
         
         // Subscribe to the user's meetings subcollection
         final collection = usersCollection
@@ -494,13 +526,41 @@ class MeetingService {
             .collection('meetings');
         
         _meetingsSubscription = collection.snapshots().listen((snapshot) {
-          final meetings = snapshot.docs.map((doc) {
+          print('\n📊 === MEETINGS SNAPSHOT UPDATE ===${'=' * 50}');
+          print('📊 Timestamp: ${DateTime.now().toIso8601String()}');
+          print('📊 Documents count: ${snapshot.docs.length}');
+          print('📊 From cache: ${snapshot.metadata.isFromCache}');
+          
+          if (snapshot.docs.isEmpty) {
+            print('📊 ⚠️ No meetings found in subcollection');
+          }
+          
+          final meetings = snapshot.docs
+              .where((doc) => !doc.id.startsWith('_')) // Filter out metadata documents
+              .map((doc) {
             final data = doc.data();
+            print('\n📄 Meeting document:');
+            print('  - Doc ID: ${doc.id}');
+            print('  - Exists: ${doc.exists}');
+            print('  - Data fields: ${data.keys.join(', ')}');
+            print('  - Raw data: $data');
+            
+            // Validate required fields
+            final missingFields = <String>[];
+            if (data['mentor_id'] == null) missingFields.add('mentor_id');
+            if (data['mentee_id'] == null) missingFields.add('mentee_id');
+            if (data['start_time'] == null) missingFields.add('start_time');
+            if (data['topic'] == null) missingFields.add('topic');
+            
+            if (missingFields.isNotEmpty) {
+              print('  - ⚠️ Missing fields: ${missingFields.join(', ')}');
+            }
+            
             return Meeting(
               id: doc.id,
-              mentorId: data['mentor_id'],
-              menteeId: data['mentee_id'],
-              startTime: data['start_time'],
+              mentorId: data['mentor_id'] ?? '',
+              menteeId: data['mentee_id'] ?? '',
+              startTime: data['start_time'] ?? '',
               endTime: data['end_time'],
               topic: data['topic'],
               location: data['location'],
@@ -510,25 +570,65 @@ class MeetingService {
             );
           }).toList();
           
-          print('DEBUG: Meetings snapshot received with ${meetings.length} meetings');
+          print('\n📊 Processed ${meetings.length} meetings:');
+          for (var i = 0; i < meetings.length; i++) {
+            final meeting = meetings[i];
+            print('  ${i + 1}. Meeting ${meeting.id}:');
+            print('     - Topic: "${meeting.topic}"');
+            print('     - Start: ${meeting.startTime}');
+            print('     - Status: ${meeting.status}');
+            print('     - Mentor ID: ${meeting.mentorId}');
+            print('     - Mentee ID: ${meeting.menteeId}');
+          }
+          
+          print('\n📊 Stream controller update:');
+          print('  - Controller exists: ${_meetingsStreamController != null}');
+          print('  - Controller closed: ${_meetingsStreamController?.isClosed ?? 'null'}');
           
           if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
             _meetingsStreamController!.add(meetings);
+            print('  - ✅ Meetings added to stream');
+          } else {
+            print('  - ❌ Stream controller not available!');
+          }
+          print('📊 === SNAPSHOT UPDATE END ===${'=' * 50}\n');
+        }, onError: (error) {
+          print('\n❌ ERROR: Meeting subscription error:');
+          print('  - Error type: ${error.runtimeType}');
+          print('  - Error message: $error');
+          print('  - Stack trace: ${StackTrace.current}');
+          
+          if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
+            _meetingsStreamController!.add([]);
+            print('  - Empty list sent to stream');
           }
         });
+        
+        print('🔍 Subscription setup complete');
       } else {
-        print('DEBUG: No user document found for Firebase UID: $userId');
+        print('\n⚠️ No user document found for Firebase UID: $userId');
+        print('  - This means the user document is missing the firebase_uid field');
+        print('  - Or the user document doesn\'t exist');
+        
         // If no user doc found, send empty list
         if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
           _meetingsStreamController!.add([]);
+          print('  - Empty list sent to stream');
         }
       }
     }).catchError((error) {
-      print('ERROR: Failed to get user document: $error');
+      print('\n❌ ERROR: Failed to get user document:');
+      print('  - Error type: ${error.runtimeType}');
+      print('  - Error message: $error');
+      print('  - This might be a permissions issue');
+      
       if (_meetingsStreamController != null && !_meetingsStreamController!.isClosed) {
         _meetingsStreamController!.add([]);
+        print('  - Empty list sent to stream');
       }
     });
+    
+    print('🔍 === SUBSCRIBE TO MEETINGS END ===${'=' * 50}\n');
   }
 
   /// Update meeting

@@ -110,8 +110,7 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
         throw new functions.https.HttpsError('failed-precondition', 'This slot is already booked');
       }
       
-      // TODO: Update the slot to mark it as booked
-      // This would require updating the specific slot in the array
+      // The slot will be marked as booked after the meeting is created successfully
     }
 
     // Create meeting document
@@ -139,27 +138,67 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
       const usersCollection = getUniversityCollection(universityPath, 'users');
       
       // Get mentor's user document
-      const mentorQuery = await usersCollection.where('firebase_uid', '==', mentor_id).limit(1).get();
-      if (!mentorQuery.empty) {
-        const mentorDocId = mentorQuery.docs[0].id;
+      // First try to get by document ID (e.g., "Emerald_Nash"), then fall back to firebase_uid
+      let mentorDocId: string | null = null;
+      try {
+        const mentorDocById = await usersCollection.doc(mentor_id).get();
+        if (mentorDocById.exists) {
+          mentorDocId = mentorDocById.id;
+          console.log(`Found mentor by document ID: ${mentorDocId}`);
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!mentorDocId) {
+        const mentorQuery = await usersCollection.where('firebase_uid', '==', mentor_id).limit(1).get();
+        if (!mentorQuery.empty) {
+          mentorDocId = mentorQuery.docs[0].id;
+          console.log(`Found mentor by firebase_uid: ${mentorDocId}`);
+        }
+      }
+      
+      if (mentorDocId) {
         const mentorMeetingsRef = usersCollection.doc(mentorDocId).collection('meetings').doc(result.data.id);
         batch.set(mentorMeetingsRef, {
           ...meeting,
           id: result.data.id,
           role: 'mentor' // To help identify the user's role in this meeting
         });
+      } else {
+        console.warn(`Could not find mentor user document for ID: ${mentor_id}`);
       }
       
       // Get mentee's user document
-      const menteeQuery = await usersCollection.where('firebase_uid', '==', mentee_id).limit(1).get();
-      if (!menteeQuery.empty) {
-        const menteeDocId = menteeQuery.docs[0].id;
+      // First try to get by document ID (e.g., "Dasarathi_Narayanan"), then fall back to firebase_uid
+      let menteeDocId: string | null = null;
+      try {
+        const menteeDocById = await usersCollection.doc(mentee_id).get();
+        if (menteeDocById.exists) {
+          menteeDocId = menteeDocById.id;
+          console.log(`Found mentee by document ID: ${menteeDocId}`);
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!menteeDocId) {
+        const menteeQuery = await usersCollection.where('firebase_uid', '==', mentee_id).limit(1).get();
+        if (!menteeQuery.empty) {
+          menteeDocId = menteeQuery.docs[0].id;
+          console.log(`Found mentee by firebase_uid: ${menteeDocId}`);
+        }
+      }
+      
+      if (menteeDocId) {
         const menteeMeetingsRef = usersCollection.doc(menteeDocId).collection('meetings').doc(result.data.id);
         batch.set(menteeMeetingsRef, {
           ...meeting,
           id: result.data.id,
           role: 'mentee' // To help identify the user's role in this meeting
         });
+      } else {
+        console.warn(`Could not find mentee user document for ID: ${mentee_id}`);
       }
       
       // Commit the batch write
@@ -168,13 +207,61 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
       
       // If availability_id is provided, mark slot as booked
       if (availability_id) {
-        const availabilityCollection = getUniversityCollection(universityPath, 'availability');
-        await updateDocument(availabilityCollection, availability_id, {
-          is_booked: true,
-          mentee_id,
-          meeting_id: result.data.id,
-          updated_at: new Date()
-        });
+        // Parse the availability_id to get document ID and slot index
+        // Format: "docId_slot_0"
+        const parts = availability_id.split('_slot_');
+        const docId = parts[0];
+        const slotIndex = parts[1] ? parseInt(parts[1]) : -1;
+        
+        if (slotIndex !== -1) {
+          const availabilityCollection = getUniversityCollection(universityPath, 'availability');
+          const availabilityDoc = await getDocument(availabilityCollection, docId);
+          
+          if (availabilityDoc.success && availabilityDoc.data) {
+            const availabilityData = availabilityDoc.data as Availability;
+            
+            // Update the specific slot in the array
+            if (availabilityData.slots && availabilityData.slots[slotIndex]) {
+              availabilityData.slots[slotIndex].is_booked = true;
+              availabilityData.slots[slotIndex].mentee_id = mentee_id;
+              availabilityData.slots[slotIndex].meeting_id = result.data.id;
+              
+              // Update the document with the modified slots array
+              await updateDocument(availabilityCollection, docId, {
+                slots: availabilityData.slots,
+                updated_at: new Date()
+              });
+              
+              // Also update user subcollection
+              const usersCollection = getUniversityCollection(universityPath, 'users');
+              
+              // Find mentor's document ID
+              let mentorDocId: string | null = null;
+              try {
+                const mentorDocById = await usersCollection.doc(mentor_id).get();
+                if (mentorDocById.exists) {
+                  mentorDocId = mentorDocById.id;
+                }
+              } catch (e) {
+                // Try by firebase_uid
+                const mentorQuery = await usersCollection.where('firebase_uid', '==', mentor_id).limit(1).get();
+                if (!mentorQuery.empty) {
+                  mentorDocId = mentorQuery.docs[0].id;
+                }
+              }
+              
+              if (mentorDocId) {
+                const userAvailabilityRef = usersCollection.doc(mentorDocId).collection('availability').doc(docId);
+                await userAvailabilityRef.update({
+                  slots: availabilityData.slots,
+                  updated_at: new Date()
+                });
+              }
+              
+              console.log(`Marked availability slot ${availability_id} as booked for meeting ${result.data.id}`);
+            }
+          }
+        }
       }
     }
 
@@ -238,9 +325,24 @@ export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingDa
       const usersCollection = getUniversityCollection(universityPath, 'users');
       
       // Update mentor's subcollection
-      const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
-      if (!mentorQuery.empty) {
-        const mentorDocId = mentorQuery.docs[0].id;
+      let mentorDocId: string | null = null;
+      try {
+        const mentorDocById = await usersCollection.doc(meeting.mentor_id).get();
+        if (mentorDocById.exists) {
+          mentorDocId = mentorDocById.id;
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!mentorDocId) {
+        const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
+        if (!mentorQuery.empty) {
+          mentorDocId = mentorQuery.docs[0].id;
+        }
+      }
+      
+      if (mentorDocId) {
         const mentorMeetingRef = usersCollection.doc(mentorDocId).collection('meetings').doc(meetingId);
         batch.update(mentorMeetingRef, {
           ...updateData,
@@ -249,9 +351,24 @@ export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingDa
       }
       
       // Update mentee's subcollection
-      const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
-      if (!menteeQuery.empty) {
-        const menteeDocId = menteeQuery.docs[0].id;
+      let menteeDocId: string | null = null;
+      try {
+        const menteeDocById = await usersCollection.doc(meeting.mentee_id).get();
+        if (menteeDocById.exists) {
+          menteeDocId = menteeDocById.id;
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!menteeDocId) {
+        const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
+        if (!menteeQuery.empty) {
+          menteeDocId = menteeQuery.docs[0].id;
+        }
+      }
+      
+      if (menteeDocId) {
         const menteeMeetingRef = usersCollection.doc(menteeDocId).collection('meetings').doc(meetingId);
         batch.update(menteeMeetingRef, {
           ...updateData,
@@ -328,17 +445,47 @@ export const cancelMeeting = functions.https.onCall(async (data: {
       const usersCollection = getUniversityCollection(universityPath, 'users');
       
       // Update mentor's subcollection
-      const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
-      if (!mentorQuery.empty) {
-        const mentorDocId = mentorQuery.docs[0].id;
+      let mentorDocId: string | null = null;
+      try {
+        const mentorDocById = await usersCollection.doc(meeting.mentor_id).get();
+        if (mentorDocById.exists) {
+          mentorDocId = mentorDocById.id;
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!mentorDocId) {
+        const mentorQuery = await usersCollection.where('firebase_uid', '==', meeting.mentor_id).limit(1).get();
+        if (!mentorQuery.empty) {
+          mentorDocId = mentorQuery.docs[0].id;
+        }
+      }
+      
+      if (mentorDocId) {
         const mentorMeetingRef = usersCollection.doc(mentorDocId).collection('meetings').doc(meetingId);
         batch.update(mentorMeetingRef, updateData);
       }
       
       // Update mentee's subcollection
-      const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
-      if (!menteeQuery.empty) {
-        const menteeDocId = menteeQuery.docs[0].id;
+      let menteeDocId: string | null = null;
+      try {
+        const menteeDocById = await usersCollection.doc(meeting.mentee_id).get();
+        if (menteeDocById.exists) {
+          menteeDocId = menteeDocById.id;
+        }
+      } catch (e) {
+        // Document ID lookup failed, try firebase_uid
+      }
+      
+      if (!menteeDocId) {
+        const menteeQuery = await usersCollection.where('firebase_uid', '==', meeting.mentee_id).limit(1).get();
+        if (!menteeQuery.empty) {
+          menteeDocId = menteeQuery.docs[0].id;
+        }
+      }
+      
+      if (menteeDocId) {
         const menteeMeetingRef = usersCollection.doc(menteeDocId).collection('meetings').doc(meetingId);
         batch.update(menteeMeetingRef, updateData);
       }

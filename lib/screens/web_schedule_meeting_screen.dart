@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/responsive.dart';
 import '../services/meeting_service.dart';
 import '../services/auth_service.dart';
@@ -78,33 +79,84 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   @override
   void initState() {
     super.initState();
-    print('DEBUG: WebScheduleMeetingScreen initState called');
+    print('\n🚀 === WEB SCHEDULE MEETING SCREEN INIT ===${'=' * 50}');
+    print('🚀 Timestamp: ${DateTime.now().toIso8601String()}');
+    print('🚀 Is Mentor: ${widget.isMentor}');
+    print('🚀 Auth Service User: ${_authService.currentUser?.uid}');
+    
     _selectedDay = _focusedDay;
+    print('🚀 Selected day initialized: $_selectedDay');
+    
+    print('🚀 Calling _loadCurrentUser()...');
     _loadCurrentUser();
+    
+    print('🚀 Calling _setupRealtimeListeners()...');
     _setupRealtimeListeners();
+    
+    print('🚀 === INIT STATE COMPLETE ===${'=' * 50}\n');
   }
   
   void _setupRealtimeListeners() {
+    print('\n🌐 === SETUP REALTIME LISTENERS START ===${'=' * 50}');
+    print('🌐 Timestamp: ${DateTime.now().toIso8601String()}');
+    
     // Subscribe to real-time updates
+    print('🌐 Setting up availability stream listener...');
     _meetingService.availabilityStream.listen((availability) {
+      print('\n📍 === AVAILABILITY STREAM UPDATE ===${'=' * 50}');
+      print('📍 Timestamp: ${DateTime.now().toIso8601String()}');
+      print('📍 Mounted: $mounted');
+      print('📍 Received ${availability.length} availability slots');
+      
       if (mounted) {
-        print('DEBUG: Stream update - received ${availability.length} availability slots');
+        for (var i = 0; i < availability.length; i++) {
+          final slot = availability[i];
+          print('  ${i + 1}. Slot: ${slot.day} at ${slot.slotStart} - ${slot.isBooked ? "BOOKED" : "AVAILABLE"}');
+        }
+        
+        print('📍 Calling setState to update availability...');
         setState(() {
           _availabilitySlots = availability;
+          print('  - Availability slots updated: ${_availabilitySlots.length} slots');
           _buildCalendarEvents();
         });
+      } else {
+        print('📍 ⚠️ Widget not mounted, skipping update');
       }
+      print('📍 === AVAILABILITY UPDATE END ===${'=' * 50}\n');
     });
     
+    print('🌐 Setting up meetings stream listener...');
     _meetingService.meetingsStream.listen((meetings) {
+      print('\n📅 === MEETINGS STREAM UPDATE ===${'=' * 50}');
+      print('📅 Timestamp: ${DateTime.now().toIso8601String()}');
+      print('📅 Mounted: $mounted');
+      print('📅 Received ${meetings.length} meetings');
+      
       if (mounted) {
-        print('DEBUG: Stream update - received ${meetings.length} meetings');
+        for (var i = 0; i < meetings.length; i++) {
+          final meeting = meetings[i];
+          print('  ${i + 1}. Meeting ${meeting.id}:');
+          print('     - Topic: "${meeting.topic}"');
+          print('     - Status: ${meeting.status}');
+          print('     - Start: ${meeting.startTime}');
+          print('     - Mentor: ${meeting.mentorId}');
+          print('     - Mentee: ${meeting.menteeId}');
+        }
+        
+        print('📅 Calling setState to update meetings...');
         setState(() {
           _meetings = meetings;
+          print('  - Meetings updated: ${_meetings.length} meetings');
           _buildCalendarEvents();
         });
+      } else {
+        print('📅 ⚠️ Widget not mounted, skipping update');
       }
+      print('📅 === MEETINGS UPDATE END ===${'=' * 50}\n');
     });
+    
+    print('🌐 === SETUP REALTIME LISTENERS END ===${'=' * 50}\n');
   }
   
   Future<void> _loadCurrentUser() async {
@@ -132,7 +184,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
             // Get the user document ID from Firestore to find their firebase_uid
             return {
               'id': mentee['id'] ?? '',
-              'firebase_uid': mentee['firebase_uid'] ?? mentee['id'] ?? '', // Use id as fallback
+              'firebase_uid': mentee['firebase_uid'] ?? '', // Don't use id as fallback here
               'name': mentee['name'] ?? 'Unknown',
               'program': mentee['program'] ?? '',
               'display': mentee['name'] ?? 'Unknown', // Just show name to avoid overflow
@@ -140,6 +192,9 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           }).toList();
           
           print('DEBUG: Loaded ${_menteesList.length} mentees for mentor');
+          for (var mentee in _menteesList) {
+            print('DEBUG: Mentee loaded - id: ${mentee['id']}, name: ${mentee['name']}, firebase_uid: ${mentee['firebase_uid']}');
+          }
         }
       });
       
@@ -157,28 +212,79 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
   }
   
   Future<void> _loadCalendarData() async {
+    print('\n📆 === LOAD CALENDAR DATA START ===${'=' * 50}');
+    print('📆 Timestamp: ${DateTime.now().toIso8601String()}');
+    
     if (_authService.currentUser == null) {
-      print('DEBUG: No authenticated user found!');
+      print('📆 ❌ No authenticated user found!');
+      print('📆 === LOAD CALENDAR DATA END (NO USER) ===${'=' * 50}\n');
       return;
     }
     
+    final userId = _authService.currentUser!.uid;
+    final userEmail = _authService.currentUser!.email;
+    
+    print('📆 Current user info:');
+    print('  - Firebase UID: $userId');
+    print('  - Email: $userEmail');
+    print('  - Display name: ${_authService.currentUser!.displayName}');
+    print('  - User data name: ${_currentUserData?['name']}');
+    print('  - User data ID: ${_currentUserData?['id']}');
+    print('  - Is Mentor: ${widget.isMentor}');
+    
     // Preserve current selections before loading
     final preservedSelections = List<DateTime>.from(_selectedAvailabilitySlots);
+    print('📆 Preserved ${preservedSelections.length} availability selections');
     
     setState(() {
       _isLoadingData = true;
     });
     
     try {
-      final userId = _authService.currentUser!.uid;
-      print('DEBUG: Loading calendar data for user: ${_currentUserData?['name']} ($userId)');
+      print('\n📆 Setting up subscriptions...');
       
       // Don't load data here as the stream will provide it
       // Just set up the subscriptions
+      print('📆 Calling subscribeToAvailability with userId: $userId');
       _meetingService.subscribeToAvailability(userId);
+      
+      print('📆 Calling subscribeToMeetings with userId: $userId, isMentor: ${widget.isMentor}');
       _meetingService.subscribeToMeetings(userId, widget.isMentor);
       
-      print('DEBUG: Subscribed to real-time updates for user: $userId');
+      print('📆 ✅ Subscriptions setup complete');
+      
+      // TEMPORARY: Direct Firestore query to verify meetings exist
+      print('\n🔍 DIRECT FIRESTORE TEST QUERY:');
+      try {
+        final testPath = 'california_merced_uc_merced/data/users';
+        print('🔍 Checking path: $testPath');
+        
+        // First find the user document
+        final userQuery = await FirebaseFirestore.instance
+            .collection(testPath)
+            .where('firebase_uid', isEqualTo: userId)
+            .get();
+        
+        if (userQuery.docs.isNotEmpty) {
+          final userDocId = userQuery.docs.first.id;
+          print('🔍 Found user doc: $userDocId');
+          
+          // Then check meetings subcollection
+          final meetingsTest = await FirebaseFirestore.instance
+              .collection('$testPath/$userDocId/meetings')
+              .get();
+          
+          print('🔍 Direct query found ${meetingsTest.docs.length} meetings');
+          for (var doc in meetingsTest.docs) {
+            final data = doc.data();
+            print('  - ${doc.id}: ${data['topic']} on ${data['start_time']}');
+          }
+        } else {
+          print('🔍 ⚠️ No user document found with firebase_uid: $userId');
+        }
+      } catch (testError) {
+        print('🔍 ❌ Test query error: $testError');
+      }
       
       setState(() {
         _isLoadingData = false;
@@ -193,10 +299,12 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
               dbSlot.slotStart == timeStr
             );
           }).toList();
+          print('📆 Restored ${_selectedAvailabilitySlots.length} unsaved selections');
         }
       });
     } catch (e) {
-      print('DEBUG: Error loading calendar data: $e');
+      print('📆 ❌ Error loading calendar data: $e');
+      print('  - Error type: ${e.runtimeType}');
       setState(() {
         _isLoadingData = false;
         // Restore selections even on error
@@ -205,58 +313,140 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         }
       });
     }
+    
+    print('📆 === LOAD CALENDAR DATA END ===${'=' * 50}\n');
   }
   
   void _buildCalendarEvents() {
+    print('\n🎯 === BUILD CALENDAR EVENTS START ===${'=' * 50}');
+    print('🎯 Timestamp: ${DateTime.now().toIso8601String()}');
+    print('🎯 Current state:');
+    print('  - Availability slots: ${_availabilitySlots.length}');
+    print('  - Meetings: ${_meetings.length}');
+    print('  - Previous calendar events: ${_calendarEvents.length} days');
+    
     _calendarEvents.clear();
-    print('DEBUG: Building calendar events...');
-    print('DEBUG: Availability slots count: ${_availabilitySlots.length}');
-    print('DEBUG: Meetings count: ${_meetings.length}');
+    print('🎯 Calendar events cleared');
+    
+    // Debug meetings in detail
+    if (_meetings.isNotEmpty) {
+      print('\n🎯 MEETINGS DETAILS:');
+      for (var i = 0; i < _meetings.length; i++) {
+        final meeting = _meetings[i];
+        print('  ${i + 1}. Meeting ${meeting.id}:');
+        print('     - Topic: "${meeting.topic}"');
+        print('     - Status: ${meeting.status}');
+        print('     - Start Time: ${meeting.startTime}');
+        print('     - End Time: ${meeting.endTime}');
+        print('     - Location: ${meeting.location}');
+        print('     - Mentor ID: ${meeting.mentorId}');
+        print('     - Mentee ID: ${meeting.menteeId}');
+        print('     - Availability ID: ${meeting.availabilityId}');
+      }
+    } else {
+      print('\n🎯 ⚠️ NO MEETINGS TO DISPLAY');
+    }
+    
+    // First, build a map of meetings by date and time for quick lookup
+    final Map<String, Meeting> meetingsByDateTime = {};
+    for (final meeting in _meetings) {
+      final startTime = DateTime.tryParse(meeting.startTime);
+      if (startTime != null) {
+        final hour = startTime.hour > 12 ? startTime.hour - 12 : (startTime.hour == 0 ? 12 : startTime.hour);
+        final period = startTime.hour >= 12 ? 'PM' : 'AM';
+        final timeStr = '${hour}:${startTime.minute.toString().padLeft(2, '0')} $period';
+        final dateKey = '${startTime.year}-${startTime.month.toString().padLeft(2, '0')}-${startTime.day.toString().padLeft(2, '0')}';
+        meetingsByDateTime['$dateKey|$timeStr'] = meeting;
+      }
+    }
     
     // Add availability events
-    for (final slot in _availabilitySlots) {
-      print('DEBUG: Processing slot with day: "${slot.day}", slotStart: "${slot.slotStart}"');
+    print('\n🎯 PROCESSING AVAILABILITY SLOTS:');
+    for (var i = 0; i < _availabilitySlots.length; i++) {
+      final slot = _availabilitySlots[i];
+      print('  ${i + 1}. Slot: day="${slot.day}", time="${slot.slotStart}", booked=${slot.isBooked}');
+      
       final date = DateTime.tryParse(slot.day);
-      print('DEBUG: Processing availability slot: ${slot.day} -> parsed date: $date');
       if (date != null) {
+        // Check if there's a meeting at this time
+        final dateKey = slot.day; // Already in YYYY-MM-DD format
+        final meetingKey = '$dateKey|${slot.slotStart}';
+        final hasConflictingMeeting = meetingsByDateTime.containsKey(meetingKey);
+        
         // Normalize date to remove time component for calendar comparison
         final normalizedDate = DateTime(date.year, date.month, date.day);
         final events = _calendarEvents[normalizedDate] ?? [];
+        
+        // Mark as booked if there's a meeting or if already booked
+        final isBooked = slot.isBooked || hasConflictingMeeting;
+        
         events.add(CalendarEvent(
-          type: slot.isBooked ? 'booked' : 'available',
+          type: isBooked ? 'booked' : 'available',
           time: slot.slotStart,
-          status: slot.isBooked ? 'Booked' : 'Available',
+          status: isBooked ? 'Booked' : 'Available',
         ));
         _calendarEvents[normalizedDate] = events;
-        print('DEBUG: Added availability event for $normalizedDate: ${slot.slotStart} (${slot.isBooked ? "Booked" : "Available"})');
+        print('     ✅ Added to $normalizedDate${hasConflictingMeeting ? " (has meeting)" : ""}');
       } else {
-        print('DEBUG: Failed to parse date: ${slot.day}');
+        print('     ❌ Failed to parse date: ${slot.day}');
       }
     }
     
     // Add meeting events
-    for (final meeting in _meetings) {
+    print('\n🎯 PROCESSING MEETINGS:');
+    for (var i = 0; i < _meetings.length; i++) {
+      final meeting = _meetings[i];
+      print('  ${i + 1}. Meeting: startTime="${meeting.startTime}"');
+      
       final startTime = DateTime.tryParse(meeting.startTime);
-      print('DEBUG: Processing meeting: ${meeting.startTime} -> parsed time: $startTime');
       if (startTime != null) {
         final date = DateTime(startTime.year, startTime.month, startTime.day);
         final events = _calendarEvents[date] ?? [];
+        
+        // Format time to match availability format (e.g., "3:00 PM")
+        final hour = startTime.hour > 12 ? startTime.hour - 12 : (startTime.hour == 0 ? 12 : startTime.hour);
+        final period = startTime.hour >= 12 ? 'PM' : 'AM';
+        final timeStr = '${hour}:${startTime.minute.toString().padLeft(2, '0')} $period';
+        
+        // Map meeting status to calendar status
+        String calendarStatus;
+        if (meeting.status == 'pending') {
+          calendarStatus = 'Pending';
+        } else if (meeting.status == 'confirmed' || meeting.status == 'accepted') {
+          calendarStatus = 'Booked';
+        } else if (meeting.status == 'cancelled') {
+          print('     ⚠️ Skipping cancelled meeting');
+          continue; // Skip cancelled meetings
+        } else {
+          calendarStatus = 'Booked'; // Default for other statuses
+        }
+        
         events.add(CalendarEvent(
           type: 'meeting',
-          time: '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-          status: meeting.status == 'pending' ? 'Pending' : 'Booked',
+          time: timeStr,
+          status: calendarStatus,
         ));
         _calendarEvents[date] = events;
-        print('DEBUG: Added meeting event for $date: ${meeting.topic} (${meeting.status})');
+        print('     ✅ Added to $date: "${meeting.topic}" at $timeStr (${calendarStatus})');
       } else {
-        print('DEBUG: Failed to parse meeting start time: ${meeting.startTime}');
+        print('     ❌ Failed to parse start time: ${meeting.startTime}');
       }
     }
     
-    print('DEBUG: Total calendar events: ${_calendarEvents.length}');
-    _calendarEvents.forEach((date, events) {
-      print('DEBUG: $date has ${events.length} events: ${events.map((e) => '${e.time}(${e.status})').join(', ')}');
-    });
+    // Final summary
+    print('\n🎯 CALENDAR EVENTS SUMMARY:');
+    print('  - Total days with events: ${_calendarEvents.length}');
+    
+    final sortedDates = _calendarEvents.keys.toList()..sort();
+    for (final date in sortedDates) {
+      final events = _calendarEvents[date]!;
+      print('  - ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}: ${events.length} events');
+      for (final event in events) {
+        print('    • ${event.time} - ${event.status} (${event.type})');
+      }
+    }
+    
+    print('🎯 === BUILD CALENDAR EVENTS END ===${'=' * 50}\n');
   }
 
   @override
@@ -342,9 +532,12 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
               constraints: BoxConstraints(
                 maxWidth: isDesktop ? 1200 : double.infinity,
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
                 children: [
+                  // Main row with calendar and meeting details
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // Calendar section
                   Expanded(
                     flex: isDesktop ? 5 : 1,
@@ -379,7 +572,21 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               focusedDay: _focusedDay,
                               calendarFormat: _calendarFormat,
                               eventLoader: (day) {
-                                return _calendarEvents[day] ?? [];
+                                // Normalize the day to midnight for consistent comparison
+                                final normalizedDay = DateTime(day.year, day.month, day.day);
+                                final events = _calendarEvents[normalizedDay] ?? [];
+                                
+                                // Only log if there are events or if it's the selected day
+                                if (events.isNotEmpty || (day.day == _selectedDay?.day && day.month == _selectedDay?.month && day.year == _selectedDay?.year)) {
+                                  print('📅 EventLoader: ${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')} -> ${events.length} events');
+                                  if (events.isNotEmpty) {
+                                    for (var event in events) {
+                                      print('   • ${event.time} - ${event.status} (${event.type})');
+                                    }
+                                  }
+                                }
+                                
+                                return events;
                               },
                               selectedDayPredicate: (day) {
                                 return isSameDay(_selectedDay, day);
@@ -428,6 +635,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               ),
                               calendarBuilders: CalendarBuilders<CalendarEvent>(
                                 markerBuilder: (context, day, events) {
+                                  print('DEBUG: markerBuilder called for $day with ${events.length} events');
                                   if (events.isEmpty) return null;
 
                                   // Create ALL dots as indigo/blue baseline since they align correctly
@@ -471,6 +679,105 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                               ),
                             ),
                             const SizedBox(height: 24),
+                            
+                            // Show events for selected day
+                            if (_selectedDay != null && _calendarEvents[_selectedDay!] != null && _calendarEvents[_selectedDay!]!.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.event, size: 20, color: Colors.grey),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Events on ${_formatDate(_selectedDay!)}',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ..._calendarEvents[_selectedDay!]!.map((event) {
+                                      Color dotColor = Colors.grey;
+                                      IconData icon = Icons.circle;
+                                      
+                                      if (event.status == 'Available') {
+                                        dotColor = Colors.lightBlue;
+                                        icon = Icons.access_time;
+                                      } else if (event.status == 'Pending') {
+                                        dotColor = Colors.blue[600]!;
+                                        icon = Icons.hourglass_empty;
+                                      } else if (event.status == 'Booked') {
+                                        dotColor = Colors.indigo;
+                                        icon = Icons.check_circle;
+                                      }
+                                      
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        child: Row(
+                                          children: [
+                                            Icon(icon, size: 16, color: dotColor),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  Text(
+                                                    event.time,
+                                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: dotColor.withOpacity(0.1),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        event.status,
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: dotColor,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (event.type == 'meeting') ...[
+                                                    const SizedBox(width: 8),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'Meeting scheduled',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.grey,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ],
+                                ),
+                              ),
+                            ],
                             
                             // Time selection
                             const Text(
@@ -1000,6 +1307,14 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                                         );
                                       }).toList(),
                                 onChanged: (value) {
+                                  print('DEBUG: Dropdown onChanged triggered');
+                                  print('DEBUG: Selected value: $value');
+                                  print('DEBUG: Value type: ${value.runtimeType}');
+                                  if (value != null) {
+                                    print('DEBUG: Value id: ${value['id']}');
+                                    print('DEBUG: Value name: ${value['name']}');
+                                    print('DEBUG: Value firebase_uid: ${value['firebase_uid']}');
+                                  }
                                   setState(() {
                                     _selectedMenteeOrMentor = value;
                                   });
@@ -1253,6 +1568,54 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                       ),
                     ),
                   ),
+                    ],
+                  ),
+                  
+                  // Daily events section below calendar
+                  if (_selectedDay != null) ...[
+                    const SizedBox(height: 24),
+                    Card(
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.today,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Schedule for ${_formatDate(_selectedDay!)}',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '${_calendarEvents[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)]?.length ?? 0} events',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            _buildDaySchedule(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1383,6 +1746,285 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     
     final now = _selectedDay ?? DateTime.now();
     return DateTime(now.year, now.month, now.day, hour, minute);
+  }
+  
+  Widget _buildDaySchedule() {
+    final normalizedDay = DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
+    final events = _calendarEvents[normalizedDay] ?? [];
+    
+    if (events.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.event_busy,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No events scheduled',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              if (widget.isMentor && !_isSettingAvailability) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Set your availability to allow mentees to book meetings',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Group events by type
+    final meetings = events.where((e) => e.type == 'meeting').toList();
+    final availableSlots = events.where((e) => e.type == 'available' || e.type == 'booked').toList();
+    
+    // Sort by time
+    meetings.sort((a, b) => _parseTime(a.time).compareTo(_parseTime(b.time)));
+    availableSlots.sort((a, b) => _parseTime(a.time).compareTo(_parseTime(b.time)));
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Meetings section
+        if (meetings.isNotEmpty) ...[
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.indigo,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Scheduled Meetings',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...meetings.map((event) => _buildEventCard(event, true)),
+          const SizedBox(height: 24),
+        ],
+        
+        // Availability slots section
+        if (availableSlots.isNotEmpty) ...[
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.lightBlue,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Availability Slots',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...availableSlots.map((event) => _buildEventCard(event, false)),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildEventCard(CalendarEvent event, bool isMeeting) {
+    Color cardColor;
+    IconData icon;
+    String subtitle = '';
+    
+    if (isMeeting) {
+      cardColor = Colors.indigo;
+      icon = Icons.videocam;
+      // Find the actual meeting details
+      final meetingTime = _parseTime(event.time);
+      final meeting = _meetings.firstWhere(
+        (m) {
+          final mTime = DateTime.tryParse(m.startTime);
+          return mTime != null && 
+                 mTime.hour == meetingTime.hour && 
+                 mTime.minute == meetingTime.minute;
+        },
+        orElse: () => Meeting(
+          id: '',
+          mentorId: '',
+          menteeId: '',
+          startTime: '',
+          topic: 'Meeting',
+          status: event.status.toLowerCase(),
+        ),
+      );
+      
+      if (meeting.topic != null) {
+        subtitle = meeting.topic!;
+      }
+      
+      // Add mentee name if available
+      if (widget.isMentor && meeting.menteeId.isNotEmpty) {
+        final mentee = _menteesList.firstWhere(
+          (m) => m['id'] == meeting.menteeId || m['firebase_uid'] == meeting.menteeId,
+          orElse: () => {'name': meeting.menteeId},
+        );
+        subtitle += '\nWith: ${mentee['name']}';
+      }
+    } else {
+      switch (event.status) {
+        case 'Available':
+          cardColor = Colors.lightBlue;
+          icon = Icons.access_time;
+          subtitle = 'Open for booking';
+          break;
+        case 'Booked':
+          cardColor = Colors.indigo;
+          icon = Icons.lock;
+          subtitle = 'Time slot booked';
+          break;
+        case 'Pending':
+          cardColor = Colors.blue[600]!;
+          icon = Icons.hourglass_empty;
+          subtitle = 'Pending approval';
+          break;
+        default:
+          cardColor = Colors.grey;
+          icon = Icons.event;
+      }
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: cardColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cardColor.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            // Handle tap - could show meeting details or allow editing
+            if (!isMeeting && event.status == 'Available' && !widget.isMentor) {
+              // Mentee can select this time
+              setState(() {
+                _selectedTime = _parseTime(event.time);
+              });
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cardColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: cardColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            event.time,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: cardColor.withOpacity(0.8),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: cardColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              event.status,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: cardColor.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (!isMeeting && event.status == 'Available' && widget.isMentor) ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    color: Colors.red,
+                    tooltip: 'Remove this slot',
+                    onPressed: () {
+                      _showRemoveAvailabilityDialog(
+                        _availabilitySlots.firstWhere(
+                          (slot) => slot.slotStart == event.time && slot.day == _formatDateForDatabase(_selectedDay!),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _selectCustomTime() async {
@@ -1755,8 +2397,12 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
                 ? 'Please select a mentee' 
                 : 'Please select a mentor'
             ),
+            backgroundColor: Colors.orange,
           ),
         );
+        setState(() {
+          _isSavingData = false;
+        });
         return;
       }
       
@@ -1810,7 +2456,29 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
         if (widget.isMentor) {
           // Mentor is scheduling - use current user as mentor and selected mentee
           mentorId = _authService.currentUser!.uid;
-          menteeId = _selectedMenteeOrMentor!['firebase_uid'] ?? _selectedMenteeOrMentor!['id'];
+          
+          // Debug logging
+          print('DEBUG: Selected mentee data: $_selectedMenteeOrMentor');
+          print('DEBUG: Mentee id field: ${_selectedMenteeOrMentor?['id']}');
+          print('DEBUG: Mentee firebase_uid field: ${_selectedMenteeOrMentor?['firebase_uid']}');
+          
+          // Use document ID as primary identifier (e.g., "Dasarathi_Narayanan")
+          menteeId = _selectedMenteeOrMentor?['id'] ?? _selectedMenteeOrMentor?['firebase_uid'] ?? '';
+          
+          if (menteeId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select a mentee to schedule a meeting'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            setState(() {
+              _isSavingData = false;
+            });
+            return;
+          }
+          
+          print('DEBUG: Final menteeId being used: $menteeId');
           
           // Find availability slot for this time
           final availabilityId = await _findAvailabilitySlot(_selectedDay!, _formatTime(_selectedTime!));
@@ -1878,6 +2546,11 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       
       // Refresh calendar data
       await _loadCalendarData();
+      
+      // Also manually trigger a rebuild of calendar events in case streams are delayed
+      setState(() {
+        _buildCalendarEvents();
+      });
     } catch (e) {
       // Show error
       ScaffoldMessenger.of(context).showSnackBar(
