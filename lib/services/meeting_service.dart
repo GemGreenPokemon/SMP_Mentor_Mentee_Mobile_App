@@ -6,7 +6,7 @@ import 'cloud_function_service.dart';
 import 'auth_service.dart';
 import '../models/availability.dart';
 import '../models/meeting.dart';
-import '../models/user.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/user.dart';
 
 class MeetingService {
   static final MeetingService _instance = MeetingService._internal();

@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import './screens/login_screen.dart';
-import './screens/web_login_screen.dart';
-import './screens/mentee_dashboard_screen.dart';
-import './screens/web_mentee_dashboard_screen.dart';
-import './screens/mentor_dashboard_screen.dart';
-import './screens/web_mentor_dashboard_screen.dart';
-import './screens/coordinator_dashboard_screen.dart';
-import './screens/web_coordinator_dashboard_screen.dart';
-import './screens/qualtrics_dashboard_screen.dart';
-import './screens/developer_home_screen.dart';
-import './screens/register_screen.dart';
-import './screens/mentee_acknowledgment_screen.dart';
-import './screens/settings_screen.dart';
-import './screens/web_settings_screen.dart';
-import './services/mentor_service.dart';
-import './services/mentee_service.dart';
-import './utils/responsive.dart';
-import './utils/test_mode_manager.dart';
-import './utils/developer_session.dart';
-import './widgets/auth_wrapper.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:smp_mentor_mentee_mobile_app/firebase_options.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/login_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_login_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/mentee/web_mentee_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentor/mentor_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/mentor/web_mentor_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/coordinator/coordinator_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/coordinator/web_coordinator_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/coordinator/qualtrics_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/developer_home_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/register_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_acknowledgment_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/settings_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/services/mentor_service.dart';
+import 'package:smp_mentor_mentee_mobile_app/services/mentee_service.dart';
+import 'package:smp_mentor_mentee_mobile_app/utils/responsive.dart';
+import 'package:smp_mentor_mentee_mobile_app/utils/test_mode_manager.dart';
+import 'package:smp_mentor_mentee_mobile_app/utils/developer_session.dart';
+import 'package:smp_mentor_mentee_mobile_app/widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +35,22 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('Firebase initialized successfully');
+    
+    // Connect to emulators if USE_EMULATOR is set
+    const useEmulator = String.fromEnvironment('USE_EMULATOR', defaultValue: 'false');
+    if (useEmulator == 'true' || kDebugMode) {
+      try {
+        // Initialize Firestore emulator
+        FirebaseFirestore.instance.useFirestoreEmulator('127.0.0.1', 8080);
+        print('🔥 Connected to Firestore emulator at 127.0.0.1:8080');
+        
+        // Initialize Auth emulator
+        FirebaseAuth.instance.useAuthEmulator('127.0.0.1', 9099);
+        print('🔐 Connected to Auth emulator at 127.0.0.1:9099');
+      } catch (e) {
+        print('⚠️ Emulator connection failed: $e');
+      }
+    }
   } catch (e) {
     print('Firebase initialization failed: $e');
   }

@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../models/user.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/user.dart';
 import 'excel_parser_service.dart';
 
 class ExcelToUserTransformationService {

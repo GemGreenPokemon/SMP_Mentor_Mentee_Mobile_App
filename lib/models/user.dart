@@ -60,7 +60,7 @@ class User {
       importBatchId: map['import_batch_id'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
       firebaseUid: map['firebase_uid'],
-      emailVerified: map['email_verified'] ?? false,
+      emailVerified: map['email_verified'] == 1 || map['email_verified'] == true,
       accountCreatedAt: map['account_created_at'] != null 
           ? DateTime.fromMillisecondsSinceEpoch(map['account_created_at']) 
           : null,
@@ -85,7 +85,7 @@ class User {
       'import_batch_id': importBatchId,
       'created_at': createdAt.millisecondsSinceEpoch,
       'firebase_uid': firebaseUid,
-      'email_verified': emailVerified,
+      'email_verified': emailVerified ? 1 : 0,
       'account_created_at': accountCreatedAt?.millisecondsSinceEpoch,
     };
   }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'local_database_service.dart';
-import '../utils/test_mode_manager.dart';
-import '../models/user.dart';
-import '../models/mentorship.dart';
-import '../models/meeting.dart';
-import '../models/announcement.dart';
-import '../models/mentee_goal.dart';
-import '../models/action_item.dart';
-import '../models/checklist.dart';
+import 'package:smp_mentor_mentee_mobile_app/utils/test_mode_manager.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/user.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/mentorship.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/meeting.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/announcement.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/mentee_goal.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/action_item.dart';
+import 'package:smp_mentor_mentee_mobile_app/models/checklist.dart';
 
 class MenteeService extends ChangeNotifier {
   final LocalDatabaseService _localDb = LocalDatabaseService.instance;

@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // Incremented version for message visibility support
+      version: 5, // Incremented version for Excel import fields
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -45,6 +45,13 @@ class DatabaseHelper {
         acknowledgment_signed TEXT CHECK(acknowledgment_signed IN ('yes', 'no', 'not_applicable')) DEFAULT 'not_applicable',
         department $textTypeNullable,
         year_major $textTypeNullable,
+        career_aspiration $textTypeNullable,
+        topics $textTypeNullable,
+        import_source $textTypeNullable,
+        import_batch_id $textTypeNullable,
+        firebase_uid $textTypeNullable,
+        email_verified INTEGER DEFAULT 0,
+        account_created_at $integerTypeNullable,
         created_at $integerType
       )
     ''');
@@ -377,6 +384,18 @@ class DatabaseHelper {
         )
       ''');
       print('Database upgraded to version 4: Added message visibility support');
+    }
+    
+    if (oldVersion < 5) {
+      // Version 5: Add Excel import fields to users table
+      await db.execute('ALTER TABLE users ADD COLUMN career_aspiration TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN topics TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN import_source TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN import_batch_id TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN firebase_uid TEXT');
+      await db.execute('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE users ADD COLUMN account_created_at INTEGER');
+      print('Database upgraded to version 5: Added Excel import and Firebase auth fields');
     }
   }
 

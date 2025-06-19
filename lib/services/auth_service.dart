@@ -9,13 +9,16 @@ class AuthService {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal() {
-    // Connect to Auth emulator in debug mode
-    if (kDebugMode) {
+    // Connect to Auth emulator when USE_EMULATOR is set or in debug mode
+    const useEmulator = String.fromEnvironment('USE_EMULATOR', defaultValue: 'false');
+    
+    if (useEmulator == 'true' || kDebugMode) {
       try {
-        _auth.useAuthEmulator('localhost', 9099);
-        print('🔐 Auth service connected to emulator');
+        _auth.useAuthEmulator('127.0.0.1', 9099);
+        print('🔐 Auth service connected to emulator at 127.0.0.1:9099');
       } catch (e) {
         // Already connected or emulator not available
+        print('⚠️ Auth emulator connection failed or already connected: $e');
       }
     }
   }
