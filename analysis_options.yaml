@@ -9,6 +9,32 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Exclude old code directories
+    - lib/screens/web/shared/old_code/**
+    - lib/screens/mobile/shared/old_code/**
+    - lib/screens/web/mentor/old_code/**
+    - lib/screens/web/mentee/old_code/**
+    - lib/screens/web/coordinator/old_code/**
+    - lib/services/old_code/**
+    - lib/models/old_code/**
+    - lib/utils/old_code/**
+    - lib/widgets/old_code/**
+    - functions/temp_disabled/**
+    # Exclude backup and original files
+    - lib/screens/web/shared/web_settings_screen_original.dart
+    - lib/screens/web/shared/web_settings_screen.dart.temp
+    - lib/screens/web/shared/web_settings_login_screen.dart
+    - lib/screens/web/shared/settings/screens/user_management_screen.dart
+    - "**/*.bak.dart"
+    - "**/*_original.dart"
+    - "**/*.temp"
+    # Exclude test files
+    - test/**
+    - debug_calendar.dart
+    - test.dart
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
