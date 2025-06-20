@@ -208,10 +208,14 @@ class DashboardDataService {
         // Fall back to empty list if error occurs
       }
 
+      // Get upcoming meetings for the mentor
+      final upcomingMeetings = await _getUpcomingMeetingsForMentor(currentUser.uid);
+
       return {
         'mentorProfile': mentorProfile,
         'mentees': menteesList,
         'announcements': announcementsList,
+        'upcomingMeetings': upcomingMeetings,
         'recentActivity': [
           {
             'text': 'New mentee assigned: ${menteesList.isNotEmpty ? menteesList.last['name'] : 'None'}',
@@ -323,6 +327,127 @@ class DashboardDataService {
     return '$hour:$minute $period';
   }
   
+  /// Get upcoming meetings for the mentor across all their mentees
+  Future<List<Map<String, dynamic>>> _getUpcomingMeetingsForMentor(String mentorFirebaseUid) async {
+    try {
+      _initializeFirestore();
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Getting upcoming meetings for mentor: $mentorFirebaseUid');
+      }
+      
+      // First, find the mentor's document ID using their Firebase UID
+      final mentorQuery = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('users')
+          .where('firebase_uid', isEqualTo: mentorFirebaseUid)
+          .limit(1)
+          .get();
+      
+      if (mentorQuery.docs.isEmpty) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: No mentor document found for Firebase UID: $mentorFirebaseUid');
+        }
+        return [];
+      }
+      
+      final mentorDocId = mentorQuery.docs.first.id;
+      final mentorData = mentorQuery.docs.first.data();
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Found mentor document ID: $mentorDocId');
+        print('🔥 Dashboard: Mentor name: ${mentorData['name']}');
+      }
+      
+      // Query meetings subcollection for this mentor
+      final now = DateTime.now();
+      final meetingsSnapshot = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('users')
+          .doc(mentorDocId)
+          .collection('meetings')
+          .where('status', whereIn: ['pending', 'accepted'])
+          .orderBy('start_time')
+          .limit(10)
+          .get();
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} meetings in subcollection');
+      }
+      
+      final upcomingMeetings = <Map<String, dynamic>>[];
+      final menteeNames = <String, String>{}; // Cache for mentee names
+      
+      for (final doc in meetingsSnapshot.docs) {
+        final data = doc.data();
+        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        
+        if (startTime != null && startTime.isAfter(now)) {
+          // Get mentee name if not cached
+          final menteeId = data['mentee_id'] ?? '';
+          String menteeName = 'Unknown Mentee';
+          
+          if (menteeId.isNotEmpty && !menteeNames.containsKey(menteeId)) {
+            // Look up mentee by document ID
+            try {
+              final menteeDoc = await _firestore!
+                  .collection(_universityPath)
+                  .doc('data')
+                  .collection('users')
+                  .doc(menteeId)
+                  .get();
+              
+              if (menteeDoc.exists) {
+                menteeName = menteeDoc.data()?['name'] ?? 'Unknown Mentee';
+                menteeNames[menteeId] = menteeName;
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('🔥 Dashboard: Error fetching mentee name for ID $menteeId: $e');
+              }
+            }
+          } else if (menteeNames.containsKey(menteeId)) {
+            menteeName = menteeNames[menteeId]!;
+          }
+          
+          upcomingMeetings.add({
+            'id': doc.id,
+            'title': data['topic'] ?? 'Meeting',
+            'menteeName': menteeName,
+            'time': '${_formatMeetingDate(startTime)} at ${_formatMeetingTime(startTime)}',
+            'location': data['location'] ?? 'TBD',
+            'color': _getMeetingColor(upcomingMeetings.length),
+            'startTime': startTime.toIso8601String(),
+            'status': data['status'] ?? 'pending',
+          });
+          
+          if (kDebugMode) {
+            print('🔥 Dashboard: Added meeting: ${data['topic']} with $menteeName at ${startTime.toIso8601String()}');
+          }
+        }
+      }
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Returning ${upcomingMeetings.length} upcoming meetings');
+      }
+      
+      return upcomingMeetings;
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔥 Dashboard: Error getting upcoming meetings for mentor: $e');
+      }
+      return [];
+    }
+  }
+  
+  /// Get color for meeting based on index
+  String _getMeetingColor(int index) {
+    final colors = ['blue', 'green', 'orange', 'purple', 'red'];
+    return colors[index % colors.length];
+  }
+
   /// Get upcoming meetings for mentee dashboard
   Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetingsForDashboard(String menteeId) async {
     try {

@@ -48,6 +48,7 @@ class DashboardOverview extends StatelessWidget {
               Expanded(
                 flex: 3,
                 child: MeetingsCarousel(
+                  meetings: dashboardData!.upcomingMeetings,
                   onViewCalendar: () => onNavigateToTab(2),
                   onCheckIn: onCheckInMeeting,
                 ),

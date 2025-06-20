@@ -157,24 +157,30 @@ class MenteeDetailsDialog extends StatelessWidget {
         ),
         const SizedBox(height: DashboardSizes.spacingSmall + 4),
         if (mentee.upcomingMeetings.isNotEmpty)
-          ...mentee.upcomingMeetings.map((meeting) => Padding(
-                padding: const EdgeInsets.only(bottom: DashboardSizes.spacingSmall),
-                child: ListTile(
-                  leading: Icon(
-                    Icons.event,
-                    color: meeting.isNext ? DashboardColors.statusGreen : Colors.blue,
+          ...mentee.upcomingMeetings.asMap().entries.map((entry) {
+                final index = entry.key;
+                final meeting = entry.value;
+                final isFirst = index == 0;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: DashboardSizes.spacingSmall),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.event,
+                      color: isFirst ? DashboardColors.statusGreen : Colors.blue,
+                    ),
+                    title: Text(meeting.title),
+                    subtitle: Text('${meeting.time} - ${meeting.location}'),
+                    trailing: isFirst
+                        ? const Chip(
+                            label: Text(DashboardStrings.next, style: TextStyle(fontSize: DashboardSizes.fontSmall)),
+                            backgroundColor: DashboardColors.statusGreen,
+                            labelPadding: EdgeInsets.symmetric(horizontal: 4),
+                          )
+                        : null,
                   ),
-                  title: Text(meeting.title),
-                  subtitle: Text('${meeting.date} at ${meeting.time} - ${meeting.location}'),
-                  trailing: meeting.isNext
-                      ? const Chip(
-                          label: Text(DashboardStrings.next, style: TextStyle(fontSize: DashboardSizes.fontSmall)),
-                          backgroundColor: DashboardColors.statusGreen,
-                          labelPadding: EdgeInsets.symmetric(horizontal: 4),
-                        )
-                      : null,
-                ),
-              ))
+                );
+              })
         else
           const Text(DashboardStrings.noUpcomingMeetings),
       ],

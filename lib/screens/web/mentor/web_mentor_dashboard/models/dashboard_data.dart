@@ -33,7 +33,9 @@ class DashboardData {
       announcements: (data['announcements'] as List<dynamic>?)
           ?.map((a) => Announcement.fromMap(a))
           .toList() ?? [],
-      upcomingMeetings: [],
+      upcomingMeetings: (data['upcomingMeetings'] as List<dynamic>?)
+          ?.map((m) => Meeting.fromMap(m))
+          .toList() ?? [],
       recentActivities: [],
     );
   }
@@ -118,27 +120,36 @@ class Goal {
 }
 
 class Meeting {
+  final String id;
   final String title;
-  final String date;
+  final String menteeName;
   final String time;
   final String location;
-  final bool isNext;
+  final String color;
+  final String? startTime;
+  final String? status;
 
   Meeting({
+    required this.id,
     required this.title,
-    required this.date,
+    required this.menteeName,
     required this.time,
     required this.location,
-    required this.isNext,
+    required this.color,
+    this.startTime,
+    this.status,
   });
 
   factory Meeting.fromMap(Map<String, dynamic> map) {
     return Meeting(
+      id: map['id'] ?? '',
       title: map['title'] ?? '',
-      date: map['date'] ?? '',
+      menteeName: map['menteeName'] ?? 'Unknown',
       time: map['time'] ?? '',
       location: map['location'] ?? '',
-      isNext: map['isNext'] ?? false,
+      color: map['color'] ?? 'blue',
+      startTime: map['startTime'],
+      status: map['status'],
     );
   }
 }
