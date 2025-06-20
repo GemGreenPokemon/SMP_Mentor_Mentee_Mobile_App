@@ -4,7 +4,7 @@ import '../services/auth_service.dart';
 import '../services/real_time_user_service.dart';
 import '../screens/web/shared/web_login_screen.dart';
 import '../screens/mobile/shared/login_screen.dart';
-import '../screens/mobile/shared/email_verification_screen.dart';
+import '../screens/web/shared/email_verification_screen.dart';
 import '../screens/web/mentee/web_mentee_dashboard_screen.dart';
 import '../screens/mobile/mentee/mentee_dashboard_screen.dart';
 import '../screens/web/mentor/web_mentor_dashboard/web_mentor_dashboard_screen.dart';
