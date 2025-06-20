@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../shared/web_chat_screen.dart';
+import '../shared/web_chat/web_chat_screen.dart';
 import '../shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../shared/web_resource_hub_screen.dart';
 import '../shared/web_settings/web_settings_screen.dart';

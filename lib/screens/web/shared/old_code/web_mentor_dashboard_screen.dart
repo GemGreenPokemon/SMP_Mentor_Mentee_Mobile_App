@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
-import 'web_chat_screen.dart';
+import '../web_chat/web_chat_screen.dart';
 import '../web_schedule_meeting/web_schedule_meeting_screen.dart';
 import 'meeting_notes_screen.dart';
 import 'web_progress_reports_screen.dart';

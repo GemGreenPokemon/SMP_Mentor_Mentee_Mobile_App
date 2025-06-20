@@ -4,7 +4,7 @@ import '../../../../services/mentor_service.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/dashboard_data_service.dart';
 import '../../../mobile/shared/checkin_checkout_screen.dart';
-import '../../shared/web_chat_screen.dart';
+import '../../shared/web_chat/web_chat_screen.dart';
 import '../../shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../../shared/web_progress_reports_screen.dart';
 import '../../shared/web_resource_hub_screen.dart';
