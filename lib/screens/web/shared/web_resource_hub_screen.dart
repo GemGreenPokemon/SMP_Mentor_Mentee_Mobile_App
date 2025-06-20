@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../services/mentor_service.dart';
-import 'web_settings_screen.dart';
+import 'web_settings/web_settings_screen.dart';
 
 class WebResourceHubScreen extends StatefulWidget {
   final bool isMentor;

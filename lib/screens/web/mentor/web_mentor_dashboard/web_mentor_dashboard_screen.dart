@@ -5,13 +5,13 @@ import '../../../../services/auth_service.dart';
 import '../../../../services/dashboard_data_service.dart';
 import '../../../mobile/shared/checkin_checkout_screen.dart';
 import '../../shared/web_chat_screen.dart';
-import '../../shared/web_schedule_meeting_screen.dart';
+import '../../shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../../shared/web_progress_reports_screen.dart';
 import '../../shared/web_resource_hub_screen.dart';
-import '../../shared/web_settings_screen.dart';
+import '../../shared/web_settings/web_settings_screen.dart';
 import '../../shared/web_checklist_screen.dart';
 import '../../shared/web_newsletter_screen.dart';
-import '../../shared/web_announcements_screen.dart';
+import '../../shared/web_announcements/web_announcements_screen.dart';
 
 // Import models and utils
 import 'models/dashboard_data.dart';

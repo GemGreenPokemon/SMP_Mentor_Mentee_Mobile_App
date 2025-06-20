@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/settings_section_wrapper.dart';
+import '../utils/settings_constants.dart';
 
 class HelpSupportSection extends StatelessWidget {
   const HelpSupportSection({super.key});
@@ -46,7 +47,7 @@ class HelpSupportSection extends StatelessWidget {
         ),
       ),
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF0F2D52)),
+        leading: Icon(icon, color: SettingsConstants.primaryColor),
         title: Text(title),
         subtitle: subtitle != null ? Text(subtitle) : null,
         trailing: const Icon(Icons.chevron_right),

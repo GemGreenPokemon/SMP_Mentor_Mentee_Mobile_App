@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import '../../../../../services/cloud_function_service.dart';
+import '../../../../../../../services/cloud_function_service.dart';
+import '../../models/campus_data.dart';
+import '../../utils/campus_helpers.dart';
+import '../../utils/settings_constants.dart';
 
 class CloudFunctionInitializerDialog extends StatefulWidget {
   final String initialState;
@@ -41,48 +44,11 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
   }
 
   void _updateCampusSelection(String city) {
-    switch (city) {
-      case 'Merced':
-        _selectedCampus = 'UC_Merced';
-        break;
-      case 'Fresno':
-        _selectedCampus = 'Fresno_State';
-        break;
-      case 'Berkeley':
-        _selectedCampus = 'UC_Berkeley';
-        break;
-      case 'Los Angeles':
-        _selectedCampus = 'UCLA';
-        break;
-    }
+    _selectedCampus = CampusHelpers.updateCampusSelection(city);
   }
 
   List<Map<String, String>> _getCampusOptions(String city) {
-    switch (city) {
-      case 'Merced':
-        return [
-          {'value': 'UC_Merced', 'display': 'UC Merced', 'name': 'University of California, Merced'},
-          {'value': 'Merced_College', 'display': 'Merced College', 'name': 'Merced College'},
-        ];
-      case 'Fresno':
-        return [
-          {'value': 'Fresno_State', 'display': 'Fresno State', 'name': 'California State University, Fresno'},
-          {'value': 'Fresno_City_College', 'display': 'Fresno City College', 'name': 'Fresno City College'},
-        ];
-      case 'Berkeley':
-        return [
-          {'value': 'UC_Berkeley', 'display': 'UC Berkeley', 'name': 'University of California, Berkeley'},
-          {'value': 'Berkeley_City_College', 'display': 'Berkeley City College', 'name': 'Berkeley City College'},
-        ];
-      case 'Los Angeles':
-        return [
-          {'value': 'UCLA', 'display': 'UCLA', 'name': 'University of California, Los Angeles'},
-          {'value': 'USC', 'display': 'USC', 'name': 'University of Southern California'},
-          {'value': 'LA_City_College', 'display': 'LA City College', 'name': 'Los Angeles City College'},
-        ];
-      default:
-        return [];
-    }
+    return CampusHelpers.getCampusOptions(city);
   }
 
   @override
@@ -93,7 +59,7 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
       ),
       title: const Row(
         children: [
-          Icon(Icons.cloud, color: Color(0xFF0F2D52)),
+          Icon(Icons.cloud, color: SettingsConstants.primaryColor),
           SizedBox(width: 8),
           Text('Initialize with Cloud Function'),
         ],
@@ -118,7 +84,7 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
               _buildDropdownSection(
                 'State',
                 _selectedState,
-                ['California'].map((state) => DropdownMenuItem(
+                CampusData.getStates().map((state) => DropdownMenuItem(
                   value: state,
                   child: Text(state),
                 )).toList(),
@@ -135,7 +101,7 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
               _buildDropdownSection(
                 'City',
                 _selectedCity,
-                ['Merced', 'Fresno', 'Berkeley', 'Los Angeles'].map((city) => DropdownMenuItem(
+                CampusData.getCitiesForState(_selectedState).map((city) => DropdownMenuItem(
                   value: city,
                   child: Text(city),
                 )).toList(),
@@ -181,7 +147,7 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
                       'Database Structure Preview:',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F2D52),
+                        color: SettingsConstants.primaryColor,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -371,7 +337,7 @@ class _CloudFunctionInitializerDialogState extends State<CloudFunctionInitialize
         ElevatedButton(
           onPressed: _isInitializing ? null : () => _initializeViaCloudFunction(),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F2D52),
+            backgroundColor: SettingsConstants.primaryColor,
             foregroundColor: Colors.white,
           ),
           child: _isInitializing

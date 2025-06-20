@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../../services/cloud_function_service.dart';
-import '../../../../../services/auth_service.dart';
+import '../../../../../../../services/cloud_function_service.dart';
+import '../../../../../../../services/auth_service.dart';
 
 class SyncClaimsDialog extends StatefulWidget {
   const SyncClaimsDialog({super.key});

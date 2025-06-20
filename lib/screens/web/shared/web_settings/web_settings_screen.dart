@@ -18,9 +18,10 @@ import 'sections/database_admin_section.dart';
 import 'sections/help_support_section.dart';
 import 'sections/developer_tools_section.dart';
 import 'widgets/auth_overlay.dart';
-import 'dialogs/database_initialization_choice_dialog.dart';
-import 'dialogs/firestore_initializer_dialog.dart';
-import 'dialogs/cloud_function_initializer_dialog.dart';
+import 'widgets/dialogs/database_initialization_choice_dialog.dart';
+import 'widgets/dialogs/firestore_initializer_dialog.dart';
+import 'widgets/dialogs/cloud_function_initializer_dialog.dart';
+import 'utils/settings_constants.dart';
 
 class WebSettingsScreen extends StatefulWidget {
   final bool isMentor;
@@ -93,7 +94,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
           backgroundColor: Colors.grey[50],
           appBar: AppBar(
             title: const Text('Settings'),
-            backgroundColor: const Color(0xFF0F2D52),
+            backgroundColor: SettingsConstants.primaryColor,
             foregroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
@@ -257,7 +258,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
           children: [
             ListTile(
               title: const Text('English'),
-              trailing: _language == 'English' ? const Icon(Icons.check, color: Color(0xFF0F2D52)) : null,
+              trailing: _language == 'English' ? Icon(Icons.check, color: SettingsConstants.primaryColor) : null,
               onTap: () {
                 setState(() {
                   _language = 'English';
@@ -269,7 +270,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
             ),
             ListTile(
               title: const Text('Spanish'),
-              trailing: _language == 'Spanish' ? const Icon(Icons.check, color: Color(0xFF0F2D52)) : null,
+              trailing: _language == 'Spanish' ? Icon(Icons.check, color: SettingsConstants.primaryColor) : null,
               onTap: () {
                 setState(() {
                   _language = 'Spanish';
@@ -281,7 +282,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
             ),
             ListTile(
               title: const Text('French'),
-              trailing: _language == 'French' ? const Icon(Icons.check, color: Color(0xFF0F2D52)) : null,
+              trailing: _language == 'French' ? Icon(Icons.check, color: SettingsConstants.primaryColor) : null,
               onTap: () {
                 setState(() {
                   _language = 'French';
@@ -311,7 +312,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
             ListTile(
               title: const Text('Default Downloads Folder'),
               trailing: _downloadLocation == 'Default Downloads Folder'
-                  ? const Icon(Icons.check, color: Color(0xFF0F2D52))
+                  ? Icon(Icons.check, color: SettingsConstants.primaryColor)
                   : null,
               onTap: () {
                 setState(() {
@@ -325,7 +326,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
             ListTile(
               title: const Text('Documents Folder'),
               trailing: _downloadLocation == 'Documents Folder'
-                  ? const Icon(Icons.check, color: Color(0xFF0F2D52))
+                  ? Icon(Icons.check, color: SettingsConstants.primaryColor)
                   : null,
               onTap: () {
                 setState(() {
@@ -385,7 +386,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F2D52),
+              backgroundColor: SettingsConstants.primaryColor,
               foregroundColor: Colors.white,
             ),
             child: const Text('Clear Cache'),

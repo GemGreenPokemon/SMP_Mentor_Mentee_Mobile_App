@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../../../services/auth_service.dart';
-import '../../../services/cloud_function_service.dart';
-import '../../../services/real_time_user_service.dart' as rts;
-import '../../../models/user.dart';
-import '../../../utils/responsive.dart';
-import '../widgets/auth_overlay.dart';
+import '../../../../../services/auth_service.dart';
+import '../../../../../services/cloud_function_service.dart';
+import '../../../../../services/real_time_user_service.dart' as rts;
+import '../../../../../models/user.dart';
+import '../../../../../utils/responsive.dart';
+import 'auth_overlay.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});

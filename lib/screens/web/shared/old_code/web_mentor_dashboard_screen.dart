@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
 import 'web_chat_screen.dart';
-import 'web_schedule_meeting_screen.dart';
+import '../web_schedule_meeting/web_schedule_meeting_screen.dart';
 import 'meeting_notes_screen.dart';
 import 'web_progress_reports_screen.dart';
 import 'web_resource_hub_screen.dart';
-import 'web_settings_screen.dart';
+import '../web_settings/web_settings_screen.dart';
 import 'web_checklist_screen.dart';
 import '../services/mentor_service.dart';
 import '../services/auth_service.dart';
 import '../services/dashboard_data_service.dart';
 import 'checkin_checkout_screen.dart';
 import 'web_newsletter_screen.dart';
-import 'web_announcements_screen.dart';
+import '../web_announcements/web_announcements_screen.dart';
 import '../utils/responsive.dart';
 
 class WebMentorDashboardScreen extends StatefulWidget {

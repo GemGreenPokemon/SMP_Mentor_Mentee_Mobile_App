@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../services/auth_service.dart';
-import 'web_settings_screen.dart';
+import 'settings/web_settings_screen.dart';
 
 class WebSettingsLoginScreen extends StatefulWidget {
   final Function(bool success)? onLoginComplete;

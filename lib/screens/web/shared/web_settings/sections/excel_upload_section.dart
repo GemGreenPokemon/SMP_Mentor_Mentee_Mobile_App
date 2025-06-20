@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../widgets/settings_section_wrapper.dart';
+import '../utils/settings_constants.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/excel_parser_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/excel_to_user_transformation_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/cloud_function_service.dart';
@@ -136,7 +137,7 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
                         : const Icon(Icons.upload_file),
                     label: Text(_isLoading ? 'Processing...' : 'Upload Excel'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F2D52),
+                      backgroundColor: SettingsConstants.primaryColor,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -264,7 +265,7 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0F2D52), width: 2),
+          borderSide: BorderSide(color: SettingsConstants.primaryColor, width: 2),
         ),
       ),
       onSubmitted: (value) {
@@ -297,7 +298,7 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
             children: [
               Icon(
                 _selectedPerson!['type'] == 'Mentor' ? Icons.school : Icons.person,
-                color: const Color(0xFF0F2D52),
+                color: SettingsConstants.primaryColor,
               ),
               const SizedBox(width: 8),
               Text(
@@ -305,7 +306,7 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F2D52),
+                  color: SettingsConstants.primaryColor,
                 ),
               ),
               const SizedBox(width: 8),
@@ -919,7 +920,7 @@ class _ExcelUploadSectionState extends State<ExcelUploadSection> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F2D52),
+              backgroundColor: SettingsConstants.primaryColor,
               foregroundColor: Colors.white,
             ),
             child: const Text('Close'),

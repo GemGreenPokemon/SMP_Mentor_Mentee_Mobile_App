@@ -6,7 +6,7 @@ import '../../utils/dashboard_helpers.dart';
 import '../dialogs/mentee_details_dialog.dart';
 import '../dialogs/remove_mentee_confirmation.dart';
 import '../../../../../../../../../screens/web/shared/web_chat_screen.dart';
-import '../../../../../../../../../screens/web/shared/web_schedule_meeting_screen.dart';
+import '../../../../../../../../../screens/web/shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../../../../../../../../../services/mentor_service.dart';
 
 class MenteeGridCard extends StatelessWidget {

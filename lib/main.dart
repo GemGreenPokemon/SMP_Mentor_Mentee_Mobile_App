@@ -18,7 +18,7 @@ import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/developer_hom
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/register_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_acknowledgment_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/settings_screen.dart';
-import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings/web_settings_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentor_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentee_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/utils/responsive.dart';

@@ -4,7 +4,7 @@ import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/chat_screen.d
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/schedule_meeting_screen.dart';
 import '../../mobile/shared/progress_reports_screen.dart';
 import '../shared/web_resource_hub_screen.dart';
-import '../shared/web_settings_screen.dart';
+import '../shared/web_settings/web_settings_screen.dart';
 import '../../mobile/shared/announcement_screen.dart';
 import '../shared/web_newsletter_screen.dart';
 import '../../../services/mentor_service.dart';

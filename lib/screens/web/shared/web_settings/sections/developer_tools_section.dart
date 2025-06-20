@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/settings_section_wrapper.dart';
 import '../../../../mobile/shared/local_db_manager_screen.dart';
 import '../../../../mobile/shared/firestore_manager_screen.dart';
-import '../dialogs/sync_claims_dialog.dart';
+import '../widgets/dialogs/sync_claims_dialog.dart';
 
 class DeveloperToolsSection extends StatelessWidget {
   const DeveloperToolsSection({super.key});

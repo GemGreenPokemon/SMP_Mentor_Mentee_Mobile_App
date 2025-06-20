@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../services/direct_database_service.dart';
+import '../../../../../../../services/direct_database_service.dart';
 
 class FirestoreInitializerDialog extends StatefulWidget {
   final String initialState;

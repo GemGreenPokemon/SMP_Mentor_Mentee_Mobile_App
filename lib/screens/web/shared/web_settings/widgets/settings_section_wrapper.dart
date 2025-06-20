@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/settings_constants.dart';
 
 class SettingsSectionWrapper extends StatelessWidget {
   final String title;
@@ -33,14 +34,14 @@ class SettingsSectionWrapper extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: const Color(0xFF0F2D52)),
+                Icon(icon, size: 20, color: SettingsConstants.primaryColor),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F2D52),
+                    color: SettingsConstants.primaryColor,
                   ),
                 ),
               ],
