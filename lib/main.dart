@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smp_mentor_mentee_mobile_app/firebase_options.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/login_screen.dart';
-import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_login_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_login/web_login_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/web/mentee/web_mentee_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentor/mentor_dashboard_screen.dart';

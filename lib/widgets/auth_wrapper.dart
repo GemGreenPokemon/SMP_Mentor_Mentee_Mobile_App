@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/real_time_user_service.dart';
-import '../screens/web/shared/web_login_screen.dart';
+import '../screens/web/shared/web_login/web_login_screen.dart';
 import '../screens/mobile/shared/login_screen.dart';
 import '../screens/web/shared/web_email_verification/web_email_verification_screen.dart';
 import '../screens/web/mentee/web_mentee_dashboard_screen.dart';
