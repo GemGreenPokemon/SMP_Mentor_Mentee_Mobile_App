@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'web_register/web_register_screen.dart';
-import 'email_verification_screen.dart';
+import 'web_email_verification/web_email_verification_screen.dart';
 import '../../../utils/responsive.dart';
 import '../../../services/auth_service.dart';
 import 'dart:math' as math;

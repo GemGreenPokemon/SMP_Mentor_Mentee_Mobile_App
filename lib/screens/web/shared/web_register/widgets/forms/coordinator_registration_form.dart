@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../../../services/auth_service.dart';
 import '../../../../../../utils/responsive.dart';
-import '../../../email_verification_screen.dart';
+import '../../../web_email_verification/web_email_verification_screen.dart';
 import '../../models/registration_data.dart';
 import '../../utils/registration_constants.dart';
 import '../../utils/registration_validators.dart';
