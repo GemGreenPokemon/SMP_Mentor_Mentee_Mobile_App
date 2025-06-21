@@ -10,7 +10,7 @@ import '../../shared/web_progress_reports_screen.dart';
 import '../../shared/web_resource_hub_screen.dart';
 import '../../shared/web_settings/web_settings_screen.dart';
 import '../../shared/web_checklist/web_checklist_screen.dart';
-import '../../shared/web_newsletter_screen.dart';
+import '../../shared/web_newsletter/web_newsletter_screen.dart';
 import '../../shared/web_announcements/web_announcements_screen.dart';
 
 // Import models and utils

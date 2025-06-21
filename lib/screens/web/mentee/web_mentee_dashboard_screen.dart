@@ -6,7 +6,7 @@ import '../shared/web_settings/web_settings_screen.dart';
 import 'web_mentee_checklist_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/checkin_checkout_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/meeting_notes_screen.dart';
-import '../shared/web_newsletter_screen.dart';
+import '../shared/web_newsletter/web_newsletter_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/announcement_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentor_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentee_service.dart';

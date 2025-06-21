@@ -12,7 +12,7 @@ import '../services/mentor_service.dart';
 import '../services/auth_service.dart';
 import '../services/dashboard_data_service.dart';
 import 'checkin_checkout_screen.dart';
-import 'web_newsletter_screen.dart';
+import '../web_newsletter/web_newsletter_screen.dart';
 import '../web_announcements/web_announcements_screen.dart';
 import '../utils/responsive.dart';
 
