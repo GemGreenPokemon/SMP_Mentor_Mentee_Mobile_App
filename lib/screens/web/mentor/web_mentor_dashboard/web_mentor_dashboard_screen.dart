@@ -25,6 +25,11 @@ import 'widgets/mentees_page/mentees_content.dart';
 import 'widgets/shared/loading_state.dart';
 import 'widgets/shared/error_state.dart';
 
+// Import refresh functionality
+import 'controllers/dashboard_refresh_controller.dart';
+import '../../shared/web_refresh/widgets/refreshable_container.dart';
+import '../../shared/web_refresh/controllers/auto_refresh_mixin.dart';
+
 class WebMentorDashboardScreen extends StatefulWidget {
   const WebMentorDashboardScreen({super.key});
 
@@ -33,12 +38,9 @@ class WebMentorDashboardScreen extends StatefulWidget {
 }
 
 class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen> 
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutoRefreshMixin {
   int _selectedIndex = 0;
-  final DashboardDataService _dataService = DashboardDataService();
-  DashboardData? _dashboardData;
-  bool _isLoading = true;
-  String? _error;
+  late DashboardRefreshController _refreshController;
   
   late AnimationController _sidebarAnimationController;
   late Animation<double> _sidebarAnimation;
@@ -46,7 +48,11 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    
+    // Initialize refresh controller
+    _refreshController = DashboardRefreshController();
+    setupAutoRefresh(_refreshController);
+    _refreshController.initialLoad();
     
     // Initialize animations
     _sidebarAnimationController = AnimationController(
@@ -64,35 +70,11 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
   
   @override
   void dispose() {
+    _refreshController.dispose();
     _sidebarAnimationController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      if (mounted) {
-        setState(() {
-          _isLoading = true;
-          _error = null;
-        });
-      }
-      
-      final data = await _dataService.getMentorDashboardData();
-      if (mounted) {
-        setState(() {
-          _dashboardData = DashboardData.fromMap(data);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   void _navigateToTab(int index) {
     setState(() {
@@ -117,8 +99,9 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
   }
 
   void _navigateToMenteeChat() {
-    if (_dashboardData != null && _dashboardData!.mentees.isNotEmpty) {
-      final mentee = _dashboardData!.mentees.first;
+    final data = _refreshController.data;
+    if (data != null && data.mentees.isNotEmpty) {
+      final mentee = data.mentees.first;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -151,15 +134,18 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
     
     return Scaffold(
       backgroundColor: DashboardColors.backgroundMain,
-      body: Row(
-        children: [
-          // Premium Sidebar
-          DashboardSidebar(
-            animation: _sidebarAnimation,
-            selectedIndex: _selectedIndex,
-            onItemSelected: _navigateToTab,
-            mentorProfile: _dashboardData?.mentorProfile,
-          ),
+      body: ListenableBuilder(
+        listenable: _refreshController,
+        builder: (context, _) {
+          return Row(
+            children: [
+              // Premium Sidebar
+              DashboardSidebar(
+                animation: _sidebarAnimation,
+                selectedIndex: _selectedIndex,
+                onItemSelected: _navigateToTab,
+                mentorProfile: _refreshController.data?.mentorProfile,
+              ),
           
           // Main content area
           Expanded(
@@ -170,6 +156,9 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
                   selectedIndex: _selectedIndex,
                   onSearch: _handleSearch,
                   onContactCoordinator: _contactCoordinator,
+                  onRefresh: () => _refreshController.refresh(),
+                  isRefreshing: _refreshController.state.isRefreshing,
+                  lastRefresh: _refreshController.state.lastRefresh,
                 ),
                 
                 // Main content based on selected sidebar item
@@ -180,34 +169,31 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
             ),
           ),
         ],
+      );
+        },
       ),
     );
   }
 
   Widget _buildContent(BuildContext context, MentorService mentorService) {
-    if (_isLoading) {
-      return const LoadingState();
-    }
-
-    if (_error != null) {
-      return ErrorState(
-        error: _error!,
-        onRetry: _loadDashboardData,
-      );
-    }
-
     switch (_selectedIndex) {
       case 0: // Dashboard
-        return DashboardOverview(
-          dashboardData: _dashboardData,
-          onNavigateToTab: _navigateToTab,
-          onMessageMentee: _navigateToMenteeChat,
-          onCheckInMeeting: _navigateToCheckIn,
+        return RefreshableContainer(
+          controller: _refreshController,
+          builder: (context, data) => DashboardOverview(
+            dashboardData: data,
+            onNavigateToTab: _navigateToTab,
+            onMessageMentee: _navigateToMenteeChat,
+            onCheckInMeeting: _navigateToCheckIn,
+          ),
         );
       
       case 1: // Mentees
-        return MenteesContent(
-          dashboardData: _dashboardData,
+        return RefreshableContainer(
+          controller: _refreshController,
+          builder: (context, data) => MenteesContent(
+            dashboardData: data,
+          ),
         );
       
       case 2: // Schedule

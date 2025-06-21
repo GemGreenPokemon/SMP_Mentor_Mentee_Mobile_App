@@ -8,12 +8,18 @@ class DashboardTopbar extends StatelessWidget {
   final int selectedIndex;
   final VoidCallback onSearch;
   final VoidCallback onContactCoordinator;
+  final VoidCallback? onRefresh;
+  final bool isRefreshing;
+  final DateTime? lastRefresh;
 
   const DashboardTopbar({
     super.key,
     required this.selectedIndex,
     required this.onSearch,
     required this.onContactCoordinator,
+    this.onRefresh,
+    this.isRefreshing = false,
+    this.lastRefresh,
   });
 
   @override
@@ -80,6 +86,29 @@ class DashboardTopbar extends StatelessWidget {
                   onPressed: onSearch,
                 ),
                 const SizedBox(width: 4),
+                if (onRefresh != null) ...[
+                  if (isRefreshing)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            DashboardColors.primaryDark,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    TopbarActionButton(
+                      icon: Icons.refresh,
+                      tooltip: 'Refresh Dashboard',
+                      onPressed: onRefresh!,
+                    ),
+                  const SizedBox(width: 4),
+                ],
                 TopbarActionButton(
                   icon: Icons.support_agent,
                   tooltip: DashboardStrings.coordinator,
