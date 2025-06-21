@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../shared/web_chat/web_chat_screen.dart';
 import '../shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
-import '../shared/web_resource_hub_screen.dart';
+import '../shared/web_resource_hub/web_resource_hub_screen.dart';
 import '../shared/web_settings/web_settings_screen.dart';
 import 'web_mentee_checklist_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/checkin_checkout_screen.dart';
