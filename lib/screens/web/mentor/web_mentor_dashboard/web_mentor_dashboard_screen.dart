@@ -5,6 +5,7 @@ import '../../../../services/auth_service.dart';
 import '../../../../services/dashboard_data_service.dart';
 import '../../../mobile/shared/checkin_checkout_screen.dart';
 import '../../shared/web_chat/web_chat_screen.dart';
+import '../../shared/web_messaging/web_messaging_screen.dart';
 import '../../shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../../shared/web_progress_reports/web_progress_reports_screen.dart';
 import '../../shared/web_resource_hub/web_resource_hub_screen.dart';
@@ -223,37 +224,42 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
           ),
         );
       
-      case 2: // Schedule
+      case 2: // Messages
+        return const Scaffold(
+          body: WebMessagingScreen(),
+        );
+      
+      case 3: // Schedule
         return const Scaffold(
           body: WebScheduleMeetingScreen(isMentor: true),
         );
       
-      case 3: // Reports
+      case 4: // Reports
         return const Scaffold(
           body: WebProgressReportsScreen(),
         );
       
-      case 4: // Resources
+      case 5: // Resources
         return const Scaffold(
           body: WebResourceHubScreen(isMentor: true),
         );
       
-      case 5: // Checklist
+      case 6: // Checklist
         return const Scaffold(
           body: WebChecklistScreen(isMentor: true),
         );
       
-      case 6: // Newsletters
+      case 7: // Newsletters
         return const Scaffold(
           body: WebNewsletterScreen(isMentor: true),
         );
       
-      case 7: // Announcements
+      case 8: // Announcements
         return const Scaffold(
           body: WebAnnouncementsScreen(),
         );
       
-      case 8: // Settings
+      case 9: // Settings
         return const Scaffold(
           body: WebSettingsScreen(isMentor: true),
         );

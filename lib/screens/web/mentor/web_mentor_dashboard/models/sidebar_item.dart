@@ -16,6 +16,7 @@ class SidebarItems {
   static const List<String> titles = [
     'Dashboard',
     'Mentees',
+    'Messages',
     'Schedule',
     'Reports',
     'Resources',
@@ -28,6 +29,7 @@ class SidebarItems {
   static const List<IconData> icons = [
     Icons.dashboard,
     Icons.people,
+    Icons.chat,
     Icons.event_note,
     Icons.assessment,
     Icons.folder_open,
@@ -52,6 +54,7 @@ class SidebarItems {
     final descriptions = [
       'Overview of your mentorship activities',
       'Manage and connect with your mentees',
+      'Send and receive messages',
       'Schedule and manage meetings',
       'Track progress and submit reports',
       'Access helpful resources and materials',
