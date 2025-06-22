@@ -156,9 +156,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
                   selectedIndex: _selectedIndex,
                   onSearch: _handleSearch,
                   onContactCoordinator: _contactCoordinator,
-                  onRefresh: () => _refreshController.refresh(),
-                  isRefreshing: _refreshController.state.isRefreshing,
-                  lastRefresh: _refreshController.state.lastRefresh,
+                  refreshController: _selectedIndex == 0 ? _refreshController : null,
                 ),
                 
                 // Main content based on selected sidebar item

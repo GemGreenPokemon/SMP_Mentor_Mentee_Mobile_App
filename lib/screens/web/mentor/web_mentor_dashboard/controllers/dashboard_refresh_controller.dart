@@ -18,7 +18,7 @@ class DashboardRefreshController extends RefreshController<DashboardData> {
            enablePullToRefresh: true,
            enableAutoRefresh: true,
            refreshOnFocus: true,
-           showLastUpdated: true,
+           showLastUpdated: false,
            showRefreshIndicator: true,
          ),
        );

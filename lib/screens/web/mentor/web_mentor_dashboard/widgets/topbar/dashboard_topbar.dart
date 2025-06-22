@@ -5,23 +5,21 @@ import '../../models/sidebar_item.dart';
 import '../../utils/dashboard_constants.dart';
 import '../dialogs/notifications_panel.dart';
 import 'topbar_action_button.dart';
+import '../../../../shared/web_refresh/widgets/last_updated_indicator.dart';
+import '../../../../shared/web_refresh/controllers/refresh_controller.dart';
 
 class DashboardTopbar extends StatefulWidget {
   final int selectedIndex;
   final VoidCallback onSearch;
   final VoidCallback onContactCoordinator;
-  final VoidCallback? onRefresh;
-  final bool isRefreshing;
-  final DateTime? lastRefresh;
+  final RefreshController? refreshController;
 
   const DashboardTopbar({
     super.key,
     required this.selectedIndex,
     required this.onSearch,
     required this.onContactCoordinator,
-    this.onRefresh,
-    this.isRefreshing = false,
-    this.lastRefresh,
+    this.refreshController,
   });
 
   @override
@@ -144,6 +142,27 @@ class _DashboardTopbarState extends State<DashboardTopbar>
                           duration: const Duration(milliseconds: 400),
                         ),
                     ),
+                    if (widget.refreshController != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: ListenableBuilder(
+                          listenable: widget.refreshController!,
+                          builder: (context, _) {
+                            final state = widget.refreshController!.state;
+                            if (state.lastRefresh != null) {
+                              return LastUpdatedIndicator(
+                                lastRefresh: state.lastRefresh!,
+                                onRefresh: widget.refreshController!.refresh,
+                              ).animate()
+                                .fadeIn(
+                                  delay: const Duration(milliseconds: 400),
+                                  duration: const Duration(milliseconds: 400),
+                                );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -182,39 +201,6 @@ class _DashboardTopbarState extends State<DashboardTopbar>
                         curve: DashboardCurves.bounceCurve,
                       ),
                     const SizedBox(width: 8),
-                    if (widget.onRefresh != null) ...[
-                      if (widget.isRefreshing)
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                DashboardColors.accentBlue,
-                              ),
-                            ),
-                          ),
-                        ).animate(
-                          onPlay: (controller) => controller.repeat(),
-                        ).rotate(
-                          duration: const Duration(seconds: 1),
-                          curve: Curves.linear,
-                        )
-                      else
-                        TopbarActionButton(
-                          icon: Icons.refresh,
-                          tooltip: 'Refresh Dashboard',
-                          onPressed: widget.onRefresh!,
-                        ).animate()
-                          .scale(
-                            delay: const Duration(milliseconds: 400),
-                            duration: const Duration(milliseconds: 400),
-                            curve: DashboardCurves.bounceCurve,
-                          ),
-                      const SizedBox(width: 8),
-                    ],
                     TopbarActionButton(
                       icon: Icons.support_agent,
                       tooltip: DashboardStrings.coordinator,
