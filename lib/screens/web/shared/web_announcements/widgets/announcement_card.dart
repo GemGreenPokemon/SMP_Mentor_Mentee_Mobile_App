@@ -143,30 +143,25 @@ class AnnouncementCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              FutureBuilder<bool>(
-                                future: announcementService.canEditAnnouncement(announcement['created_by'] ?? ''),
-                                builder: (context, snapshot) {
-                                  if (snapshot.data == true) {
-                                    return Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, size: 18),
-                                          color: Colors.grey[600],
-                                          onPressed: onEdit,
-                                          tooltip: 'Edit',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, size: 18),
-                                          color: Colors.red[400],
-                                          onPressed: onDelete,
-                                          tooltip: 'Delete',
-                                        ),
-                                      ],
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
+                              if (announcement['canEdit'] == true)
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      color: Colors.grey[600],
+                                      onPressed: onEdit,
+                                      tooltip: 'Edit',
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, size: 18),
+                                      color: Colors.red[400],
+                                      onPressed: onDelete,
+                                      tooltip: 'Delete',
+                                    ),
+                                  ],
+                                )
+                              else
+                                const SizedBox.shrink(),
                             ],
                           ),
                         ],

@@ -3,16 +3,19 @@
 // Models
 export 'models/refresh_config.dart';
 export 'models/refresh_state.dart';
+export 'models/refresh_strategy.dart';
 
 // Controllers
 export 'controllers/refresh_controller.dart';
 export 'controllers/auto_refresh_mixin.dart';
+export 'controllers/background_refresh_manager.dart';
 
 // Widgets
 export 'widgets/refreshable_container.dart';
 export 'widgets/pull_to_refresh_web.dart';
 export 'widgets/web_refresh_wrapper.dart';
 export 'widgets/last_updated_indicator.dart';
+export 'widgets/refresh_aware_navigator.dart';
 
 // Utils
 export 'utils/refresh_helpers.dart';

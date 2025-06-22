@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'cloud_function_service.dart';
 import 'auth_service.dart';
+import 'tab_visibility_manager/tab_visibility_manager.dart';
 
 class AnnouncementService extends ChangeNotifier {
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
   final AuthService _authService = AuthService();
+  final TabVisibilityManager _tabVisibilityManager = TabVisibilityManager();
   
   // Loading states
   bool _isLoading = false;
@@ -14,10 +17,47 @@ class AnnouncementService extends ChangeNotifier {
   List<Map<String, dynamic>> _announcements = [];
   DateTime? _lastFetchTime;
   
+  // Tab visibility tracking
+  bool _isInitialized = false;
+  
   // Getters
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<Map<String, dynamic>> get announcements => List.from(_announcements);
+  
+  /// Initialize the announcement service with tab visibility management
+  Future<void> initialize() async {
+    if (_isInitialized || !kIsWeb) return;
+    
+    try {
+      await _tabVisibilityManager.initialize();
+      
+      // Listen for leadership changes
+      _tabVisibilityManager.onLeadershipChange('announcement_service', (isLeader) {
+        debugPrint('AnnouncementService: Leadership changed to $isLeader');
+        if (isLeader && _lastFetchTime == null) {
+          // Became leader and no data yet, fetch announcements
+          fetchAnnouncements();
+        }
+      });
+      
+      // Listen for data updates from other tabs
+      _tabVisibilityManager.onDataUpdate('announcement_service', (data) {
+        if (data['type'] == 'announcements_update') {
+          _handleAnnouncementsUpdate(data['announcements']);
+        }
+      });
+      
+      // Listen for visibility changes
+      _tabVisibilityManager.onVisibilityChange('announcement_service', (isVisible) {
+        debugPrint('AnnouncementService: Visibility changed to $isVisible');
+      });
+      
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing AnnouncementService: $e');
+    }
+  }
   
   /// Get announcements for current user
   Future<void> fetchAnnouncements({bool forceRefresh = false}) async {
@@ -26,6 +66,18 @@ class AnnouncementService extends ChangeNotifier {
       if (!forceRefresh && 
           _lastFetchTime != null && 
           DateTime.now().difference(_lastFetchTime!).inMinutes < 5) {
+        return;
+      }
+      
+      // Check if we should make the API call (only if leader and visible on web)
+      if (kIsWeb && _isInitialized && !_tabVisibilityManager.shouldMakeApiCall()) {
+        debugPrint('AnnouncementService: Not making API call - not leader or not visible');
+        
+        // Try to get cached data from other tabs
+        final cachedData = _tabVisibilityManager.getSharedData('announcements');
+        if (cachedData != null && cachedData['announcements'] != null) {
+          _handleAnnouncementsUpdate(cachedData['announcements']);
+        }
         return;
       }
       
@@ -45,9 +97,21 @@ class AnnouncementService extends ChangeNotifier {
       );
       
       if (result['success'] == true && result['data'] != null) {
+        // Get user info ONCE at the beginning
+        final currentUserId = _authService.currentUser?.uid;
+        
         final List<dynamic> rawAnnouncements = result['data'];
         _announcements = rawAnnouncements.map((announcement) {
           final Map<String, dynamic> announcementMap = Map<String, dynamic>.from(announcement);
+          
+          // Pre-calculate edit permission for this announcement
+          bool canEdit = false;
+          if (userRole == 'coordinator') {
+            canEdit = true;  // Coordinators can edit all announcements
+          } else if (userRole == 'mentor' && announcementMap['created_by'] == currentUserId) {
+            canEdit = true;  // Mentors can edit their own announcements
+          }
+          
           return {
             'id': announcementMap['id'],
             'title': announcementMap['title'],
@@ -56,9 +120,19 @@ class AnnouncementService extends ChangeNotifier {
             'priority': announcementMap['priority'] ?? 'none',
             'target_audience': announcementMap['target_audience'],
             'created_by': announcementMap['created_by'],
+            'canEdit': canEdit,  // Add pre-calculated permission
           };
         }).toList();
         _lastFetchTime = DateTime.now();
+        
+        // Share announcements with other tabs if on web
+        if (kIsWeb && _isInitialized) {
+          _tabVisibilityManager.shareData('announcements', {
+            'type': 'announcements_update',
+            'announcements': _announcements,
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+        }
       } else {
         throw Exception(result['error'] ?? 'Failed to fetch announcements');
       }
@@ -206,6 +280,7 @@ class AnnouncementService extends ChangeNotifier {
   }
   
   /// Check if current user can edit/delete the announcement
+  /// @deprecated Use pre-calculated canEdit field from announcements instead
   Future<bool> canEditAnnouncement(String createdBy) async {
     try {
       final userRole = await _authService.getUserRole();
@@ -232,6 +307,22 @@ class AnnouncementService extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+  
+  /// Handle announcements update from other tabs
+  void _handleAnnouncementsUpdate(dynamic announcementsData) {
+    try {
+      if (announcementsData is List) {
+        _announcements = List<Map<String, dynamic>>.from(
+          announcementsData.map((item) => Map<String, dynamic>.from(item))
+        );
+        _lastFetchTime = DateTime.now();
+        notifyListeners();
+        debugPrint('AnnouncementService: Updated announcements from shared data');
+      }
+    } catch (e) {
+      debugPrint('Error handling announcements update: $e');
+    }
   }
   
   /// Format announcement timestamp for display
@@ -262,5 +353,13 @@ class AnnouncementService extends ChangeNotifier {
     } catch (e) {
       return 'Recently';
     }
+  }
+  
+  @override
+  void dispose() {
+    if (_isInitialized) {
+      _tabVisibilityManager.removeCallback('announcement_service');
+    }
+    super.dispose();
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'refresh_strategy.dart';
 
 @immutable
 class RefreshConfig {
@@ -9,6 +10,12 @@ class RefreshConfig {
   final bool refreshOnFocus;
   final bool showLastUpdated;
   final bool showRefreshIndicator;
+  
+  // Background refresh options
+  final RefreshStrategy? backgroundStrategy;
+  final Duration? backgroundRefreshInterval;
+  final bool keepAliveInBackground;
+  final int? maxBackgroundRefreshes;
 
   const RefreshConfig({
     this.autoRefreshInterval = const Duration(minutes: 5),
@@ -18,6 +25,10 @@ class RefreshConfig {
     this.refreshOnFocus = true,
     this.showLastUpdated = true,
     this.showRefreshIndicator = true,
+    this.backgroundStrategy,
+    this.backgroundRefreshInterval,
+    this.keepAliveInBackground = false,
+    this.maxBackgroundRefreshes,
   });
 
   RefreshConfig copyWith({
@@ -28,6 +39,10 @@ class RefreshConfig {
     bool? refreshOnFocus,
     bool? showLastUpdated,
     bool? showRefreshIndicator,
+    RefreshStrategy? backgroundStrategy,
+    Duration? backgroundRefreshInterval,
+    bool? keepAliveInBackground,
+    int? maxBackgroundRefreshes,
   }) {
     return RefreshConfig(
       autoRefreshInterval: autoRefreshInterval ?? this.autoRefreshInterval,
@@ -37,6 +52,10 @@ class RefreshConfig {
       refreshOnFocus: refreshOnFocus ?? this.refreshOnFocus,
       showLastUpdated: showLastUpdated ?? this.showLastUpdated,
       showRefreshIndicator: showRefreshIndicator ?? this.showRefreshIndicator,
+      backgroundStrategy: backgroundStrategy ?? this.backgroundStrategy,
+      backgroundRefreshInterval: backgroundRefreshInterval ?? this.backgroundRefreshInterval,
+      keepAliveInBackground: keepAliveInBackground ?? this.keepAliveInBackground,
+      maxBackgroundRefreshes: maxBackgroundRefreshes ?? this.maxBackgroundRefreshes,
     );
   }
 }

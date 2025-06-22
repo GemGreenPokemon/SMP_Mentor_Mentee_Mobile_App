@@ -92,6 +92,10 @@ class _WebAnnouncementsScreenState extends State<WebAnnouncementsScreen>
   Future<void> _initializeScreen() async {
     final authService = AuthService();
     _userRole = await authService.getUserRole();
+    
+    // Initialize tab visibility management
+    await _announcementService.initialize();
+    
     await _announcementService.fetchAnnouncements();
     if (mounted) setState(() {});
   }

@@ -52,7 +52,10 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
     // Initialize refresh controller
     _refreshController = DashboardRefreshController();
     setupAutoRefresh(_refreshController);
-    _refreshController.initialLoad();
+    print('WebMentorDashboardScreen: Calling initial load...');
+    _refreshController.initialLoad().then((data) {
+      print('WebMentorDashboardScreen: Initial load completed. Data: ${data != null ? "Loaded" : "Failed"}');
+    });
     
     // Initialize animations
     _sidebarAnimationController = AnimationController(
@@ -77,6 +80,32 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
 
 
   void _navigateToTab(int index) {
+    // Update visibility based on whether we're on dashboard or mentees tab
+    final bool wasShowingData = _selectedIndex == 0 || _selectedIndex == 1;
+    final bool willShowData = index == 0 || index == 1;
+    
+    if (wasShowingData && !willShowData) {
+      // Leaving dashboard/mentees - hide controller
+      _refreshController.setVisibility(false);
+    } else if (!wasShowingData && willShowData) {
+      // Coming back to dashboard/mentees
+      _refreshController.setVisibility(true);
+    }
+    
+    // Handle refresh when clicking dashboard tab
+    if (index == 0) {
+      if (_selectedIndex == 0) {
+        // Already on dashboard, clicking it again - refresh with animation
+        _refreshController.refresh(silent: false);
+      } else if (_selectedIndex != 0) {
+        // Coming from another tab to dashboard
+        // Check if data is stale before refreshing
+        if (_refreshController.state.shouldAutoRefresh(_refreshController.config.staleDataThreshold)) {
+          _refreshController.refresh(silent: false);
+        }
+      }
+    }
+    
     setState(() {
       _selectedIndex = index;
     });
@@ -166,8 +195,8 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
               ],
             ),
           ),
-        ],
-      );
+            ],
+          );
         },
       ),
     );
