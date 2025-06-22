@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/dashboard_constants.dart';
 import '../cards/meeting_item.dart';
 import '../../models/dashboard_data.dart';
+import '../shared/dashboard_card_container.dart';
 
 class MeetingsCarousel extends StatelessWidget {
   final List<Meeting> meetings;
@@ -17,87 +18,72 @@ class MeetingsCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: DashboardSizes.cardElevation,
+    return DashboardCardContainer(
+      title: DashboardStrings.upcomingMeetings,
+      actions: [
+        DashboardCardAction(
+          label: DashboardStrings.viewCalendar,
+          onPressed: onViewCalendar,
+          icon: Icons.calendar_month,
+        ),
+      ],
+      minHeight: 250,
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(DashboardSizes.cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Text(
-                    DashboardStrings.upcomingMeetings,
-                    style: TextStyle(
-                      fontSize: DashboardSizes.fontXLarge,
-                      fontWeight: FontWeight.bold,
+        child: meetings.isEmpty
+            ? Container(
+                height: 120,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 48,
+                      color: Colors.grey[400],
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(height: DashboardSizes.spacingSmall),
+                    Text(
+                      'No upcoming meetings',
+                      style: TextStyle(
+                        fontSize: DashboardSizes.fontLarge,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Schedule meetings with your mentees',
+                      style: TextStyle(
+                        fontSize: DashboardSizes.fontMedium,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: onViewCalendar,
-                  child: const Text(DashboardStrings.viewCalendar),
+              )
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    for (int i = 0; i < meetings.length; i++) ...[
+                      if (i > 0) const SizedBox(width: DashboardSizes.spacingMedium),
+                      SizedBox(
+                        width: 280,
+                        child: MeetingItem(
+                          title: meetings[i].title,
+                          menteeName: meetings[i].menteeName,
+                          time: meetings[i].time,
+                          location: meetings[i].location,
+                          color: _getColorFromString(meetings[i].color),
+                          onTap: onCheckIn,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: DashboardSizes.spacingMedium),
-            meetings.isEmpty
-                ? Container(
-                    height: 120,
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.calendar_today,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: DashboardSizes.spacingSmall),
-                        Text(
-                          'No upcoming meetings',
-                          style: TextStyle(
-                            fontSize: DashboardSizes.fontLarge,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Schedule meetings with your mentees',
-                          style: TextStyle(
-                            fontSize: DashboardSizes.fontMedium,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (int i = 0; i < meetings.length; i++) ...[
-                          if (i > 0) const SizedBox(width: DashboardSizes.spacingMedium),
-                          SizedBox(
-                            width: 280,
-                            child: MeetingItem(
-                              title: meetings[i].title,
-                              menteeName: meetings[i].menteeName,
-                              time: meetings[i].time,
-                              location: meetings[i].location,
-                              color: _getColorFromString(meetings[i].color),
-                              onTap: onCheckIn,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-          ],
-        ),
+              ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/dashboard_data.dart';
 import '../../utils/dashboard_constants.dart';
 import '../cards/mentee_list_item.dart';
+import '../shared/dashboard_card_container.dart';
 
 class MenteesOverview extends StatelessWidget {
   final List<Mentee> mentees;
@@ -17,33 +18,41 @@ class MenteesOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: DashboardSizes.cardElevation,
-      child: Padding(
-        padding: const EdgeInsets.all(DashboardSizes.cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Text(
-                    DashboardStrings.yourMentees,
-                    style: TextStyle(
-                      fontSize: DashboardSizes.fontXLarge,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+    return DashboardCardContainer(
+      title: DashboardStrings.yourMentees,
+      actions: [
+        DashboardCardAction(
+          label: DashboardStrings.viewAll,
+          onPressed: onViewAll,
+          icon: Icons.arrow_forward,
+        ),
+      ],
+      minHeight: 300,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (mentees.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: DashboardSizes.spacingXLarge),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: Colors.grey[400],
                   ),
-                ),
-                TextButton(
-                  onPressed: onViewAll,
-                  child: const Text(DashboardStrings.viewAll),
-                ),
-              ],
-            ),
-            const SizedBox(height: DashboardSizes.spacingMedium),
+                  const SizedBox(height: DashboardSizes.spacingMedium),
+                  Text(
+                    'No mentees assigned yet',
+                    style: TextStyle(
+                      fontSize: DashboardSizes.fontLarge,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
             ...mentees.take(3).map((mentee) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: DashboardSizes.spacingSmall + 4),
@@ -58,8 +67,7 @@ class MenteesOverview extends StatelessWidget {
                 ),
               );
             }),
-          ],
-        ),
+        ],
       ),
     );
   }

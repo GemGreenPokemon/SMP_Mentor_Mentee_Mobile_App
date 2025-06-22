@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/dashboard_constants.dart';
 
-class MeetingItem extends StatelessWidget {
+class MeetingItem extends StatefulWidget {
   final String title;
   final String menteeName;
   final String time;
@@ -20,84 +20,230 @@ class MeetingItem extends StatelessWidget {
   });
 
   @override
+  State<MeetingItem> createState() => _MeetingItemState();
+}
+
+class _MeetingItemState extends State<MeetingItem> 
+    with SingleTickerProviderStateMixin {
+  bool isHovered = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(DashboardSizes.spacingMedium),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(DashboardSizes.cardBorderRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: DashboardSizes.spacingSmall),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: DashboardSizes.fontLarge,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovered = true),
+      onExit: (_) => setState(() => isHovered = false),
+      child: AnimatedContainer(
+        duration: DashboardDurations.hoverAnimation,
+        curve: DashboardCurves.defaultCurve,
+        transform: Matrix4.identity()
+          ..translate(0.0, isHovered ? -6.0 : 0.0)
+          ..scale(isHovered ? 1.02 : 1.0),
+        padding: const EdgeInsets.all(DashboardSizes.cardPadding),
+        decoration: BoxDecoration(
+          color: DashboardColors.backgroundWhite,
+          gradient: isHovered ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              DashboardColors.backgroundWhite,
+              widget.color.withOpacity(0.05),
             ],
+          ) : null,
+          borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusMedium),
+          border: Border.all(
+            color: isHovered 
+                ? widget.color.withOpacity(0.4)
+                : DashboardColors.borderLight,
+            width: isHovered ? 2 : 1,
           ),
-          const SizedBox(height: DashboardSizes.spacingSmall + 4),
-          _buildInfoRow(Icons.person, menteeName),
-          const SizedBox(height: 4),
-          _buildInfoRow(Icons.access_time, time),
-          const SizedBox(height: 4),
-          _buildInfoRow(Icons.location_on, location),
-          const SizedBox(height: DashboardSizes.spacingSmall + 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: onTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DashboardColors.primaryDark,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                minimumSize: const Size(0, 28),
-                textStyle: const TextStyle(fontSize: DashboardSizes.fontSmall),
-              ),
-              child: const Text(DashboardStrings.checkIn),
+          boxShadow: isHovered 
+              ? [
+                  BoxShadow(
+                    color: widget.color.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: DashboardColors.shadowDark,
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : DashboardShadows.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.color.withOpacity(0.6),
+                            blurRadius: isHovered ? 8.0 * _pulseAnimation.value : 0,
+                            spreadRadius: isHovered ? 2.0 : 0,
+                          ),
+                        ],
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: DashboardSizes.spacingSmall),
+                Expanded(
+                  child: AnimatedDefaultTextStyle(
+                    duration: DashboardDurations.microAnimation,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isHovered 
+                          ? DashboardSizes.fontLarge + 2
+                          : DashboardSizes.fontLarge,
+                      color: isHovered 
+                          ? DashboardColors.primaryDark
+                          : Colors.black87,
+                    ),
+                    child: Text(
+                      widget.title,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: DashboardSizes.spacingMedium),
+            _buildInfoRow(Icons.person, widget.menteeName, isHovered),
+            const SizedBox(height: 6),
+            _buildInfoRow(Icons.access_time, widget.time, isHovered),
+            const SizedBox(height: 6),
+            _buildInfoRow(Icons.location_on, widget.location, isHovered),
+            const SizedBox(height: DashboardSizes.spacingMedium),
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedContainer(
+                duration: DashboardDurations.microAnimation,
+                transform: Matrix4.identity()
+                  ..scale(isHovered ? 1.05 : 1.0),
+                child: ElevatedButton(
+                  onPressed: widget.onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isHovered 
+                        ? widget.color
+                        : DashboardColors.primaryDark,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isHovered ? 20 : 16,
+                      vertical: isHovered ? 10 : 8,
+                    ),
+                    elevation: isHovered ? 4 : 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: DashboardDurations.microAnimation,
+                        margin: EdgeInsets.only(right: isHovered ? 8 : 4),
+                        child: Icon(
+                          Icons.video_call,
+                          size: isHovered ? 18 : 16,
+                        ),
+                      ),
+                      const Text(DashboardStrings.checkIn),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: DashboardSizes.iconSmall - 2,
-          color: Colors.grey,
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: DashboardSizes.fontMedium,
+  Widget _buildInfoRow(IconData icon, String text, bool isHovered) {
+    return AnimatedContainer(
+      duration: DashboardDurations.microAnimation,
+      transform: Matrix4.identity()
+        ..translate(isHovered ? 4.0 : 0.0, 0.0),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: DashboardDurations.microAnimation,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isHovered 
+                  ? widget.color.withOpacity(0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
             ),
-            overflow: TextOverflow.ellipsis,
+            child: Icon(
+              icon,
+              size: isHovered 
+                  ? DashboardSizes.iconSmall
+                  : DashboardSizes.iconSmall - 2,
+              color: isHovered 
+                  ? widget.color
+                  : DashboardColors.textGrey,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: AnimatedDefaultTextStyle(
+              duration: DashboardDurations.microAnimation,
+              style: TextStyle(
+                fontSize: DashboardSizes.fontMedium,
+                color: isHovered 
+                    ? Colors.black87
+                    : DashboardColors.textDarkGrey,
+                fontWeight: isHovered ? FontWeight.w500 : FontWeight.normal,
+              ),
+              child: Text(
+                text,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -30,6 +30,17 @@ class DashboardColors {
   // Border colors
   static const Color borderLight = Color(0xFFE5E7EB);
   static const Color borderGrey = Color(0xFFE0E0E0);
+  
+  // Shadow colors - for premium depth effects
+  static final Color shadowLight = Colors.black.withOpacity(0.05);
+  static final Color shadowMedium = Colors.black.withOpacity(0.08);
+  static final Color shadowDark = Colors.black.withOpacity(0.15);
+  static final Color shadowXDark = Colors.black.withOpacity(0.25);
+  
+  // Overlay colors - for glassmorphic effects
+  static final Color overlayLight = Colors.white.withOpacity(0.05);
+  static final Color overlayMedium = Colors.white.withOpacity(0.1);
+  static final Color overlayDark = primaryDark.withOpacity(0.95);
 }
 
 class DashboardSizes {
@@ -41,6 +52,12 @@ class DashboardSizes {
   static const double cardElevation = 2.0;
   static const double cardPadding = 20.0;
   static const double cardBorderRadius = 8.0;
+  
+  // Premium border radius values
+  static const double borderRadiusSmall = 8.0;
+  static const double borderRadiusMedium = 12.0;
+  static const double borderRadiusLarge = 16.0;
+  static const double borderRadiusXLarge = 24.0;
   
   // Spacing
   static const double spacingSmall = 8.0;
@@ -67,6 +84,74 @@ class DashboardDurations {
   static const Duration sidebarAnimation = Duration(milliseconds: 300);
   static const Duration hoverAnimation = Duration(milliseconds: 200);
   static const Duration fadeAnimation = Duration(milliseconds: 300);
+  static const Duration pageTransition = Duration(milliseconds: 400);
+  static const Duration staggeredAnimation = Duration(milliseconds: 800);
+  static const Duration microAnimation = Duration(milliseconds: 150);
+  static const Duration shimmerAnimation = Duration(milliseconds: 1500);
+  static const Duration counterAnimation = Duration(milliseconds: 1000);
+}
+
+// Premium elevation values for depth
+class DashboardElevations {
+  static const double cardResting = 2.0;
+  static const double cardHover = 8.0;
+  static const double cardPressed = 1.0;
+  static const double sidebar = 16.0;
+  static const double modal = 24.0;
+  static const double topbar = 4.0;
+}
+
+// Blur values for glassmorphic effects
+class DashboardBlur {
+  static const double light = 8.0;
+  static const double medium = 16.0;
+  static const double heavy = 24.0;
+  static const double backdrop = 32.0;
+}
+
+// Animation curves for smooth transitions
+class DashboardCurves {
+  static const Curve defaultCurve = Curves.easeInOutCubic;
+  static const Curve bounceCurve = Curves.elasticOut;
+  static const Curve smoothCurve = Curves.easeOutQuart;
+  static const Curve sharpCurve = Curves.easeOutExpo;
+  static const Curve enterCurve = Curves.easeOut;
+  static const Curve exitCurve = Curves.easeIn;
+}
+
+// Premium shadows for depth
+class DashboardShadows {
+  static List<BoxShadow> cardShadow = [
+    BoxShadow(
+      color: DashboardColors.shadowLight,
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
+  
+  static List<BoxShadow> cardHoverShadow = [
+    BoxShadow(
+      color: DashboardColors.shadowDark,
+      blurRadius: 20,
+      offset: const Offset(0, 8),
+    ),
+  ];
+  
+  static List<BoxShadow> sidebarShadow = [
+    BoxShadow(
+      color: DashboardColors.shadowXDark,
+      blurRadius: 24,
+      offset: const Offset(8, 0),
+    ),
+  ];
+  
+  static List<BoxShadow> topbarShadow = [
+    BoxShadow(
+      color: DashboardColors.shadowMedium,
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+  ];
 }
 
 class DashboardStrings {

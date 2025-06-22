@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/dashboard_data.dart';
 import '../../utils/dashboard_constants.dart';
+import '../../utils/dashboard_layout_config.dart';
+import '../shared/responsive_dashboard_grid.dart';
+import '../shared/dashboard_card_container.dart';
 import 'mentees_overview.dart';
 import 'meetings_carousel.dart';
 import 'announcements_preview.dart';
 import 'activity_timeline.dart';
 
-class DashboardOverview extends StatelessWidget {
+class DashboardOverview extends StatefulWidget {
   final DashboardData? dashboardData;
   final Function(int) onNavigateToTab;
   final VoidCallback onMessageMentee;
@@ -21,63 +25,47 @@ class DashboardOverview extends StatelessWidget {
   });
 
   @override
+  State<DashboardOverview> createState() => _DashboardOverviewState();
+}
+
+class _DashboardOverviewState extends State<DashboardOverview> {
+  @override
   Widget build(BuildContext context) {
-    if (dashboardData == null) {
-      return const Center(child: Text(DashboardStrings.noDataAvailable));
+    if (widget.dashboardData == null) {
+      return Center(
+        child: const Text(DashboardStrings.noDataAvailable)
+            .animate()
+            .fadeIn(duration: DashboardDurations.fadeAnimation)
+            .scale(
+              begin: const Offset(0.8, 0.8),
+              end: const Offset(1, 1),
+              curve: DashboardCurves.smoothCurve,
+            ),
+      );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(DashboardSizes.spacingLarge),
-      child: Column(
-        children: [
-          // Middle row - Mentees and upcoming meetings
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Mentees overview
-              Expanded(
-                flex: 2,
-                child: MenteesOverview(
-                  mentees: dashboardData!.mentees,
-                  onViewAll: () => onNavigateToTab(1),
-                  onMessageMentee: onMessageMentee,
-                ),
-              ),
-              const SizedBox(width: DashboardSizes.spacingLarge),
-              // Upcoming meetings
-              Expanded(
-                flex: 3,
-                child: MeetingsCarousel(
-                  meetings: dashboardData!.upcomingMeetings,
-                  onViewCalendar: () => onNavigateToTab(2),
-                  onCheckIn: onCheckInMeeting,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: DashboardSizes.spacingLarge),
-          // Bottom row - Announcements and Recent Activity
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Announcements section
-              Expanded(
-                flex: 3,
-                child: AnnouncementsPreview(
-                  announcements: dashboardData!.announcements,
-                  onViewAll: () => onNavigateToTab(7),
-                ),
-              ),
-              const SizedBox(width: DashboardSizes.spacingLarge),
-              // Recent activity
-              const Expanded(
-                flex: 2,
-                child: ActivityTimeline(),
-              ),
-            ],
-          ),
-        ],
+    // Build the cards map for the responsive grid
+    final cards = <String, Widget>{
+      DashboardLayoutConfig.menteesCard: MenteesOverview(
+        mentees: widget.dashboardData!.mentees,
+        onViewAll: () => widget.onNavigateToTab(1),
+        onMessageMentee: widget.onMessageMentee,
       ),
+      DashboardLayoutConfig.meetingsCard: MeetingsCarousel(
+        meetings: widget.dashboardData!.upcomingMeetings,
+        onViewCalendar: () => widget.onNavigateToTab(2),
+        onCheckIn: widget.onCheckInMeeting,
+      ),
+      DashboardLayoutConfig.announcementsCard: AnnouncementsPreview(
+        announcements: widget.dashboardData!.announcements,
+        onViewAll: () => widget.onNavigateToTab(7),
+      ),
+      DashboardLayoutConfig.activityCard: const ActivityTimeline(),
+    };
+
+    return ResponsiveDashboardGrid(
+      cards: cards,
+      enableAnimations: true,
     );
   }
 }
