@@ -13,7 +13,7 @@ import 'activity_timeline.dart';
 class DashboardOverview extends StatefulWidget {
   final DashboardData? dashboardData;
   final Function(int) onNavigateToTab;
-  final VoidCallback onMessageMentee;
+  final Function(Mentee) onMessageMentee;
   final VoidCallback onCheckInMeeting;
 
   const DashboardOverview({

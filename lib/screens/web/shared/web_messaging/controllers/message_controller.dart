@@ -47,7 +47,10 @@ class MessageController extends ChangeNotifier {
   
   /// Load messages for a conversation
   void loadMessages(String conversationId, String currentUserId, String recipientId) {
+    debugPrint('MessageController: loadMessages called - conversationId: $conversationId, currentUserId: $currentUserId, recipientId: $recipientId');
+    
     if (_currentConversationId == conversationId && _messages.isNotEmpty) {
+      debugPrint('MessageController: Messages already loaded for this conversation');
       return; // Already loaded
     }
     
@@ -59,15 +62,51 @@ class MessageController extends ChangeNotifier {
     _error = null;
     notifyListeners();
     
+    debugPrint('MessageController: Setting isLoading = true');
+    
     // Cancel existing subscriptions
     _messagesSubscription?.cancel();
     _typingSubscription?.cancel();
     
     // Subscribe to messages
+    debugPrint('MessageController: Subscribing to messages stream');
+    
+    // Add a timeout to prevent infinite loading
+    Timer? loadingTimeout;
+    loadingTimeout = Timer(const Duration(seconds: 10), () {
+      if (_isLoading) {
+        debugPrint('MessageController: Loading timeout - setting empty messages');
+        _messages = [];
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      }
+    });
+    
     _messagesSubscription = messagingService
         .getMessagesStream(conversationId, _messageLimit)
         .listen(
       (messages) {
+        debugPrint('MessageController: Received ${messages.length} messages');
+        loadingTimeout?.cancel();
+        
+        // Remove any temporary messages that now have real versions
+        final tempMessageIds = _messages
+            .where((m) => m.id.startsWith('temp_'))
+            .map((m) => m.id)
+            .toList();
+        
+        if (tempMessageIds.isNotEmpty) {
+          debugPrint('Found ${tempMessageIds.length} temporary messages to clean up');
+          // Remove temp messages that are no longer needed
+          _messages.removeWhere((m) => m.id.startsWith('temp_') && m.synced);
+          
+          // Clear their statuses
+          for (var tempId in tempMessageIds) {
+            _messageStatuses.remove(tempId);
+          }
+        }
+        
         _messages = messages;
         _hasMore = messages.length >= _messageLimit;
         _isLoading = false;
@@ -78,6 +117,8 @@ class MessageController extends ChangeNotifier {
         messagingService.markMessagesAsRead(conversationId, currentUserId);
       },
       onError: (error) {
+        debugPrint('MessageController: Error loading messages: $error');
+        loadingTimeout?.cancel();
         _error = error.toString();
         _isLoading = false;
         notifyListeners();
@@ -105,12 +146,19 @@ class MessageController extends ChangeNotifier {
   
   /// Send a message
   Future<bool> sendMessage(String message) async {
+    debugPrint('=== MESSAGE SENDING DEBUG START ===');
+    debugPrint('MessageController.sendMessage called with message: "$message"');
+    debugPrint('Current conversation ID: $_currentConversationId');
+    debugPrint('Current user ID (should be doc ID like Emerald_Nash): $currentUserId');
+    
     if (_currentConversationId == null || message.trim().isEmpty) {
+      debugPrint('FAILED: conversationId is null or message is empty');
       return false;
     }
     
     // Create temporary message ID
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    debugPrint('Created temporary message ID: $tempId');
     
     // Add message to list immediately (optimistic update)
     final tempMessage = Message(
@@ -122,9 +170,13 @@ class MessageController extends ChangeNotifier {
       synced: false,
     );
     
+    debugPrint('Adding temporary message to UI');
     _messages.insert(0, tempMessage);
     _messageStatuses[tempId] = MessageStatus.sending(tempId);
     notifyListeners();
+    
+    debugPrint('Calling messagingService.sendMessage...');
+    final startTime = DateTime.now();
     
     // Send message
     final success = await messagingService.sendMessage(
@@ -133,15 +185,32 @@ class MessageController extends ChangeNotifier {
       message: message,
     );
     
+    final endTime = DateTime.now();
+    final duration = endTime.difference(startTime).inMilliseconds;
+    debugPrint('messagingService.sendMessage completed in ${duration}ms with success: $success');
+    
     if (success) {
+      debugPrint('Message sent successfully, updating status to sent');
       _messageStatuses[tempId] = MessageStatus.sent(tempId);
+      
+      // After 3 seconds, remove the temporary message status if it's still there
+      Timer(const Duration(seconds: 3), () {
+        if (_messageStatuses.containsKey(tempId)) {
+          debugPrint('Removing temporary message status for $tempId after timeout');
+          _messageStatuses.remove(tempId);
+          notifyListeners();
+        }
+      });
     } else {
+      debugPrint('Message send failed, updating status to failed');
       _messageStatuses[tempId] = MessageStatus.failed(tempId, 'Failed to send');
       // Remove the temporary message on failure
       _messages.removeWhere((m) => m.id == tempId);
     }
     
+    debugPrint('Notifying listeners after status update');
     notifyListeners();
+    debugPrint('=== MESSAGE SENDING DEBUG END ===');
     return success;
   }
   
@@ -179,7 +248,11 @@ class MessageController extends ChangeNotifier {
   
   /// Get message status
   MessageStatus? getMessageStatus(String messageId) {
-    return _messageStatuses[messageId];
+    final status = _messageStatuses[messageId];
+    if (status != null) {
+      debugPrint('getMessageStatus for $messageId: ${status.status}');
+    }
+    return status;
   }
   
   /// Clear current conversation

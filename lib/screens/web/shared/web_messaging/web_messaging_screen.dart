@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/real_time_user_service.dart';
+import '../../../../services/cloud_function_service.dart';
 import '../../../../utils/responsive.dart';
 import 'services/messaging_service.dart';
 import 'controllers/conversation_controller.dart';
@@ -11,7 +13,14 @@ import 'widgets/message_thread/message_thread.dart';
 import 'utils/messaging_constants.dart';
 
 class WebMessagingScreen extends StatefulWidget {
-  const WebMessagingScreen({super.key});
+  final String? preSelectedUserId;
+  final String? preSelectedUserName;
+  
+  const WebMessagingScreen({
+    super.key,
+    this.preSelectedUserId,
+    this.preSelectedUserName,
+  });
 
   @override
   State<WebMessagingScreen> createState() => _WebMessagingScreenState();
@@ -23,11 +32,13 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
   late MessageController _messageController;
   final AuthService _authService = AuthService();
   final RealTimeUserService _userService = RealTimeUserService();
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
   
   String? _selectedConversationId;
   String? _selectedUserId;
   String? _selectedUserName;
   String? _selectedUserRole;
+  String? _currentUserDocId;
 
   @override
   void initState() {
@@ -35,31 +46,107 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
     _initializeServices();
   }
 
-  void _initializeServices() {
+  Future<void> _initializeServices() async {
     final currentUser = _authService.currentUser;
     if (currentUser == null) return;
 
-    // Get user type from user service
+    // Get user type and document ID from Firestore (following dashboard pattern)
     String userType = 'mentor'; // default
-    final userData = _userService.getUserById(currentUser.uid);
-    if (userData != null) {
-      userType = userData.userType;
+    String userDocId = currentUser.uid; // fallback
+    
+    try {
+      // Query to get user document by Firebase UID
+      final firestore = FirebaseFirestore.instance;
+      final universityPath = _cloudFunctions.getCurrentUniversityPath();
+      final userSnapshot = await firestore
+          .collection(universityPath)
+          .doc('data')
+          .collection('users')
+          .where('firebase_uid', isEqualTo: currentUser.uid)
+          .limit(1)
+          .get();
+      
+      if (userSnapshot.docs.isNotEmpty) {
+        final userDoc = userSnapshot.docs.first;
+        userDocId = userDoc.id; // e.g., "Emerald_Nash"
+        final userData = userDoc.data();
+        userType = userData['userType'] ?? userData['user_type'] ?? 'mentor';
+        
+        debugPrint('MessagingScreen: Found user document ID: $userDocId for Firebase UID: ${currentUser.uid}');
+      } else {
+        debugPrint('MessagingScreen: No user document found for Firebase UID: ${currentUser.uid}');
+      }
+    } catch (e) {
+      debugPrint('MessagingScreen: Error getting user document: $e');
     }
+    
+    // Store the document ID for later use
+    _currentUserDocId = userDocId;
 
     _messagingService = MessagingService();
     _conversationController = ConversationController(
       messagingService: _messagingService,
-      userId: currentUser.uid,
+      userId: userDocId, // Use document ID instead of Firebase UID
       userType: userType,
     );
     _messageController = MessageController(
       messagingService: _messagingService,
-      currentUserId: currentUser.uid,
+      currentUserId: userDocId, // Use document ID instead of Firebase UID
     );
 
     // Initialize the services
     _messagingService.initialize();
+    
+    // Ensure RealTimeUserService is listening
+    if (!_userService.connectionState.name.contains('connected')) {
+      _userService.startListening(_cloudFunctions.getCurrentUniversityPath());
+    }
+    
     _conversationController.loadConversations();
+    
+    // If pre-selected user, wait for conversations to load then select it
+    if (widget.preSelectedUserId != null && widget.preSelectedUserName != null) {
+      // Ensure we have the document ID before proceeding
+      if (userDocId != currentUser.uid) {
+        debugPrint('MessagingScreen: Document ID loaded successfully, proceeding with pre-selection');
+        _selectPreSelectedConversation(userDocId);
+      } else {
+        debugPrint('MessagingScreen: WARNING - Using Firebase UID as fallback, this may cause issues');
+        _selectPreSelectedConversation(userDocId);
+      }
+    }
+  }
+  
+  void _selectPreSelectedConversation(String currentUserDocId) {
+    // Store the doc ID first
+    _currentUserDocId = currentUserDocId;
+    
+    debugPrint('MessagingScreen: Pre-selected user info:');
+    debugPrint('  - preSelectedUserId: ${widget.preSelectedUserId}');
+    debugPrint('  - preSelectedUserName: ${widget.preSelectedUserName}');
+    debugPrint('  - currentUserDocId: $currentUserDocId');
+    
+    // Wait a bit for conversations to load
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      
+      // Generate the conversation ID
+      final conversationId = MessagingService.generateChatId(
+        currentUserDocId,
+        widget.preSelectedUserId!
+      );
+      
+      debugPrint('MessagingScreen: Generated conversation ID: $conversationId');
+      debugPrint('  - Should be format: ${currentUserDocId}__${widget.preSelectedUserId}');
+      
+      // Select the conversation
+      _onConversationSelected(
+        conversationId,
+        widget.preSelectedUserId!,
+        widget.preSelectedUserName!,
+        'mentee', // Assuming pre-selected is always a mentee when coming from dashboard
+      );
+    });
   }
 
   @override
@@ -79,7 +166,11 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
     });
     
     // Load messages for selected conversation
-    _messageController.loadMessages(conversationId, _authService.currentUser!.uid, userId);
+    if (_currentUserDocId != null) {
+      _messageController.loadMessages(conversationId, _currentUserDocId!, userId);
+    } else {
+      debugPrint('MessagingScreen: Cannot load messages - currentUserDocId is null');
+    }
   }
 
   @override

@@ -62,6 +62,7 @@ class MentorProfile {
 }
 
 class Mentee {
+  final String id;
   final String name;
   final String program;
   final double progress;
@@ -72,6 +73,7 @@ class Mentee {
   final List<ActionItem> actionItems;
 
   Mentee({
+    required this.id,
     required this.name,
     required this.program,
     required this.progress,
@@ -84,6 +86,7 @@ class Mentee {
 
   factory Mentee.fromMap(Map<String, dynamic> map) {
     return Mentee(
+      id: map['id'] ?? '',
       name: map['name'] ?? '',
       program: map['program'] ?? '',
       progress: (map['progress'] ?? 0.0).toDouble(),

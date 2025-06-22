@@ -7,7 +7,7 @@ import '../shared/dashboard_card_container.dart';
 class MenteesOverview extends StatelessWidget {
   final List<Mentee> mentees;
   final VoidCallback onViewAll;
-  final VoidCallback onMessageMentee;
+  final Function(Mentee) onMessageMentee;
 
   const MenteesOverview({
     super.key,
@@ -63,7 +63,7 @@ class MenteesOverview extends StatelessWidget {
                   onTap: () {
                     // View mentee details
                   },
-                  onMessage: onMessageMentee,
+                  onMessage: () => onMessageMentee(mentee),
                 ),
               );
             }),

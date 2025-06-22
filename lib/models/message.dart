@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Message {
   final String id;
   final String chatId;
@@ -16,13 +18,23 @@ class Message {
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
+    // Handle sent_at which can be either Timestamp or int
+    DateTime sentAtDateTime;
+    if (map['sent_at'] is Timestamp) {
+      sentAtDateTime = (map['sent_at'] as Timestamp).toDate();
+    } else if (map['sent_at'] is int) {
+      sentAtDateTime = DateTime.fromMillisecondsSinceEpoch(map['sent_at']);
+    } else {
+      sentAtDateTime = DateTime.now(); // Fallback
+    }
+    
     return Message(
-      id: map['id'],
-      chatId: map['chat_id'],
-      senderId: map['sender_id'],
-      message: map['message'],
-      sentAt: DateTime.fromMillisecondsSinceEpoch(map['sent_at']),
-      synced: map['synced'] == 1,
+      id: map['id'] ?? '',
+      chatId: map['chat_id'] ?? '',
+      senderId: map['sender_id'] ?? '',
+      message: map['message'] ?? '',
+      sentAt: sentAtDateTime,
+      synced: map['synced'] ?? true,
     );
   }
 

@@ -128,20 +128,16 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
     // TODO: Implement global search
   }
 
-  void _navigateToMenteeChat() {
-    final data = _refreshController.data;
-    if (data != null && data.mentees.isNotEmpty) {
-      final mentee = data.mentees.first;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WebChatScreen(
-            recipientName: mentee.name,
-            recipientRole: mentee.program,
-          ),
+  void _navigateToMenteeChat(Mentee mentee) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WebMessagingScreen(
+          preSelectedUserId: mentee.id,
+          preSelectedUserName: mentee.name,
         ),
-      );
-    }
+      ),
+    );
   }
 
   void _navigateToCheckIn() {

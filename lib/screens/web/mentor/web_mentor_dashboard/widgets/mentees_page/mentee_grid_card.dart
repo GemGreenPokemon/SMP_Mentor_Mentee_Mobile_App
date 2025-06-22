@@ -5,7 +5,7 @@ import '../../utils/dashboard_constants.dart';
 import '../../utils/dashboard_helpers.dart';
 import '../dialogs/mentee_details_dialog.dart';
 import '../dialogs/remove_mentee_confirmation.dart';
-import '../../../../../../../../../screens/web/shared/web_chat/web_chat_screen.dart';
+import '../../../../../../../../../screens/web/shared/web_messaging/web_messaging_screen.dart';
 import '../../../../../../../../../screens/web/shared/web_schedule_meeting/web_schedule_meeting_screen.dart';
 import '../../../../../../../../../services/mentor_service.dart';
 
@@ -290,9 +290,9 @@ class MenteeGridCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => WebChatScreen(
-          recipientName: mentee.name,
-          recipientRole: mentee.program,
+        builder: (context) => WebMessagingScreen(
+          preSelectedUserId: mentee.id,
+          preSelectedUserName: mentee.name,
         ),
       ),
     );
