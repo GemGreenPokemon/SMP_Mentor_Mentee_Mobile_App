@@ -5,7 +5,22 @@ import { DatabaseResult } from '../types';
  * Get Firestore database instance
  */
 export function getDB() {
-  return admin.firestore();
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] getDB: Getting Firestore instance...`);
+  console.log(`[${timestamp}] getDB: Admin SDK status:`, {
+    hasAdmin: !!admin,
+    hasFirestore: !!admin.firestore,
+    adminKeys: Object.keys(admin || {}),
+  });
+  
+  try {
+    const db = admin.firestore();
+    console.log(`[${timestamp}] getDB: Successfully obtained Firestore instance`);
+    return db;
+  } catch (error) {
+    console.error(`[${timestamp}] getDB: Error getting Firestore instance:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -240,7 +255,6 @@ export async function initializeUserSubcollections(
       'availability', 
       'requestedMeetings',
       'meetings',
-      'messages',
       'notes',
       'ratings'
     ];

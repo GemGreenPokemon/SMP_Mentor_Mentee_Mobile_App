@@ -5,7 +5,7 @@ import '../../../../services/auth_service.dart';
 import '../../../../services/real_time_user_service.dart';
 import '../../../../services/cloud_function_service.dart';
 import '../../../../utils/responsive.dart';
-import 'services/messaging_service.dart';
+import 'services/messaging_service_v2.dart';
 import 'controllers/conversation_controller.dart';
 import 'controllers/message_controller.dart';
 import 'widgets/conversation_list/conversation_list.dart';
@@ -27,7 +27,7 @@ class WebMessagingScreen extends StatefulWidget {
 }
 
 class _WebMessagingScreenState extends State<WebMessagingScreen> {
-  late MessagingService _messagingService;
+  late MessagingServiceV2 _messagingService;
   late ConversationController _conversationController;
   late MessageController _messageController;
   final AuthService _authService = AuthService();
@@ -83,7 +83,7 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
     // Store the document ID for later use
     _currentUserDocId = userDocId;
 
-    _messagingService = MessagingService();
+    _messagingService = MessagingServiceV2();
     _conversationController = ConversationController(
       messagingService: _messagingService,
       userId: userDocId, // Use document ID instead of Firebase UID
@@ -131,15 +131,16 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
       if (!mounted) return;
       
       // Generate the conversation ID
-      final conversationId = MessagingService.generateChatId(
+      final conversationId = MessagingServiceV2.generateChatId(
         currentUserDocId,
         widget.preSelectedUserId!
       );
       
       debugPrint('MessagingScreen: Generated conversation ID: $conversationId');
-      debugPrint('  - Should be format: ${currentUserDocId}__${widget.preSelectedUserId}');
+      debugPrint('  - Format is alphabetically sorted: [user1]__[user2]');
+      debugPrint('  - Current user: $currentUserDocId, Other user: ${widget.preSelectedUserId}');
       
-      // Select the conversation
+      // Select the conversation (this will create it if needed)
       _onConversationSelected(
         conversationId,
         widget.preSelectedUserId!,
@@ -157,7 +158,7 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
     super.dispose();
   }
 
-  void _onConversationSelected(String conversationId, String userId, String userName, String userRole) {
+  void _onConversationSelected(String conversationId, String userId, String userName, String userRole) async {
     setState(() {
       _selectedConversationId = conversationId;
       _selectedUserId = userId;
@@ -165,9 +166,36 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
       _selectedUserRole = userRole;
     });
     
-    // Load messages for selected conversation
+    // Ensure conversation exists before loading messages
     if (_currentUserDocId != null) {
-      _messageController.loadMessages(conversationId, _currentUserDocId!, userId);
+      debugPrint('Ensuring conversation exists for: $conversationId');
+      
+      // Get or create the conversation
+      final actualConversationId = await _messagingService.getOrCreateConversation(
+        _currentUserDocId!,
+        userId,
+      );
+      
+      if (actualConversationId != null) {
+        debugPrint('Conversation exists/created with ID: $actualConversationId');
+        // Update the selected conversation ID if it's different
+        if (actualConversationId != conversationId) {
+          setState(() {
+            _selectedConversationId = actualConversationId;
+          });
+        }
+        // Load messages for the conversation
+        _messageController.loadMessages(actualConversationId, _currentUserDocId!, userId);
+      } else {
+        debugPrint('Failed to create/get conversation');
+        // Show error to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to initialize conversation'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else {
       debugPrint('MessagingScreen: Cannot load messages - currentUserDocId is null');
     }

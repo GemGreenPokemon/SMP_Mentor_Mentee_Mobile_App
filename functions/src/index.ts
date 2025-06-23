@@ -2,7 +2,20 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
-admin.initializeApp();
+console.log('[INIT] Initializing Firebase Admin SDK...');
+try {
+  admin.initializeApp();
+  console.log('[INIT] Firebase Admin SDK initialized successfully');
+  console.log('[INIT] Admin SDK check:', {
+    hasAdmin: !!admin,
+    hasFirestore: !!admin.firestore,
+    hasAuth: !!admin.auth,
+    hasFieldValue: !!admin.firestore?.FieldValue
+  });
+} catch (initError) {
+  console.error('[INIT] Error initializing Firebase Admin SDK:', initError);
+  throw initError;
+}
 
 // Import function modules
 import { initializeUniversity } from './university/initialization';
@@ -21,6 +34,13 @@ import {
   requestMeeting,
   removeAvailabilitySlot
 } from './meetings/management';
+import {
+  createConversation,
+  sendMessage,
+  markMessagesRead,
+  updateConversationSettings,
+  getUserConversations
+} from './messaging/conversations';
 // Temporarily commented out to avoid build errors:
 // import { sendMessage, getChatHistory } from './messaging/chat';
 // import { generateProgressReport, submitProgressReport } from './reports/progress';
@@ -65,7 +85,14 @@ export const getBookableSlots = getAvailableSlots;
 export const requestMeetingTime = requestMeeting;
 export const removeAvailability = removeAvailabilitySlot;
 
-// Messaging Functions
+// Messaging Functions (New Conversation-based)
+export const createChatConversation = createConversation;
+export const sendChatMessage = sendMessage;
+export const markChatMessagesRead = markMessagesRead;
+export const updateChatSettings = updateConversationSettings;
+export const getUserChatConversations = getUserConversations;
+
+// Old Messaging Functions (Deprecated)
 // export const sendChatMessage = sendMessage;
 // export const getChatMessages = getChatHistory;
 
@@ -84,3 +111,5 @@ export const healthCheck = functions.https.onRequest((req, res) => {
     version: '1.0.0'
   });
 });
+
+// Utility Functions

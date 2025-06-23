@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../services/messaging_service.dart';
+import '../services/messaging_service_v2.dart';
 import '../models/conversation.dart';
 
 class ConversationController extends ChangeNotifier {
-  final MessagingService messagingService;
+  final MessagingServiceV2 messagingService;
   final String userId;
   final String userType;
   

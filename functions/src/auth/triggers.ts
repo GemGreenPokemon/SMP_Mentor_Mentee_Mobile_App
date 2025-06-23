@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getUniversityCollection } from '../utils/database';
 import { setUserClaims } from '../utils/auth';
 
@@ -115,12 +116,12 @@ export const syncClaimsOnLogin = functions.https.onCall(async (data, context) =>
     if (!userData.firebase_uid) {
       await userDocRef.update({
         firebase_uid: userUid,
-        last_login: new Date()
+        last_login: FieldValue.serverTimestamp()
       });
       console.log(`📝 Updated user document with firebase_uid: ${userUid}`);
     } else {
       await userDocRef.update({
-        last_login: new Date()
+        last_login: FieldValue.serverTimestamp()
       });
     }
 
@@ -153,65 +154,104 @@ export const syncClaimsOnLogin = functions.https.onCall(async (data, context) =>
  * This will be called by the frontend immediately after registration
  */
 export const setClaimsOnRegistration = functions.https.onCall(async (data, context) => {
+  const startTime = Date.now();
+  
   try {
     console.log('🔐 === SET CLAIMS ON REGISTRATION START ===');
+    console.log(`🔐 Timestamp: ${new Date().toISOString()}`);
     console.log('🔐 Request data:', JSON.stringify(data));
     
     const { uid } = data;
     
     if (!uid) {
       console.log('🔐 ❌ No UID provided in request');
-      throw new functions.https.HttpsError('invalid-argument', 'User UID is required');
+      throw new functions.https.HttpsError('invalid-argument', 'User UID is required. Please provide the Firebase Authentication UID.');
     }
     
     console.log(`🔐 Setting claims for newly registered user: ${uid}`);
     
     // Get user record to verify they exist in Firebase Auth
     let userRecord;
+    const authStartTime = Date.now();
     try {
       userRecord = await admin.auth().getUser(uid);
-      console.log(`🔐 Found Firebase Auth user: ${userRecord.email}`);
+      console.log(`🔐 ✅ Found Firebase Auth user: ${userRecord.email} (took ${Date.now() - authStartTime}ms)`);
+      console.log(`🔐 Auth user details: emailVerified=${userRecord.emailVerified}, disabled=${userRecord.disabled}, created=${userRecord.metadata.creationTime}`);
     } catch (authError) {
-      console.log(`🔐 ❌ User not found in Firebase Auth: ${uid}`);
-      throw new functions.https.HttpsError('not-found', 'User not found in Firebase Auth');
+      console.log(`🔐 ❌ User not found in Firebase Auth: ${uid} (took ${Date.now() - authStartTime}ms)`);
+      console.error('🔐 Auth error details:', authError);
+      throw new functions.https.HttpsError('not-found', `User with UID '${uid}' not found in Firebase Authentication. Please ensure the user has completed the authentication process.`);
     }
     
     // Search for user in database to get their role
     const universityPath = 'california_merced_uc_merced'; // Default university for now
-    console.log(`🔐 Searching in database path: ${universityPath}/data/users`);
+    console.log(`🔐 Searching in database path: universities/${universityPath}/data/users`);
     
     const usersCollection = getUniversityCollection(universityPath, 'users');
     
     // Try to find user by firebase_uid
-    console.log(`🔐 Step 1: Searching for user by firebase_uid: ${uid}`);
+    console.log(`🔐 Step 1: Searching for user by firebase_uid`);
+    console.log(`🔐 Query: where('firebase_uid', '==', '${uid}')`);
+    const queryStartTime = Date.now();
+    
     let userSnapshot = await usersCollection
       .where('firebase_uid', '==', uid)
       .get();
     
-    console.log(`🔐 Search by firebase_uid returned ${userSnapshot.size} documents`);
+    console.log(`🔐 Search by firebase_uid completed in ${Date.now() - queryStartTime}ms`);
+    console.log(`🔐 Results: ${userSnapshot.size} document(s) found`);
     
     // If not found by firebase_uid, try by email
     if (userSnapshot.empty && userRecord.email) {
-      console.log(`🔐 Step 2: Not found by firebase_uid, trying email: ${userRecord.email}`);
+      console.log(`🔐 Step 2: Not found by firebase_uid, trying email search`);
+      console.log(`🔐 Query: where('email', '==', '${userRecord.email}')`);
+      const emailQueryStartTime = Date.now();
+      
       userSnapshot = await usersCollection
         .where('email', '==', userRecord.email)
         .get();
-      console.log(`🔐 Search by email returned ${userSnapshot.size} documents`);
+        
+      console.log(`🔐 Search by email completed in ${Date.now() - emailQueryStartTime}ms`);
+      console.log(`🔐 Results: ${userSnapshot.size} document(s) found`);
     }
     
-    // If still not found, list all users for debugging
+    // If still not found, list available users for debugging
     if (userSnapshot.empty) {
       console.log(`🔐 ⚠️ User ${uid} (${userRecord.email}) not found in database`);
-      console.log(`🔐 Listing first 10 users in database for debugging:`);
+      console.log(`🔐 Attempting to list available users for debugging purposes...`);
       
-      const allUsersSnapshot = await usersCollection.limit(10).get();
-      allUsersSnapshot.docs.forEach((doc, index) => {
-        const data = doc.data();
-        console.log(`🔐   ${index + 1}. ${doc.id}: name="${data.name}", email="${data.email}", firebase_uid="${data.firebase_uid || 'NOT SET'}"`);
-      });
+      const debugStartTime = Date.now();
+      const allUsersSnapshot = await usersCollection.limit(5).get();
+      console.log(`🔐 Debug query completed in ${Date.now() - debugStartTime}ms`);
+      console.log(`🔐 Total users in collection (first 5):`);
+      
+      if (allUsersSnapshot.empty) {
+        console.log(`🔐   ❌ No users found in the database at all!`);
+        console.log(`🔐   This might indicate:`);
+        console.log(`🔐   - The database has not been initialized`);
+        console.log(`🔐   - The university path '${universityPath}' is incorrect`);
+        console.log(`🔐   - Permission issues preventing read access`);
+      } else {
+        allUsersSnapshot.docs.forEach((doc, index) => {
+          const data = doc.data();
+          console.log(`🔐   ${index + 1}. Document ID: ${doc.id}`);
+          console.log(`🔐      - name: "${data.name || 'N/A'}"`);
+          console.log(`🔐      - email: "${data.email || 'N/A'}"`);
+          console.log(`🔐      - firebase_uid: "${data.firebase_uid || 'NOT SET'}"`);
+          console.log(`🔐      - userType: "${data.userType || 'N/A'}"`);
+        });
+      }
       
       console.log(`🔐 === SET CLAIMS ON REGISTRATION END (USER NOT FOUND) ===`);
-      throw new functions.https.HttpsError('not-found', 'User not found in database. Please contact your coordinator.');
+      console.log(`🔐 Total execution time: ${Date.now() - startTime}ms`);
+      
+      throw new functions.https.HttpsError(
+        'not-found', 
+        `User account not found in the database. This usually means:\n` +
+        `1. Your coordinator hasn't added you to the system yet\n` +
+        `2. There's a mismatch between your registration email (${userRecord.email}) and the email in the database\n` +
+        `Please contact your coordinator to ensure you've been added to the mentorship program.`
+      );
     }
     
     // User found - get their data
@@ -220,43 +260,76 @@ export const setClaimsOnRegistration = functions.https.onCall(async (data, conte
     const userType = userData.userType;
     
     console.log(`🔐 ✅ Found user document: ${userSnapshot.docs[0].id}`);
-    console.log(`🔐 User data: name="${userData.name}", userType="${userData.userType}", email="${userData.email}"`);
+    console.log(`🔐 User data:`);
+    console.log(`🔐   - name: "${userData.name}"`);
+    console.log(`🔐   - userType: "${userData.userType}"`);
+    console.log(`🔐   - email: "${userData.email}"`);
+    console.log(`🔐   - firebase_uid: "${userData.firebase_uid || 'NOT SET'}"`);
     
     if (!userType) {
       console.log('🔐 ❌ User type not found in document');
-      console.log('🔐 Full user data:', JSON.stringify(userData));
-      throw new functions.https.HttpsError('invalid-argument', 'User type not found in database');
+      console.log('🔐 Full user data:', JSON.stringify(userData, null, 2));
+      throw new functions.https.HttpsError(
+        'invalid-argument', 
+        'User role/type not found in database. Please contact your coordinator to ensure your account is properly configured.'
+      );
     }
     
     // Set custom claims
-    console.log(`🔐 Setting custom claims: role="${userType}", university_path="${universityPath}"`);
+    console.log(`🔐 Setting custom claims:`);
+    console.log(`🔐   - role: "${userType}"`);
+    console.log(`🔐   - university_path: "${universityPath}"`);
     
+    const claimsStartTime = Date.now();
     try {
       await setUserClaims(uid, {
         role: userType,
         university_path: universityPath
       });
-      console.log('🔐 ✅ Custom claims set successfully via setUserClaims function');
+      console.log(`🔐 ✅ Custom claims set successfully via setUserClaims function (took ${Date.now() - claimsStartTime}ms)`);
     } catch (claimsError) {
       console.error('🔐 ❌ Error in setUserClaims function:', claimsError);
-      throw new functions.https.HttpsError('internal', `Failed to set custom claims: ${claimsError}`);
+      console.error('🔐 Claims error type:', claimsError instanceof Error ? claimsError.constructor.name : typeof claimsError);
+      console.error('🔐 Claims error message:', claimsError instanceof Error ? claimsError.message : String(claimsError));
+      
+      throw new functions.https.HttpsError(
+        'internal', 
+        `Failed to set custom claims. This is an internal error. Please try again or contact support if the issue persists. Error: ${claimsError instanceof Error ? claimsError.message : String(claimsError)}`
+      );
     }
     
     // Verify claims were set by fetching user again
+    const verifyStartTime = Date.now();
     const updatedUserRecord = await admin.auth().getUser(uid);
+    console.log(`🔐 Verification completed in ${Date.now() - verifyStartTime}ms`);
     console.log('🔐 Verification - Updated custom claims:', JSON.stringify(updatedUserRecord.customClaims || {}));
     
     // Update user document to confirm firebase_uid is set
     if (!userData.firebase_uid) {
       console.log(`🔐 Updating user document to add firebase_uid: ${uid}`);
+      const updateStartTime = Date.now();
+      
       await userDocRef.update({
         firebase_uid: uid,
-        account_created_at: new Date(),
-        last_login: new Date()
+        account_created_at: FieldValue.serverTimestamp(),
+        last_login: FieldValue.serverTimestamp()
       });
+      
+      console.log(`🔐 ✅ User document updated (took ${Date.now() - updateStartTime}ms)`);
+    } else {
+      // Just update last_login
+      const updateStartTime = Date.now();
+      await userDocRef.update({
+        last_login: FieldValue.serverTimestamp()
+      });
+      console.log(`🔐 ✅ Last login updated (took ${Date.now() - updateStartTime}ms)`);
     }
     
-    console.log(`🔐 ✅ SUCCESS: Claims set for user ${uid}: role="${userType}", university="${universityPath}"`);
+    const totalTime = Date.now() - startTime;
+    console.log(`🔐 ✅ SUCCESS: Claims set for user ${uid}`);
+    console.log(`🔐   - role: "${userType}"`);
+    console.log(`🔐   - university: "${universityPath}"`);
+    console.log(`🔐   - total execution time: ${totalTime}ms`);
     console.log(`🔐 === SET CLAIMS ON REGISTRATION END (SUCCESS) ===`);
     
     return {
@@ -271,12 +344,15 @@ export const setClaimsOnRegistration = functions.https.onCall(async (data, conte
         email: userRecord.email,
         userName: userData.name,
         userType: userType,
-        documentId: userSnapshot.docs[0].id
+        documentId: userSnapshot.docs[0].id,
+        executionTimeMs: totalTime
       }
     };
     
   } catch (error) {
+    const totalTime = Date.now() - startTime;
     console.error('🔐 ❌ Error setting claims on registration:', error);
+    console.error(`🔐 Error occurred after ${totalTime}ms`);
     
     // Type-safe error handling
     if (error instanceof Error) {
@@ -285,7 +361,7 @@ export const setClaimsOnRegistration = functions.https.onCall(async (data, conte
       console.error('🔐 Error stack:', error.stack);
     } else {
       console.error('🔐 Unknown error type:', typeof error);
-      console.error('🔐 Error value:', error);
+      console.error('🔐 Error value:', JSON.stringify(error));
     }
     
     console.log(`🔐 === SET CLAIMS ON REGISTRATION END (ERROR) ===`);
@@ -295,6 +371,9 @@ export const setClaimsOnRegistration = functions.https.onCall(async (data, conte
     }
     
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new functions.https.HttpsError('internal', `Failed to set user claims: ${errorMessage}`);
+    throw new functions.https.HttpsError(
+      'internal', 
+      `An unexpected error occurred while setting up your account. Please try again or contact support if the issue persists. Error: ${errorMessage}`
+    );
   }
 });

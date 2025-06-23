@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../services/messaging_service.dart';
+import '../services/messaging_service_v2.dart';
 import '../models/typing_indicator.dart';
 import '../models/message_status.dart';
 import '../../../../../models/message.dart';
 import '../utils/messaging_constants.dart';
 
 class MessageController extends ChangeNotifier {
-  final MessagingService messagingService;
+  final MessagingServiceV2 messagingService;
   final String currentUserId;
   
   // State

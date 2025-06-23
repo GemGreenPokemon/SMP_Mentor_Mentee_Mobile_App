@@ -64,7 +64,7 @@ export const initializeUniversity = functions.https.onCall(
         'users',
         'mentorships',
         'meetings',
-        'messages',
+        'conversations',
         'announcements',
         'progress_reports',
         'events',

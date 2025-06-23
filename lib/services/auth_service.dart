@@ -171,19 +171,56 @@ class AuthService {
           print('🔐 Forcing token refresh to apply new claims...');
           await credential.user!.getIdToken(true);
           
-          // Wait a moment for claims to propagate
-          await Future.delayed(const Duration(seconds: 2));
+          // Wait longer for claims to propagate (Firebase can take 3-5 seconds)
+          // This delay is necessary because Firebase Auth custom claims need time
+          // to propagate through their distributed system after being set
+          print('🔐 Waiting 5 seconds for claims to propagate through Firebase...');
+          await Future.delayed(const Duration(seconds: 5));
           
-          // Verify claims were set
-          final tokenResult = await credential.user!.getIdTokenResult();
-          print('🔐 Token after refresh - all claims: ${tokenResult.claims}');
-          print('🔐 Token after refresh - role: ${tokenResult.claims?['role']}');
-          print('🔐 Token after refresh - university_path: ${tokenResult.claims?['university_path']}');
+          // Implement retry mechanism for claims verification
+          bool claimsVerified = false;
+          int retryCount = 0;
+          const maxRetries = 3;
+          const retryDelay = Duration(seconds: 2);
           
-          if (tokenResult.claims?['role'] != null) {
-            print('🔐 ✅ SUCCESS: Custom claims are now active! Role = ${tokenResult.claims?['role']}');
-          } else {
-            print('🔐 ⚠️ WARNING: Claims may not have propagated yet. They should be available on next login.');
+          while (!claimsVerified && retryCount < maxRetries) {
+            retryCount++;
+            print('🔐 Verifying claims (attempt $retryCount/$maxRetries)...');
+            
+            // Get fresh token result
+            final tokenResult = await credential.user!.getIdTokenResult(true);
+            
+            // Log detailed claims information
+            print('🔐 Token after refresh - all claims: ${tokenResult.claims}');
+            print('🔐 Token after refresh - custom claims found:');
+            print('🔐   - role: ${tokenResult.claims?['role'] ?? 'NOT SET'}');
+            print('🔐   - university_path: ${tokenResult.claims?['university_path'] ?? 'NOT SET'}');
+            print('🔐   - email: ${tokenResult.claims?['email']}');
+            print('🔐   - email_verified: ${tokenResult.claims?['email_verified']}');
+            
+            if (tokenResult.claims?['role'] != null) {
+              claimsVerified = true;
+              print('🔐 ✅ SUCCESS: Custom claims are now active!');
+              print('🔐   - Role: ${tokenResult.claims?['role']}');
+              print('🔐   - University Path: ${tokenResult.claims?['university_path']}');
+            } else {
+              print('🔐 ⚠️ Claims not yet available, attempt $retryCount failed');
+              
+              if (retryCount < maxRetries) {
+                print('🔐 Waiting ${retryDelay.inSeconds} seconds before retry...');
+                await Future.delayed(retryDelay);
+                
+                // Force another token refresh
+                await credential.user!.getIdToken(true);
+              }
+            }
+          }
+          
+          if (!claimsVerified) {
+            print('🔐 ⚠️ WARNING: Claims verification failed after $maxRetries attempts');
+            print('🔐 Expected claims were set by cloud function: ${result['claims']}');
+            print('🔐 But they have not propagated to the ID token yet');
+            print('🔐 They should be available on next login');
           }
         } else {
           print('🔐 ❌ Cloud function returned failure: ${result['message'] ?? 'Unknown error'}');

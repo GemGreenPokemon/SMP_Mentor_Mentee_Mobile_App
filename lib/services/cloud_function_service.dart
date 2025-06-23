@@ -555,8 +555,179 @@ class CloudFunctionService {
 
   // --- Messaging Functions ---
 
-  /// Send a chat message
+  /// Create a new chat conversation
+  /// Note: This function expects Firestore document IDs (e.g., "Emerald_Nash"), not Firebase Auth UIDs
+  /// The Cloud Function will verify the current user is one of the participants
+  Future<Map<String, dynamic>> createChatConversation({
+    required String user1Id,
+    required String user2Id,
+    String? mentorshipId,
+  }) async {
+    print('🔍 CloudFunctionService.createChatConversation - START');
+    print('  user1Id: $user1Id');
+    print('  user2Id: $user2Id');
+    print('  mentorshipId: $mentorshipId');
+    
+    try {
+      final params = <String, dynamic>{
+        'user1Id': user1Id,
+        'user2Id': user2Id,
+        if (mentorshipId != null) 'mentorshipId': mentorshipId,
+      };
+      print('  Request parameters: $params');
+      
+      final HttpsCallable callable = _functions.httpsCallable('createChatConversation');
+      final HttpsCallableResult result = await callable.call(params);
+      
+      final responseData = Map<String, dynamic>.from(result.data ?? {});
+      print('  Response data: $responseData');
+      print('  Response success: ${responseData['success']}');
+      print('  Response message: ${responseData['message']}');
+      print('  Response conversationId: ${responseData['conversationId']}');
+      
+      return responseData;
+    } on FirebaseFunctionsException catch (e) {
+      print('  ❌ FirebaseFunctionsException:');
+      print('    Code: ${e.code}');
+      print('    Message: ${e.message}');
+      print('    Details: ${e.details}');
+      print('    Full exception: $e');
+      
+      // Return error response instead of rethrowing
+      return {
+        'success': false,
+        'message': e.message ?? 'Cloud function error',
+        'error': {
+          'code': e.code,
+          'message': e.message,
+          'details': e.details,
+        }
+      };
+    } catch (e, stackTrace) {
+      print('  ❌ Unexpected error:');
+      print('    Error type: ${e.runtimeType}');
+      print('    Error message: $e');
+      print('    Stack trace: $stackTrace');
+      
+      // Return error response
+      return {
+        'success': false,
+        'message': 'Unexpected error: $e',
+        'error': {
+          'type': e.runtimeType.toString(),
+          'message': e.toString(),
+        }
+      };
+    } finally {
+      print('🔍 CloudFunctionService.createChatConversation - END');
+    }
+  }
+
+  /// Send a message in a conversation
   Future<Map<String, dynamic>> sendChatMessage({
+    required String conversationId,
+    required String message,
+    String type = 'text',
+    Map<String, dynamic>? media,
+  }) async {
+    print('🔍 CloudFunctionService.sendChatMessage - START');
+    print('  conversationId: $conversationId');
+    print('  message: $message');
+    print('  type: $type');
+    print('  media: $media');
+    
+    try {
+      final params = <String, dynamic>{
+        'conversationId': conversationId,
+        'message': message,
+        'type': type,
+        if (media != null) 'media': media,
+      };
+      print('  Request parameters: $params');
+      
+      final HttpsCallable callable = _functions.httpsCallable('sendChatMessage');
+      final HttpsCallableResult result = await callable.call(params);
+      
+      final responseData = Map<String, dynamic>.from(result.data ?? {});
+      print('  Response data: $responseData');
+      print('  Response success: ${responseData['success']}');
+      print('  Response message: ${responseData['message']}');
+      
+      return responseData;
+    } on FirebaseFunctionsException catch (e) {
+      print('  ❌ FirebaseFunctionsException:');
+      print('    Code: ${e.code}');
+      print('    Message: ${e.message}');
+      print('    Details: ${e.details}');
+      
+      // Return error response instead of rethrowing
+      return {
+        'success': false,
+        'message': e.message ?? 'Cloud function error',
+        'error': {
+          'code': e.code,
+          'message': e.message,
+          'details': e.details,
+        }
+      };
+    } catch (e, stackTrace) {
+      print('  ❌ Unexpected error:');
+      print('    Error type: ${e.runtimeType}');
+      print('    Error message: $e');
+      print('    Stack trace: $stackTrace');
+      
+      // Return error response
+      return {
+        'success': false,
+        'message': 'Unexpected error: $e',
+        'error': {
+          'type': e.runtimeType.toString(),
+          'message': e.toString(),
+        }
+      };
+    } finally {
+      print('🔍 CloudFunctionService.sendChatMessage - END');
+    }
+  }
+
+  /// Mark messages as read
+  Future<Map<String, dynamic>> markChatMessagesRead({
+    required String conversationId,
+    required List<String> messageIds,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('markChatMessagesRead');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'conversationId': conversationId,
+        'messageIds': messageIds,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Mark messages read error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Update conversation settings
+  Future<Map<String, dynamic>> updateChatSettings({
+    required String conversationId,
+    required Map<String, dynamic> settings,
+  }) async {
+    try {
+      final HttpsCallable callable = _functions.httpsCallable('updateChatSettings');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'conversationId': conversationId,
+        'settings': settings,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Update chat settings error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Send a chat message (OLD - for backward compatibility)
+  Future<Map<String, dynamic>> sendChatMessageOld({
     required String universityPath,
     required String chatId,
     required String message,
@@ -814,7 +985,9 @@ class CloudFunctionService {
   String getCurrentUniversityPath() {
     // TODO: Implement logic to get university path from current user context
     // This would typically come from Firebase Auth custom claims or user preferences
-    return 'california_merced_uc_merced'; // Default for now - matches DirectDatabaseService format
+    final universityPath = 'california_merced_uc_merced'; // Default for now - matches DirectDatabaseService format
+    print('🔍 CloudFunctionService.getCurrentUniversityPath: $universityPath');
+    return universityPath;
   }
 
   // --- Announcement Management Functions ---

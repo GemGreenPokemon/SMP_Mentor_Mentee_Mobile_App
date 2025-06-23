@@ -19,7 +19,22 @@ export async function verifyAuth(context: functions.https.CallableContext): Prom
   
   // Custom claims can be at context.auth.token.role or context.auth.token (root level)
   const role = context.auth.token.role || context.auth.token['role'];
-  const universityPath = context.auth.token.university_path || context.auth.token['university_path'];
+  let universityPath = context.auth.token.university_path || context.auth.token['university_path'];
+  
+  // Fallback mechanism for missing university_path
+  if (!universityPath) {
+    console.log('⚠️ verifyAuth: Warning - university_path is missing from token claims');
+    console.log('⚠️ verifyAuth: Token claims available:', Object.keys(context.auth.token));
+    console.log('⚠️ verifyAuth: Full token data:', JSON.stringify(context.auth.token));
+    
+    // TEMPORARY FALLBACK: Set default university_path if missing
+    // TODO: This should be removed once all users have proper university_path claims
+    universityPath = 'california_merced_uc_merced';
+    console.log('⚠️ verifyAuth: Using fallback university_path:', universityPath);
+    console.log('⚠️ verifyAuth: This is a temporary measure - user claims should be updated');
+  } else {
+    console.log('✅ verifyAuth: university_path found in claims:', universityPath);
+  }
   
   const authContext = {
     uid: context.auth.uid,
@@ -29,6 +44,16 @@ export async function verifyAuth(context: functions.https.CallableContext): Prom
   };
   
   console.log('🔒 verifyAuth: Extracted auth context:', JSON.stringify(authContext));
+  
+  // Additional debug logging for missing university_path tracking
+  if (context.auth.token.university_path === undefined && context.auth.token['university_path'] === undefined) {
+    console.log('🔍 verifyAuth: Debug - User needs claims update:');
+    console.log('  - UID:', context.auth.uid);
+    console.log('  - Email:', context.auth.token.email);
+    console.log('  - Role:', role);
+    console.log('  - Applied fallback university_path:', universityPath);
+  }
+  
   return authContext;
 }
 

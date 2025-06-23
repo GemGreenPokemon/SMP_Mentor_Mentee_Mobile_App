@@ -51,7 +51,7 @@ class DirectDatabaseService {
         'users',
         'mentorships', 
         'meetings',
-        'messages',
+        'conversations',
         'announcements',
         'progress_reports',
         'events',
