@@ -19,6 +19,7 @@ import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/register_scre
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_acknowledgment_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/settings_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings/web_settings_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings_v2/web_settings_dashboard.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentor_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/mentee_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/utils/responsive.dart';
@@ -142,9 +143,18 @@ class MyApp extends StatelessWidget {
         '/qualtrics': (context) => const QualtricsDataDashboardScreen(),
         '/register': (context) => const RegisterScreen(),
         '/mentee_acknowledgment': (context) => const MenteeAcknowledgmentScreen(),
-        '/settings': (context) => Responsive.isWeb()
-            ? const WebSettingsScreen()
-            : const SettingsScreen(),
+        '/settings': (context) {
+          // Feature flag for new settings dashboard (can be controlled via environment variable or user preference)
+          const bool useNewSettingsDashboard = true; // Set to true to use new dashboard
+          
+          if (Responsive.isWeb()) {
+            return useNewSettingsDashboard 
+                ? const WebSettingsDashboard() 
+                : const WebSettingsScreen();
+          } else {
+            return const SettingsScreen();
+          }
+        },
       },
     );
   }
