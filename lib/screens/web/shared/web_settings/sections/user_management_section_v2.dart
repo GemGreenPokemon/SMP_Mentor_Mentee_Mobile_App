@@ -435,7 +435,18 @@ class _UserFormDialogState extends State<_UserFormDialog> {
     _departmentController = TextEditingController(text: widget.user?.department ?? '');
     _yearMajorController = TextEditingController(text: widget.user?.yearMajor ?? '');
     _selectedUserType = widget.user?.userType ?? 'mentee';
-    _selectedAcknowledgment = widget.user?.acknowledgmentSigned ?? 'not_applicable';
+    
+    // Normalize acknowledgment value (case-insensitive)
+    String acknowledgmentValue = widget.user?.acknowledgmentSigned?.toLowerCase() ?? 'not_applicable';
+    if (acknowledgmentValue == 'yes') {
+      acknowledgmentValue = 'yes';
+    } else if (acknowledgmentValue == 'no') {
+      acknowledgmentValue = 'no';
+    } else {
+      acknowledgmentValue = 'not_applicable';
+    }
+    _selectedAcknowledgment = acknowledgmentValue;
+    
     _selectedMentorId = widget.user?.mentor;
   }
 
@@ -662,8 +673,8 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     prefixIcon: Icon(Icons.check_circle),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'signed', child: Text('Signed')),
-                    DropdownMenuItem(value: 'not_signed', child: Text('Not Signed')),
+                    DropdownMenuItem(value: 'yes', child: Text('Yes - Signed')),
+                    DropdownMenuItem(value: 'no', child: Text('No - Not Signed')),
                     DropdownMenuItem(value: 'not_applicable', child: Text('Not Applicable')),
                   ],
                   onChanged: (value) {
