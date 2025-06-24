@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../utils/verification_constants.dart';
+import '../utils/registration_constants.dart';
 
-class VerificationCard extends StatelessWidget {
+class RegistrationCard extends StatelessWidget {
   final Widget child;
-  
-  const VerificationCard({
+
+  const RegistrationCard({
     super.key,
     required this.child,
   });
@@ -15,7 +15,7 @@ class VerificationCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 500),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(VerificationConstants.cardBorderRadius),
+        borderRadius: BorderRadius.circular(RegistrationConstants.largeBorderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -25,7 +25,7 @@ class VerificationCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(VerificationConstants.cardPadding),
+        padding: const EdgeInsets.all(RegistrationConstants.largePadding),
         child: child,
       ),
     );

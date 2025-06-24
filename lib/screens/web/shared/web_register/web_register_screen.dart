@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'models/role_selection.dart';
+import '../../../../utils/responsive.dart';
 import 'utils/registration_constants.dart';
-import 'widgets/decorative/gradient_background.dart';
-import 'widgets/role_selection/role_selection_page.dart';
-import 'widgets/forms/mentee_registration_form.dart';
-import 'widgets/forms/mentor_registration_form.dart';
-import 'widgets/forms/coordinator_registration_form.dart';
-import 'widgets/forms/developer_registration_form.dart';
+import 'widgets/painters/background_pattern_painter.dart';
+import 'widgets/panels/registration_branding_panel.dart';
+import 'widgets/panels/registration_form_panel.dart';
+import 'widgets/forms/unified_registration_form.dart';
+import 'widgets/registration_card.dart';
 
 class WebRegisterScreen extends StatefulWidget {
   const WebRegisterScreen({super.key});
@@ -16,70 +15,112 @@ class WebRegisterScreen extends StatefulWidget {
 }
 
 class _WebRegisterScreenState extends State<WebRegisterScreen> {
-  final PageController _pageController = PageController();
-  UserRole? _selectedRole;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _onRoleSelected(UserRole role) {
-    setState(() {
-      _selectedRole = role;
-    });
-    
-    // Navigate to the next page
-    _pageController.nextPage(
-      duration: RegistrationConstants.pageTransitionDuration,
-      curve: RegistrationConstants.pageTransitionCurve,
-    );
-  }
-
-  void _goBack() {
-    _pageController.previousPage(
-      duration: RegistrationConstants.pageTransitionDuration,
-      curve: RegistrationConstants.pageTransitionCurve,
-    );
-  }
-
-  Widget _buildRegistrationForm() {
-    if (_selectedRole == null) {
-      return Container(); // Should never happen
-    }
-    
-    switch (_selectedRole!) {
-      case UserRole.mentee:
-        return MenteeRegistrationForm(onBack: _goBack);
-      case UserRole.mentor:
-        return MentorRegistrationForm(onBack: _goBack);
-      case UserRole.coordinator:
-        return CoordinatorRegistrationForm(onBack: _goBack);
-      case UserRole.developer:
-        return DeveloperRegistrationForm(onBack: _goBack);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isDesktop = Responsive.isDesktop(context);
+    final isTablet = Responsive.isTablet(context);
+    final isMobile = !isDesktop && !isTablet;
+    
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: GradientBackground(
-        child: SafeArea(
-          child: PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              // First page - Role selection
-              RoleSelectionPage(
-                onRoleSelected: _onRoleSelected,
+      body: Container(
+        height: screenSize.height,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: RegistrationConstants.backgroundGradientColors,
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            Positioned.fill(
+              child: CustomPaint(
+                painter: BackgroundPatternPainter(),
               ),
-              
-              // Second page - Role-specific registration form
-              _buildRegistrationForm(),
+            ),
+            
+            // Main content
+            if (isMobile) _buildMobileLayout() else _buildDesktopLayout(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: RegistrationConstants.maxDesktopWidth,
+          maxHeight: RegistrationConstants.maxDesktopHeight,
+        ),
+        margin: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(RegistrationConstants.largeBorderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 40,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(RegistrationConstants.largeBorderRadius),
+          child: Row(
+            children: [
+              // Left branding panel
+              const Expanded(
+                flex: 3,
+                child: RegistrationBrandingPanel(),
+              ),
+              // Right registration panel
+              Expanded(
+                flex: 2,
+                child: RegistrationFormPanel(
+                  child: const UnifiedRegistrationForm(),
+                ),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(RegistrationConstants.largePadding),
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
+            // Mobile logo
+            Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                'assets/images/My_SMP_Logo.png',
+                height: RegistrationConstants.mobileLogoHeight,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 60),
+            // Registration form in card
+            RegistrationCard(
+              child: const UnifiedRegistrationForm(),
+            ),
+          ],
         ),
       ),
     );
