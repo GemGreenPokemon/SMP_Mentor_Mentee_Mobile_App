@@ -135,6 +135,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
         builder: (context) => WebMessagingScreen(
           preSelectedUserId: mentee.id,
           preSelectedUserName: mentee.name,
+          showBackButton: true,
         ),
       ),
     );

@@ -34,7 +34,7 @@ class ConversationController extends ChangeNotifier {
   bool get hasConversations => _conversations.isNotEmpty;
   
   /// Load conversations for the current user
-  void loadConversations() {
+  Future<void> loadConversations() async {
     _isLoading = true;
     _error = null;
     notifyListeners();

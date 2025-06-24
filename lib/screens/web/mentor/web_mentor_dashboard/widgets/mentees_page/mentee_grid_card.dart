@@ -293,6 +293,7 @@ class MenteeGridCard extends StatelessWidget {
         builder: (context) => WebMessagingScreen(
           preSelectedUserId: mentee.id,
           preSelectedUserName: mentee.name,
+          showBackButton: true,
         ),
       ),
     );

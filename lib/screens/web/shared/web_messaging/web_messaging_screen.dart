@@ -15,11 +15,13 @@ import 'utils/messaging_constants.dart';
 class WebMessagingScreen extends StatefulWidget {
   final String? preSelectedUserId;
   final String? preSelectedUserName;
+  final bool showBackButton;
   
   const WebMessagingScreen({
     super.key,
     this.preSelectedUserId,
     this.preSelectedUserName,
+    this.showBackButton = false,
   });
 
   @override
@@ -27,9 +29,9 @@ class WebMessagingScreen extends StatefulWidget {
 }
 
 class _WebMessagingScreenState extends State<WebMessagingScreen> {
-  late MessagingServiceV2 _messagingService;
-  late ConversationController _conversationController;
-  late MessageController _messageController;
+  MessagingServiceV2? _messagingService;
+  ConversationController? _conversationController;
+  MessageController? _messageController;
   final AuthService _authService = AuthService();
   final RealTimeUserService _userService = RealTimeUserService();
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
@@ -39,6 +41,7 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
   String? _selectedUserName;
   String? _selectedUserRole;
   String? _currentUserDocId;
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -85,24 +88,31 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
 
     _messagingService = MessagingServiceV2();
     _conversationController = ConversationController(
-      messagingService: _messagingService,
+      messagingService: _messagingService!,
       userId: userDocId, // Use document ID instead of Firebase UID
       userType: userType,
     );
     _messageController = MessageController(
-      messagingService: _messagingService,
+      messagingService: _messagingService!,
       currentUserId: userDocId, // Use document ID instead of Firebase UID
     );
 
     // Initialize the services
-    _messagingService.initialize();
+    _messagingService!.initialize();
     
     // Ensure RealTimeUserService is listening
     if (!_userService.connectionState.name.contains('connected')) {
       _userService.startListening(_cloudFunctions.getCurrentUniversityPath());
     }
     
-    _conversationController.loadConversations();
+    await _conversationController!.loadConversations();
+    
+    // Mark as initialized after everything is set up
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
+    }
     
     // If pre-selected user, wait for conversations to load then select it
     if (widget.preSelectedUserId != null && widget.preSelectedUserName != null) {
@@ -152,9 +162,9 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
 
   @override
   void dispose() {
-    _messagingService.dispose();
-    _conversationController.dispose();
-    _messageController.dispose();
+    _messagingService?.dispose();
+    _conversationController?.dispose();
+    _messageController?.dispose();
     super.dispose();
   }
 
@@ -171,7 +181,7 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
       debugPrint('Ensuring conversation exists for: $conversationId');
       
       // Get or create the conversation
-      final actualConversationId = await _messagingService.getOrCreateConversation(
+      final actualConversationId = await _messagingService!.getOrCreateConversation(
         _currentUserDocId!,
         userId,
       );
@@ -185,7 +195,7 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
           });
         }
         // Load messages for the conversation
-        _messageController.loadMessages(actualConversationId, _currentUserDocId!, userId);
+        _messageController!.loadMessages(actualConversationId, _currentUserDocId!, userId);
       } else {
         debugPrint('Failed to create/get conversation');
         // Show error to user
@@ -203,17 +213,57 @@ class _WebMessagingScreenState extends State<WebMessagingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized || _messagingService == null || _conversationController == null || _messageController == null) {
+      return Scaffold(
+        backgroundColor: MessagingConstants.backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Loading messages...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
     final showSidebar = isDesktop || (isTablet && _selectedConversationId == null);
 
     return Scaffold(
       backgroundColor: MessagingConstants.backgroundColor,
+      appBar: widget.showBackButton
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 1,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: Text(
+                'Messages',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          : null,
       body: MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: _messagingService),
-          ChangeNotifierProvider.value(value: _conversationController),
-          ChangeNotifierProvider.value(value: _messageController),
+          ChangeNotifierProvider.value(value: _messagingService!),
+          ChangeNotifierProvider.value(value: _conversationController!),
+          ChangeNotifierProvider.value(value: _messageController!),
         ],
         child: Row(
           children: [
