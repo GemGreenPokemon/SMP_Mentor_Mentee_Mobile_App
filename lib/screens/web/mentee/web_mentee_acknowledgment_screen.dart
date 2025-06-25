@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'web_mentee_dashboard_screen.dart';
+import 'web_mentee_dashboard/web_mentee_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/utils/responsive.dart';
 
 class WebMenteeAcknowledgmentScreen extends StatefulWidget {
