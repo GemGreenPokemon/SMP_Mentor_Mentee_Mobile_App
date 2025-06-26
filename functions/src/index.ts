@@ -20,6 +20,7 @@ try {
 // Import function modules
 import { initializeUniversity } from './university/initialization';
 import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkAssignMentors, validateNameForRegistration, migrateUserSubcollections, syncUserClaims } from './users/management';
+import { checkMenteeAcknowledgment, submitMenteeAcknowledgment } from './users/acknowledgment';
 import { createAnnouncement, updateAnnouncement, deleteAnnouncement, getAnnouncements } from './announcements/management';
 import { setClaimsOnLogin, syncClaimsOnLogin, setClaimsOnRegistration } from './auth/triggers';
 import { 
@@ -41,6 +42,10 @@ import {
   updateConversationSettings,
   getUserConversations
 } from './messaging/conversations';
+import {
+  runUnitTest,
+  runTestSuite
+} from './testing/test-runner';
 // Temporarily commented out to avoid build errors:
 // import { sendMessage, getChatHistory } from './messaging/chat';
 // import { generateProgressReport, submitProgressReport } from './reports/progress';
@@ -59,6 +64,10 @@ export const bulkAssignMentorAccounts = bulkAssignMentors;
 export const validateUserNameForRegistration = validateNameForRegistration;
 export const migrateUserSubcollectionsForUniversity = migrateUserSubcollections;
 export const syncUserClaimsForUniversity = syncUserClaims;
+
+// Acknowledgment Functions
+export const checkMenteeAcknowledgmentStatus = checkMenteeAcknowledgment;
+export const submitMenteeAcknowledgmentForm = submitMenteeAcknowledgment;
 
 // Auth Functions
 export const onUserCreate = setClaimsOnLogin;
@@ -111,5 +120,8 @@ export const healthCheck = functions.https.onRequest((req, res) => {
     version: '1.0.0'
   });
 });
+
+// Test Runner Functions (Developer only)
+export { runUnitTest, runTestSuite };
 
 // Utility Functions

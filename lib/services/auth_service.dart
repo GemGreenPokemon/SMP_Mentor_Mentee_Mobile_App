@@ -47,6 +47,52 @@ class AuthService {
   // Get university path (hardcoded for now, can be made dynamic later)
   String get universityPath => 'california_merced_uc_merced';
 
+  // Helper method to get user data by name
+  Future<Map<String, dynamic>?> _getUserDataByName(String name) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      
+      final querySnapshot = await db
+          .collection(universityPath)
+          .doc('data')
+          .collection('users')
+          .where('name', isEqualTo: name)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        return querySnapshot.docs.first.data();
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data by name: $e');
+      return null;
+    }
+  }
+  
+  // Helper method to get user data by email
+  Future<Map<String, dynamic>?> _getUserDataByEmail(String email) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      
+      final querySnapshot = await db
+          .collection(universityPath)
+          .doc('data')
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        return querySnapshot.docs.first.data();
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user data by email: $e');
+      return null;
+    }
+  }
+
   // Check if name is approved for registration (NAME-ONLY WHITELIST)
   Future<bool> isNameApprovedForRegistration(String name) async {
     try {
@@ -147,29 +193,44 @@ class AuthService {
       // Step 4: Update user record with Firebase Auth UID
       await _updateUserRecordWithAuthUID(name, credential.user!.uid);
 
-      // Step 5: Set custom claims for the new user
-      try {
-        print('🔐 === SETTING CUSTOM CLAIMS ON REGISTRATION ===');
-        print('🔐 User UID: ${credential.user!.uid}');
-        print('🔐 User email: ${credential.user!.email}');
-        print('🔐 User name: $name');
-        
-        // Call cloud function to set claims
-        print('🔐 Calling setCustomClaimsOnRegistration cloud function...');
-        final result = await _cloudFunctions.setCustomClaimsOnRegistration(
-          uid: credential.user!.uid,
-        );
-        
-        print('🔐 Cloud function result: $result');
-        
-        if (result['success'] == true) {
-          print('🔐 ✅ Cloud function returned success');
-          print('🔐 Claims set: ${result['claims']}');
-          print('🔐 Debug info: ${result['debug']}');
+      // Step 5: Check if user is a mentee and needs acknowledgment
+      print('🔐 === CHECKING IF CUSTOM CLAIMS SHOULD BE SET ===');
+      print('🔐 User UID: ${credential.user!.uid}');
+      print('🔐 User email: ${credential.user!.email}');
+      print('🔐 User name: $name');
+      
+      // Get user data to check type and acknowledgment status
+      final userData = await _getUserDataByName(name);
+      final userType = userData?['userType'] ?? '';
+      final acknowledgmentSigned = userData?['acknowledgment_signed'] ?? 'no';
+      
+      print('🔐 User type: $userType');
+      print('🔐 Acknowledgment signed: $acknowledgmentSigned');
+      
+      // Only set custom claims if:
+      // 1. User is NOT a mentee, OR
+      // 2. User is a mentee AND has signed acknowledgment
+      final shouldSetClaims = userType != 'mentee' || acknowledgmentSigned == 'yes';
+      
+      if (shouldSetClaims) {
+        print('🔐 Setting custom claims immediately for user type: $userType');
+        try {
+          // Call cloud function to set claims
+          print('🔐 Calling setCustomClaimsOnRegistration cloud function...');
+          final result = await _cloudFunctions.setCustomClaimsOnRegistration(
+            uid: credential.user!.uid,
+          );
           
-          // Force token refresh to get the new claims
-          print('🔐 Forcing token refresh to apply new claims...');
-          await credential.user!.getIdToken(true);
+          print('🔐 Cloud function result: $result');
+          
+          if (result['success'] == true) {
+            print('🔐 ✅ Cloud function returned success');
+            print('🔐 Claims set: ${result['claims']}');
+            print('🔐 Debug info: ${result['debug']}');
+            
+            // Force token refresh to get the new claims
+            print('🔐 Forcing token refresh to apply new claims...');
+            await credential.user!.getIdToken(true);
           
           // Wait longer for claims to propagate (Firebase can take 3-5 seconds)
           // This delay is necessary because Firebase Auth custom claims need time
@@ -226,12 +287,18 @@ class AuthService {
           print('🔐 ❌ Cloud function returned failure: ${result['message'] ?? 'Unknown error'}');
         }
         
-        print('🔐 === END SETTING CUSTOM CLAIMS ===');
-      } catch (claimsError) {
-        print('🔐 ❌ ERROR setting custom claims during registration: $claimsError');
-        print('🔐 Error type: ${claimsError.runtimeType}');
-        // Don't throw - registration was successful, claims are just missing
-        // User can still use the app, just might need to sync claims on login
+          print('🔐 === END SETTING CUSTOM CLAIMS ===');
+        } catch (claimsError) {
+          print('🔐 ❌ ERROR setting custom claims during registration: $claimsError');
+          print('🔐 Error type: ${claimsError.runtimeType}');
+          // Don't throw - registration was successful, claims are just missing
+          // User can still use the app, just might need to sync claims on login
+        }
+      } else {
+        print('🔐 === SKIPPING CUSTOM CLAIMS FOR UNACKNOWLEDGED MENTEE ===');
+        print('🔐 User is a mentee who has not signed acknowledgment');
+        print('🔐 Custom claims will be set after acknowledgment is signed');
+        print('🔐 === END CUSTOM CLAIMS CHECK ===');
       }
 
       return credential;
@@ -252,22 +319,37 @@ class AuthService {
         password: password,
       );
       
-      // Sync custom claims after successful login to ensure proper permissions
+      // Check if custom claims should be synced after login
       if (credential.user != null) {
         try {
-          print('🔐 === CUSTOM CLAIMS SYNC START ===');
+          print('🔐 === CUSTOM CLAIMS CHECK ON LOGIN ===');
           print('🔐 User logged in: ${credential.user!.email} (${credential.user!.uid})');
           
           // Check current claims before sync
           final tokenBeforeSync = await credential.user!.getIdTokenResult();
-          print('🔐 Claims BEFORE sync: ${tokenBeforeSync.claims}');
+          print('🔐 Claims BEFORE check: ${tokenBeforeSync.claims}');
           print('🔐 Role in claims BEFORE: ${tokenBeforeSync.claims?['role'] ?? 'NOT SET'}');
           
-          // Only sync if role is not already set (skip for super_admin who already has claims)
+          // Only sync if role is not already set
           final existingRole = tokenBeforeSync.claims?['role'];
           if (existingRole == null) {
-            print('🔐 No role found, calling syncUserClaimsOnLogin...');
-            final result = await _cloudFunctions.syncUserClaimsOnLogin();
+            // Get user data to check type and acknowledgment status
+            final userData = await _getUserDataByEmail(credential.user!.email!);
+            final userType = userData?['userType'] ?? '';
+            final acknowledgmentSigned = userData?['acknowledgment_signed'] ?? 'no';
+            
+            print('🔐 User type from database: $userType');
+            print('🔐 Acknowledgment signed: $acknowledgmentSigned');
+            
+            // Only set custom claims if:
+            // 1. User is NOT a mentee, OR
+            // 2. User is a mentee AND has signed acknowledgment
+            final shouldSetClaims = userType != 'mentee' || acknowledgmentSigned == 'yes';
+            
+            if (shouldSetClaims) {
+              print('🔐 Setting custom claims for user type: $userType');
+              print('🔐 Calling syncUserClaimsOnLogin...');
+              final result = await _cloudFunctions.syncUserClaimsOnLogin();
             
             if (result['success'] == true) {
               print('🔐 ✅ Cloud function returned success');
@@ -293,6 +375,11 @@ class AuthService {
             } else {
               print('🔐 ❌ Claims sync failed: ${result['message'] ?? result['error'] ?? 'Unknown error'}');
             }
+            } else {
+              print('🔐 === SKIPPING CUSTOM CLAIMS FOR UNACKNOWLEDGED MENTEE ===');
+              print('🔐 User is a mentee who has not signed acknowledgment');
+              print('🔐 Custom claims will be set after acknowledgment is signed');
+            }
           } else {
             print('🔐 ✅ User already has role: $existingRole, skipping sync');
           }
@@ -307,6 +394,38 @@ class AuthService {
       return credential;
     } on FirebaseAuthException catch (e) {
       print('Auth error: ${e.code} - ${e.message}');
+      throw e;
+    }
+  }
+
+  // Sync user claims - useful for tests and manual claim refresh
+  Future<void> syncUserClaims() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+
+    print('🔐 Syncing user claims for ${user.email}');
+    
+    // Get the current ID token to check existing claims
+    final idToken = await user.getIdTokenResult();
+    final currentRole = idToken.claims?['role'] as String?;
+    
+    if (currentRole != null && currentRole.isNotEmpty) {
+      print('🔐 User already has role: $currentRole');
+      return;
+    }
+
+    print('🔐 No role found, calling cloud function to sync claims...');
+    try {
+      final result = await _cloudFunctions.syncUserClaimsOnLogin();
+      print('🔐 Cloud function response: $result');
+      
+      // Force token refresh to get new claims
+      await user.getIdTokenResult(true);
+      print('🔐 ✅ Claims synced successfully');
+    } catch (e) {
+      print('🔐 ❌ Error syncing claims: $e');
       throw e;
     }
   }

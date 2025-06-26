@@ -130,14 +130,28 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
                 color: Color(0xFF0F2D52),
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: () => _showAddUserDialog(context),
-              icon: const Icon(Icons.person_add),
-              label: const Text('Add User'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F2D52),
-                foregroundColor: Colors.white,
-              ),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => _showAddUserDialog(context, isTestUser: true),
+                  icon: const Icon(Icons.science),
+                  label: const Text('Add Test User'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddUserDialog(context),
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Add User'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F2D52),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -314,13 +328,14 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
     }
   }
 
-  void _showAddUserDialog(BuildContext context) {
+  void _showAddUserDialog(BuildContext context, {bool isTestUser = false}) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => _UserFormDialog(
-        title: 'Add New User',
+        title: isTestUser ? 'Add Test User' : 'Add New User',
         user: null,
+        isTestUser: isTestUser,
         mentors: widget.usersList.where((u) => u.userType == 'mentor').toList(),
         onSave: (data) async {
           try {
@@ -361,6 +376,7 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
       builder: (dialogContext) => _UserFormDialog(
         title: 'Edit User',
         user: user,
+        isTestUser: false,
         mentors: widget.usersList.where((u) => u.userType == 'mentor').toList(),
         onSave: (data) async {
           try {
@@ -400,12 +416,14 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
 class _UserFormDialog extends StatefulWidget {
   final String title;
   final User? user;
+  final bool isTestUser;
   final List<User> mentors;
   final Function(Map<String, String?>) onSave;
 
   const _UserFormDialog({
     required this.title,
     required this.user,
+    this.isTestUser = false,
     required this.mentors,
     required this.onSave,
   });
@@ -429,23 +447,36 @@ class _UserFormDialogState extends State<_UserFormDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.user?.name ?? '');
-    _emailController = TextEditingController(text: widget.user?.email ?? '');
-    _studentIdController = TextEditingController(text: widget.user?.studentId ?? '');
-    _departmentController = TextEditingController(text: widget.user?.department ?? '');
-    _yearMajorController = TextEditingController(text: widget.user?.yearMajor ?? '');
-    _selectedUserType = widget.user?.userType ?? 'mentee';
     
-    // Normalize acknowledgment value (case-insensitive)
-    String acknowledgmentValue = widget.user?.acknowledgmentSigned?.toLowerCase() ?? 'not_applicable';
-    if (acknowledgmentValue == 'yes') {
-      acknowledgmentValue = 'yes';
-    } else if (acknowledgmentValue == 'no') {
-      acknowledgmentValue = 'no';
+    // If this is a test user, pre-fill the fields with test data
+    if (widget.isTestUser && widget.user == null) {
+      _nameController = TextEditingController(text: 'Test User');
+      _emailController = TextEditingController(text: 'user@gmail.com');
+      _studentIdController = TextEditingController(text: '100381846');
+      _departmentController = TextEditingController(text: 'Engineering');
+      _yearMajorController = TextEditingController(text: '5th year, Computer Science and Engineering');
+      _selectedUserType = 'mentee'; // Default to mentee, but user can change
+      _selectedAcknowledgment = 'yes'; // Default to yes for test user
     } else {
-      acknowledgmentValue = 'not_applicable';
+      // Normal initialization for edit or regular add
+      _nameController = TextEditingController(text: widget.user?.name ?? '');
+      _emailController = TextEditingController(text: widget.user?.email ?? '');
+      _studentIdController = TextEditingController(text: widget.user?.studentId ?? '');
+      _departmentController = TextEditingController(text: widget.user?.department ?? '');
+      _yearMajorController = TextEditingController(text: widget.user?.yearMajor ?? '');
+      _selectedUserType = widget.user?.userType ?? 'mentee';
+      
+      // Normalize acknowledgment value (case-insensitive)
+      String acknowledgmentValue = widget.user?.acknowledgmentSigned?.toLowerCase() ?? 'not_applicable';
+      if (acknowledgmentValue == 'yes') {
+        acknowledgmentValue = 'yes';
+      } else if (acknowledgmentValue == 'no') {
+        acknowledgmentValue = 'no';
+      } else {
+        acknowledgmentValue = 'not_applicable';
+      }
+      _selectedAcknowledgment = acknowledgmentValue;
     }
-    _selectedAcknowledgment = acknowledgmentValue;
     
     _selectedMentorId = widget.user?.mentor;
   }

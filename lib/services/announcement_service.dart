@@ -7,7 +7,11 @@ import 'tab_visibility_manager/tab_visibility_manager.dart';
 class AnnouncementService extends ChangeNotifier {
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
   final AuthService _authService = AuthService();
-  final TabVisibilityManager _tabVisibilityManager = TabVisibilityManager();
+  late final TabVisibilityManagerInterface _tabVisibilityManager;
+  
+  AnnouncementService() {
+    _tabVisibilityManager = TabVisibilityManager.getInstance();
+  }
   
   // Loading states
   bool _isLoading = false;

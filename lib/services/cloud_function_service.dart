@@ -844,6 +844,50 @@ class CloudFunctionService {
     }
   }
 
+  // --- Acknowledgment Functions ---
+
+  /// Check if a mentee has completed their acknowledgment
+  Future<Map<String, dynamic>> checkMenteeAcknowledgment() async {
+    try {
+      print('🔍 checkMenteeAcknowledgment: Calling cloud function');
+      
+      final HttpsCallable callable = _functions.httpsCallable('checkMenteeAcknowledgmentStatus');
+      final HttpsCallableResult result = await callable.call();
+      
+      final responseData = Map<String, dynamic>.from(result.data ?? {});
+      print('🔍 checkMenteeAcknowledgment: Cloud function response:');
+      print('  - success: ${responseData['success']}');
+      print('  - needsAcknowledgment: ${responseData['needsAcknowledgment']}');
+      print('  - acknowledgmentStatus: ${responseData['acknowledgmentStatus']}');
+      print('  - message: ${responseData['message']}');
+      print('  - Full response: $responseData');
+      
+      return responseData;
+    } on FirebaseFunctionsException catch (e) {
+      print('Check mentee acknowledgment error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Submit mentee acknowledgment
+  Future<Map<String, dynamic>> submitMenteeAcknowledgment({
+    required String fullName,
+  }) async {
+    try {
+      print('🔍 submitMenteeAcknowledgment: Calling cloud function');
+      print('🔍   fullName: $fullName');
+      
+      final HttpsCallable callable = _functions.httpsCallable('submitMenteeAcknowledgmentForm');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'fullName': fullName,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Submit mentee acknowledgment error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
   // --- Data Synchronization Functions ---
 
   /// Sync local database changes to Firestore
@@ -1192,6 +1236,64 @@ class CloudFunctionService {
       rethrow;
     } catch (e) {
       print('🔐 syncUserClaimsForUniversity: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  // --- Test Runner Functions ---
+
+  /// Run a unit test (developer only)
+  static Future<Map<String, dynamic>> runUnitTest(
+    String testPath, {
+    int timeout = 60000,
+    bool showDetailedLogs = true,
+  }) async {
+    try {
+      print('🧪 runUnitTest: Starting test for path: $testPath');
+      
+      final instance = CloudFunctionService();
+      final HttpsCallable callable = instance._functions.httpsCallable('runUnitTest');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'testPath': testPath,
+        'timeout': timeout,
+        'showDetailedLogs': showDetailedLogs,
+      });
+      
+      print('🧪 runUnitTest: Test completed');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🧪 runUnitTest: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🧪 runUnitTest: General error: $e');
+      throw FirebaseFunctionsException(
+        code: 'unknown',
+        message: 'An unexpected error occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Run a test suite (developer only)
+  static Future<Map<String, dynamic>> runTestSuite(String suite) async {
+    try {
+      print('🧪 runTestSuite: Starting test suite: $suite');
+      
+      final instance = CloudFunctionService();
+      final HttpsCallable callable = instance._functions.httpsCallable('runTestSuite');
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'suite': suite,
+      });
+      
+      print('🧪 runTestSuite: Test suite completed');
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('🧪 runTestSuite: FirebaseFunctionsException - code: ${e.code}, message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      print('🧪 runTestSuite: General error: $e');
       throw FirebaseFunctionsException(
         code: 'unknown',
         message: 'An unexpected error occurred: ${e.toString()}',

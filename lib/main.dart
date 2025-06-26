@@ -17,6 +17,7 @@ import 'package:smp_mentor_mentee_mobile_app/screens/mobile/coordinator/qualtric
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/developer_home_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/register_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentee/mentee_acknowledgment_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/mentee/web_mentee_acknowledgment/web_mentee_acknowledgment_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/settings_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings/web_settings_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/web/shared/web_settings_v2/web_settings_dashboard.dart';
@@ -142,7 +143,9 @@ class MyApp extends StatelessWidget {
             : const CoordinatorDashboardScreen(),
         '/qualtrics': (context) => const QualtricsDataDashboardScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/mentee_acknowledgment': (context) => const MenteeAcknowledgmentScreen(),
+        '/mentee_acknowledgment': (context) => Responsive.isWeb()
+            ? const WebMenteeAcknowledgmentScreen()
+            : const MenteeAcknowledgmentScreen(),
         '/settings': (context) {
           // Feature flag for new settings dashboard (can be controlled via environment variable or user preference)
           const bool useNewSettingsDashboard = true; // Set to true to use new dashboard

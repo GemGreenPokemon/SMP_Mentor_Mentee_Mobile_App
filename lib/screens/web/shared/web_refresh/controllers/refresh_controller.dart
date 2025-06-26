@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import '../models/refresh_config.dart';
 import '../models/refresh_state.dart';
 import '../models/refresh_strategy.dart';
+import '../utils/platform_focus_listener.dart';
 import 'background_refresh_manager.dart';
 
 abstract class RefreshController<T> extends ChangeNotifier {
@@ -62,7 +62,8 @@ abstract class RefreshController<T> extends ChangeNotifier {
 
   void _setupFocusListener() {
     _focusSubscription?.cancel();
-    _focusSubscription = html.window.onFocus.listen((_) {
+    final focusListener = PlatformFocusListener();
+    _focusSubscription = focusListener.listenForFocus(() {
       _performAutoRefresh();
     });
   }

@@ -40,11 +40,15 @@ class TabState {
 
   factory TabState.fromJson(Map<String, dynamic> json) {
     return TabState(
-      tabId: json['tabId'],
-      isVisible: json['isVisible'],
-      isLeader: json['isLeader'],
-      lastActivity: DateTime.parse(json['lastActivity']),
-      createdAt: DateTime.parse(json['createdAt']),
+      tabId: json['tabId'] ?? '',
+      isVisible: json['isVisible'] ?? true,
+      isLeader: json['isLeader'] ?? false,
+      lastActivity: json['lastActivity'] != null 
+          ? DateTime.parse(json['lastActivity']) 
+          : DateTime.now(),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
     );
   }
 }

@@ -63,7 +63,7 @@ class StatItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Row(
-                  baseline: TextBaseline.alphabetic,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(

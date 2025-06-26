@@ -21,7 +21,11 @@ class MessagingServiceV2 extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final RealTimeUserService _userService = RealTimeUserService();
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
-  final TabVisibilityManager _tabVisibilityManager = TabVisibilityManager();
+  late final TabVisibilityManagerInterface _tabVisibilityManager;
+  
+  MessagingServiceV2() {
+    _tabVisibilityManager = TabVisibilityManager.getInstance();
+  }
   
   // State
   bool _isInitialized = false;

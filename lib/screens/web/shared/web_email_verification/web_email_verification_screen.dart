@@ -44,16 +44,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       _timer?.cancel();
       
       if (mounted) {
-        // Get user role and navigate to appropriate dashboard
-        final userRole = await _authService.getUserRole();
-        
         VerificationHelpers.showSuccessSnackBar(
           context,
           VerificationConstants.emailVerifiedMessage
         );
         
-        // Navigate to appropriate dashboard based on role
-        VerificationHelpers.navigateToDashboard(context, userRole);
+        // Navigate back to AuthWrapper to let it decide what to show
+        // Don't navigate directly to role-based routes
+        Navigator.pushReplacementNamed(context, '/');
       }
     }
   }

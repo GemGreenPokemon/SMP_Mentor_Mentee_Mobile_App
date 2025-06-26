@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
-import '../services/real_time_user_service.dart';
+import '../services/cloud_function_service.dart';
+import '../services/real_time_user_service.dart' hide ConnectionState;
 import '../screens/web/shared/web_login/web_login_screen.dart';
 import '../screens/mobile/shared/login_screen.dart';
 import '../screens/web/shared/web_email_verification/web_email_verification_screen.dart';
@@ -14,6 +16,8 @@ import '../screens/mobile/coordinator/coordinator_dashboard_screen.dart';
 import '../screens/mobile/shared/developer_home_screen.dart';
 import '../utils/responsive.dart';
 import '../utils/developer_session.dart';
+import '../screens/web/mentee/web_mentee_acknowledgment/web_mentee_acknowledgment_screen.dart';
+import '../screens/mobile/mentee/mentee_acknowledgment_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -25,6 +29,7 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   final AuthService _authService = AuthService();
   final RealTimeUserService _realTimeUserService = RealTimeUserService();
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
   bool _isLoading = true;
   String? _userRole;
   bool _isInitializingDatabase = false;
@@ -45,7 +50,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
+    print('🔧🔧🔧 === AUTH STATE CHANGED ===');
     print('🔧 AuthWrapper: Auth state changed - user: ${user?.email}');
+    print('🔧🔧🔧 Current state before change: _isLoading=$_isLoading, _userRole=$_userRole, _isCheckingRole=$_isCheckingRole');
+    
     if (mounted) {
       if (user == null) {
         // User signed out
@@ -56,14 +64,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
           _isCheckingRole = false;
         });
       } else {
-        // User signed in, get their role
-        print('🔧 AuthWrapper: User signed in, checking role...');
-        setState(() {
-          _isCheckingRole = true;
-        });
-        await _checkCurrentUser();
+        // User signed in
+        // Only check role if we don't already have one or if the user email changed
+        if (_userRole == null || _authService.currentUser?.email != user.email) {
+          print('🔧 AuthWrapper: User signed in, checking role...');
+          print('🔧🔧🔧 Setting _isCheckingRole to true, will trigger rebuild');
+          setState(() {
+            _isCheckingRole = true;
+          });
+          await _checkCurrentUser();
+        } else {
+          print('🔧 AuthWrapper: Auth state changed but role already known ($_userRole), skipping role check');
+        }
       }
     }
+    print('🔧🔧🔧 === END AUTH STATE CHANGED ===');
   }
 
   Future<void> _checkCurrentUser() async {
@@ -153,20 +168,129 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
+  Future<bool> _checkMenteeAcknowledgment() async {
+    try {
+      final user = _authService.currentUser;
+      if (user == null) return true; // Need acknowledgment if no user
+      
+      print('🔧 AuthWrapper: Checking acknowledgment for user: ${user.email}');
+      
+      // Use secure cloud function to check acknowledgment status
+      final result = await _cloudFunctions.checkMenteeAcknowledgment();
+      
+      print('🔧 AuthWrapper: Cloud function raw result: $result');
+      print('🔧 AuthWrapper: Result type: ${result.runtimeType}');
+      print('🔧 AuthWrapper: Result keys: ${result.keys.toList()}');
+      
+      if (result['success'] == true) {
+        final needsAcknowledgment = result['needsAcknowledgment'] ?? true;
+        print('🔧 AuthWrapper: Acknowledgment check result: needsAcknowledgment=$needsAcknowledgment');
+        print('🔧 AuthWrapper: acknowledgmentStatus: ${result['acknowledgmentStatus']}');
+        return needsAcknowledgment;
+      } else {
+        print('🔧 AuthWrapper: Acknowledgment check failed: ${result['message']}');
+        return true; // Default to needing acknowledgment on error
+      }
+    } catch (e) {
+      print('Error checking mentee acknowledgment: $e');
+      print('Error type: ${e.runtimeType}');
+      print('Stack trace: ${StackTrace.current}');
+      return true; // Default to needing acknowledgment on error
+    }
+  }
+
+  Future<bool> _checkMenteeAcknowledgmentDirect() async {
+    print('🔧🔧🔧 _checkMenteeAcknowledgmentDirect STARTED');
+    try {
+      final user = _authService.currentUser;
+      print('🔧🔧🔧 Current user: ${user?.email} (${user?.uid})');
+      if (user == null) {
+        print('🔧🔧🔧 No user found - returning true (needs acknowledgment)');
+        return true;
+      }
+      
+      print('🔧🔧🔧 Checking acknowledgment status for mentee...');
+      
+      try {
+        // Query the database directly to check acknowledgment status
+        final db = FirebaseFirestore.instance;
+        final universityPath = _authService.universityPath;
+        print('🔧🔧🔧 University path: $universityPath');
+        
+        // Try to find user by firebase_uid first
+        print('🔧🔧🔧 Searching by firebase_uid: ${user.uid}');
+        var querySnapshot = await db
+            .collection(universityPath)
+            .doc('data')
+            .collection('users')
+            .where('firebase_uid', isEqualTo: user.uid)
+            .limit(1)
+            .get();
+        
+        print('🔧🔧🔧 Query by UID returned ${querySnapshot.docs.length} documents');
+        
+        // If not found by UID, try by email
+        if (querySnapshot.docs.isEmpty && user.email != null) {
+          print('🔧🔧🔧 Not found by UID, searching by email: ${user.email}');
+          querySnapshot = await db
+              .collection(universityPath)
+              .doc('data')
+              .collection('users')
+              .where('email', isEqualTo: user.email)
+              .limit(1)
+              .get();
+          print('🔧🔧🔧 Query by email returned ${querySnapshot.docs.length} documents');
+        }
+        
+        if (querySnapshot.docs.isNotEmpty) {
+          final userData = querySnapshot.docs.first.data();
+          final acknowledgmentSigned = userData['acknowledgment_signed'] ?? 'no';
+          final needsAcknowledgment = acknowledgmentSigned != 'yes';
+          
+          print('🔧🔧🔧 Found user in database');
+          print('🔧🔧🔧 Document ID: ${querySnapshot.docs.first.id}');
+          print('🔧🔧🔧 User type: ${userData['userType']}');
+          print('🔧🔧🔧 acknowledgment_signed = "$acknowledgmentSigned"');
+          print('🔧🔧🔧 needsAcknowledgment = $needsAcknowledgment');
+          print('🔧🔧🔧 RETURNING: $needsAcknowledgment');
+          
+          return needsAcknowledgment;
+        } else {
+          print('🔧🔧🔧 User not found in database, defaulting to need acknowledgment');
+          print('🔧🔧🔧 RETURNING: true (default)');
+          return true; // Default to needing acknowledgment if user not found
+        }
+      } catch (e) {
+        print('🔧🔧🔧 Error checking acknowledgment: $e');
+        print('🔧🔧🔧 Stack trace: ${StackTrace.current}');
+        print('🔧🔧🔧 RETURNING: true (error default)');
+        return true; // Default to needing acknowledgment on error
+      }
+    } catch (e) {
+      print('🔧🔧🔧 Error in _checkMenteeAcknowledgmentDirect: $e');
+      print('🔧🔧🔧 RETURNING: true (outer error default)');
+      return true; // Default to needing acknowledgment on error
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('🔧🔧🔧 === AUTHWRAPPER BUILD START ===');
     print('🔧 AuthWrapper build: _isLoading=$_isLoading, _isCheckingRole=$_isCheckingRole, _userRole=$_userRole');
     
     if (_isLoading) {
+      print('🔧🔧🔧 Returning LoadingScreen because _isLoading=true');
       return _LoadingScreen(
         isInitializingDatabase: _isInitializingDatabase,
       );
     }
 
     final user = _authService.currentUser;
+    print('🔧🔧🔧 Current user: ${user?.email}');
 
     // No user signed in - show login screen
     if (user == null) {
+      print('🔧🔧🔧 No user - returning login screen');
       return Responsive.isWeb() ? const WebLoginScreen() : const LoginScreen();
     }
 
@@ -174,23 +298,30 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // Exception: bypass email verification for dev account
     final isDevAccount = user.email == 'sunsetcoding.dev@gmail.com';
     if (!_authService.isEmailVerified && !isDevAccount) {
+      print('🔧🔧🔧 Email not verified - returning email verification screen');
       return const EmailVerificationScreen();
     }
 
     // If we're still checking the role after login, show loading
     if (_isCheckingRole) {
       print('🔧 AuthWrapper: Still checking role, showing loading screen');
+      print('🔧🔧🔧 Returning LoadingScreen because _isCheckingRole=true');
       return _LoadingScreen(
         isInitializingDatabase: _isInitializingDatabase,
       );
     }
 
     // User signed in and email verified - navigate based on role
-    return _buildDashboardForRole(_userRole);
+    print('🔧🔧🔧 Calling _buildDashboardForRole with role: $_userRole');
+    final widget = _buildDashboardForRole(_userRole);
+    print('🔧🔧🔧 _buildDashboardForRole returned: ${widget.runtimeType}');
+    print('🔧🔧🔧 === AUTHWRAPPER BUILD END ===');
+    return widget;
   }
 
   Widget _buildDashboardForRole(String? role) {
     print('🔧 AuthWrapper: _buildDashboardForRole called with role: $role');
+    print('🔧 AuthWrapper: Stack trace: ${StackTrace.current}');
     
     // Special handling for dev account - always grant developer access
     final user = _authService.currentUser;
@@ -203,9 +334,43 @@ class _AuthWrapperState extends State<AuthWrapper> {
     
     switch (role?.toLowerCase()) {
       case 'mentee':
-        return Responsive.isWeb() 
-            ? const WebMenteeDashboardScreen() 
-            : const MenteeDashboardScreen();
+        print('🔧 AuthWrapper: MENTEE CASE - Starting acknowledgment check...');
+        // Check if acknowledgment is needed for mentee
+        return FutureBuilder<bool>(
+          future: _checkMenteeAcknowledgmentDirect(),
+          builder: (context, snapshot) {
+            print('🔧 AuthWrapper: FutureBuilder state: ${snapshot.connectionState}');
+            print('🔧 AuthWrapper: FutureBuilder hasData: ${snapshot.hasData}');
+            print('🔧 AuthWrapper: FutureBuilder data: ${snapshot.data}');
+            print('🔧 AuthWrapper: FutureBuilder error: ${snapshot.error}');
+            
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              print('🔧 AuthWrapper: FutureBuilder waiting - showing loading screen');
+              return const _LoadingScreen(isInitializingDatabase: false);
+            }
+            
+            final needsAcknowledgment = snapshot.data ?? true;
+            print('🔧 AuthWrapper: needsAcknowledgment resolved to: $needsAcknowledgment');
+            
+            if (needsAcknowledgment) {
+              print('🔧 AuthWrapper: Mentee needs acknowledgment - SHOWING ACKNOWLEDGMENT SCREEN');
+              print('🔧 AuthWrapper: Is web: ${Responsive.isWeb()}');
+              final widget = Responsive.isWeb() 
+                  ? const WebMenteeAcknowledgmentScreen() 
+                  : const MenteeAcknowledgmentScreen();
+              print('🔧 AuthWrapper: Returning widget: ${widget.runtimeType}');
+              return widget;
+            } else {
+              print('🔧 AuthWrapper: Mentee acknowledged - SHOWING DASHBOARD');
+              print('🔧 AuthWrapper: Is web: ${Responsive.isWeb()}');
+              final widget = Responsive.isWeb() 
+                  ? const WebMenteeDashboardScreen() 
+                  : const MenteeDashboardScreen();
+              print('🔧 AuthWrapper: Returning widget: ${widget.runtimeType}');
+              return widget;
+            }
+          },
+        );
       case 'mentor':
         print('🔧 AuthWrapper: Mentor role detected, returning mentor dashboard');
         return Responsive.isWeb() 
