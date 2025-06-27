@@ -244,15 +244,37 @@ class DashboardDataService {
     try {
       _initializeFirestore();
       
+      // Determine if we're in emulator mode
+      final isEmulator = kDebugMode || const String.fromEnvironment('USE_EMULATOR', defaultValue: 'false') == 'true';
+      
+      // Get mentor's document ID if in emulator mode
+      String mentorIdentifier = mentorFirebaseUid;
+      if (isEmulator) {
+        // First get the mentor's document to find their doc ID
+        final mentorQuery = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('users')
+            .where('firebase_uid', isEqualTo: mentorFirebaseUid)
+            .limit(1)
+            .get();
+            
+        if (mentorQuery.docs.isNotEmpty) {
+          mentorIdentifier = mentorQuery.docs.first.id;
+        }
+      }
+      
       final now = DateTime.now();
-      // Query the top-level meetings collection using Firebase UIDs
+      // Query using appropriate fields based on environment
+      final mentorField = isEmulator ? 'mentor_doc_id' : 'mentor_uid';
+      
       final meetings = await _firestore!
           .collection(_universityPath)
           .doc('data')
           .collection('meetings')
           .where('mentee_doc_id', isEqualTo: menteeDocId)
-          .where('mentor_uid', isEqualTo: mentorFirebaseUid)
-          .where('status', whereIn: ['pending', 'accepted'])
+          .where(mentorField, isEqualTo: mentorIdentifier)
+          .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
           .orderBy('start_time')
           .limit(3)
           .get();
@@ -333,30 +355,111 @@ class DashboardDataService {
     try {
       _initializeFirestore();
       
+      // Determine if we're in emulator mode
+      final isEmulator = kDebugMode || const String.fromEnvironment('USE_EMULATOR', defaultValue: 'false') == 'true';
+      
       if (kDebugMode) {
-        print('🔥 Dashboard: Getting upcoming meetings for mentor: $mentorFirebaseUid');
+        print('🔥 Dashboard: Getting upcoming meetings for mentor');
+        print('🔥 Dashboard: Firebase UID: $mentorFirebaseUid');
+        print('🔥 Dashboard: Using emulator mode: $isEmulator');
+        print('🔥 Dashboard: University path: $_universityPath');
       }
       
-      // Query the top-level meetings collection directly using Firebase UID
-      final now = DateTime.now();
-      final meetingsSnapshot = await _firestore!
-          .collection(_universityPath)
-          .doc('data')
-          .collection('meetings')
-          .where('mentor_uid', isEqualTo: mentorFirebaseUid)
-          .where('status', whereIn: ['pending', 'accepted'])
-          .orderBy('start_time')
-          .limit(10)
-          .get();
+      // Get mentor's document ID if in emulator mode
+      String mentorIdentifier = mentorFirebaseUid;
+      if (isEmulator) {
+        // First get the mentor's document to find their doc ID
+        final mentorQuery = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('users')
+            .where('firebase_uid', isEqualTo: mentorFirebaseUid)
+            .limit(1)
+            .get();
+            
+        if (mentorQuery.docs.isNotEmpty) {
+          mentorIdentifier = mentorQuery.docs.first.id;
+          if (kDebugMode) {
+            print('🔥 Dashboard: Found mentor doc ID: $mentorIdentifier');
+          }
+        } else {
+          if (kDebugMode) {
+            print('🔥 Dashboard: Could not find mentor document for UID: $mentorFirebaseUid');
+          }
+        }
+      }
+      
+      // Query meetings using the appropriate field based on environment
+      final fieldToQuery = isEmulator ? 'mentor_doc_id' : 'mentor_uid';
       
       if (kDebugMode) {
-        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} meetings in top-level collection');
+        print('🔥 Dashboard: Querying meetings where $fieldToQuery = $mentorIdentifier');
+      }
+      
+      // Try compound query first
+      QuerySnapshot<Map<String, dynamic>> meetingsSnapshot;
+      
+      try {
+        final now = DateTime.now();
+        meetingsSnapshot = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('meetings')
+            .where(fieldToQuery, isEqualTo: mentorIdentifier)
+            .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
+            .orderBy('start_time')
+            .limit(10)
+            .get();
+            
+        if (kDebugMode) {
+          print('🔥 Dashboard: Compound query successful');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: Compound query failed, trying simpler query: $e');
+        }
+        
+        // Fallback: Try simpler query without status filter
+        meetingsSnapshot = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('meetings')
+            .where(fieldToQuery, isEqualTo: mentorIdentifier)
+            .orderBy('start_time')
+            .limit(20)
+            .get();
+      }
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} total meetings');
+        
+        // Debug: Print first few meetings
+        int count = 0;
+        for (final doc in meetingsSnapshot.docs) {
+          if (count++ >= 3) break;
+          final data = doc.data();
+          print('🔥 Dashboard: Meeting ${doc.id}:');
+          print('  - mentor_doc_id: ${data['mentor_doc_id']}');
+          print('  - mentor_uid: ${data['mentor_uid']}');
+          print('  - mentee_name: ${data['mentee_name']}');
+          print('  - topic: ${data['topic']}');
+          print('  - status: ${data['status']}');
+          print('  - start_time: ${data['start_time']}');
+        }
       }
       
       final upcomingMeetings = <Map<String, dynamic>>[];
+      final now = DateTime.now();
       
       for (final doc in meetingsSnapshot.docs) {
         final data = doc.data();
+        final status = data['status'] ?? 'pending';
+        
+        // Filter by status if compound query failed
+        if (!['pending', 'accepted', 'confirmed'].contains(status)) {
+          continue;
+        }
+        
         final startTime = (data['start_time'] as Timestamp?)?.toDate();
         
         if (startTime != null && startTime.isAfter(now)) {
@@ -371,11 +474,11 @@ class DashboardDataService {
             'location': data['location'] ?? 'TBD',
             'color': _getMeetingColor(upcomingMeetings.length),
             'startTime': startTime.toIso8601String(),
-            'status': data['status'] ?? 'pending',
+            'status': status,
           });
           
           if (kDebugMode) {
-            print('🔥 Dashboard: Added meeting: ${data['topic']} with $menteeName at ${startTime.toIso8601String()}');
+            print('🔥 Dashboard: Added upcoming meeting: ${data['topic']} with $menteeName');
           }
         }
       }
@@ -387,7 +490,8 @@ class DashboardDataService {
       return upcomingMeetings;
     } catch (e) {
       if (kDebugMode) {
-        print('🔥 Dashboard: Error getting upcoming meetings for mentor: $e');
+        print('🔥 Dashboard: Error getting upcoming meetings: $e');
+        print('🔥 Dashboard: Stack trace: ${StackTrace.current}');
       }
       return [];
     }
@@ -404,14 +508,36 @@ class DashboardDataService {
     try {
       _initializeFirestore();
       
+      // Determine if we're in emulator mode
+      final isEmulator = kDebugMode || const String.fromEnvironment('USE_EMULATOR', defaultValue: 'false') == 'true';
+      
+      // Get mentee's document ID if in emulator mode
+      String menteeIdentifier = menteeFirebaseUid;
+      if (isEmulator) {
+        // First get the mentee's document to find their doc ID
+        final menteeQuery = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('users')
+            .where('firebase_uid', isEqualTo: menteeFirebaseUid)
+            .limit(1)
+            .get();
+            
+        if (menteeQuery.docs.isNotEmpty) {
+          menteeIdentifier = menteeQuery.docs.first.id;
+        }
+      }
+      
       final now = DateTime.now();
-      // Query top-level meetings collection using Firebase UID
+      // Query using appropriate field based on environment
+      final menteeField = isEmulator ? 'mentee_doc_id' : 'mentee_uid';
+      
       final meetings = await _firestore!
           .collection(_universityPath)
           .doc('data')
           .collection('meetings')
-          .where('mentee_uid', isEqualTo: menteeFirebaseUid)
-          .where('status', whereIn: ['pending', 'accepted'])
+          .where(menteeField, isEqualTo: menteeIdentifier)
+          .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
           .orderBy('start_time')
           .limit(3)
           .get();

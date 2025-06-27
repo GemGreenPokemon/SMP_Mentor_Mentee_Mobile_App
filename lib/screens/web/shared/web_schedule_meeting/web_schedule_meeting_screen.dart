@@ -1013,7 +1013,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
             endTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))), // 30 min meeting
             topic: _titleController.text,
             location: _locationController.text,
-            status: 'confirmed', // Since mentor is scheduling, it's auto-confirmed
+            status: 'pending', // All meetings start as pending
             availabilityId: availabilityId, // This links to the availability slot
           );
           
