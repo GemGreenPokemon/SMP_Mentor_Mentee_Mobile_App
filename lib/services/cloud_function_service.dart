@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class CloudFunctionService {
@@ -7,6 +8,7 @@ class CloudFunctionService {
   factory CloudFunctionService() => _instance;
 
   late final FirebaseFunctions _functions;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // Initialize with proper configuration
   CloudFunctionService._internal() {
@@ -370,43 +372,8 @@ class CloudFunctionService {
     }
   }
 
-  /// Accept a meeting invitation (mentor only)
-  Future<Map<String, dynamic>> acceptMeeting({
-    required String universityPath,
-    required String meetingId,
-  }) async {
-    try {
-      final HttpsCallable callable = _functions.httpsCallable('approveMeeting');  // Use exported name
-      final HttpsCallableResult result = await callable.call(<String, dynamic>{
-        'universityPath': universityPath,
-        'meetingId': meetingId,
-      });
-      return Map<String, dynamic>.from(result.data ?? {});
-    } on FirebaseFunctionsException catch (e) {
-      print('Accept meeting error: ${e.code} ${e.message}');
-      rethrow;
-    }
-  }
-
-  /// Reject a meeting invitation (mentor only)
-  Future<Map<String, dynamic>> rejectMeeting({
-    required String universityPath,
-    required String meetingId,
-    String? reason,
-  }) async {
-    try {
-      final HttpsCallable callable = _functions.httpsCallable('declineMeeting');  // Use exported name
-      final HttpsCallableResult result = await callable.call(<String, dynamic>{
-        'universityPath': universityPath,
-        'meetingId': meetingId,
-        'reason': reason,
-      });
-      return Map<String, dynamic>.from(result.data ?? {});
-    } on FirebaseFunctionsException catch (e) {
-      print('Reject meeting error: ${e.code} ${e.message}');
-      rethrow;
-    }
-  }
+  // Note: acceptMeeting and rejectMeeting methods are defined later in the file
+  // with automatic universityPath detection from user claims
 
   /// Set mentor availability for a specific day
   Future<Map<String, dynamic>> setMentorAvailability({
@@ -549,6 +516,70 @@ class CloudFunctionService {
       return Map<String, dynamic>.from(result.data ?? {});
     } on FirebaseFunctionsException catch (e) {
       print('Request meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Accept a meeting request (mentor or mentee)
+  Future<Map<String, dynamic>> acceptMeeting({
+    required String meetingId,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseFunctionsException(
+          code: 'unauthenticated',
+          message: 'User must be authenticated',
+        );
+      }
+
+      // Get university path from user claims
+      final idTokenResult = await user.getIdTokenResult();
+      final universityPath = idTokenResult.claims?['universityPath'] ?? 
+                            idTokenResult.claims?['university_path'] ?? 
+                            'universities/alabama';
+
+      final HttpsCallable callable = _functions.httpsCallable('approveMeeting');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Accept meeting error: ${e.code} ${e.message}');
+      rethrow;
+    }
+  }
+
+  /// Reject a meeting request (mentor or mentee)
+  Future<Map<String, dynamic>> rejectMeeting({
+    required String meetingId,
+    String? rejectionReason,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseFunctionsException(
+          code: 'unauthenticated',
+          message: 'User must be authenticated',
+        );
+      }
+
+      // Get university path from user claims
+      final idTokenResult = await user.getIdTokenResult();
+      final universityPath = idTokenResult.claims?['universityPath'] ?? 
+                            idTokenResult.claims?['university_path'] ?? 
+                            'universities/alabama';
+
+      final HttpsCallable callable = _functions.httpsCallable('declineMeeting');  // Use exported name
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+        'reason': rejectionReason,
+      });
+      return Map<String, dynamic>.from(result.data ?? {});
+    } on FirebaseFunctionsException catch (e) {
+      print('Reject meeting error: ${e.code} ${e.message}');
       rethrow;
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../../../services/auth_service.dart';
 import '../../../../../../utils/responsive.dart';
 import '../../../web_email_verification/web_email_verification_screen.dart';
@@ -51,6 +52,24 @@ class _UnifiedRegistrationFormState extends State<UnifiedRegistrationForm> {
     setState(() {
       _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
     });
+  }
+
+  void _autofillMenteeData() {
+    setState(() {
+      _nameController.text = 'Dasarathi Narayanan';
+      _emailController.text = 'dnarayanan@ucmerced.edu';
+      _passwordController.text = '123456';
+      _confirmPasswordController.text = '123456';
+      _studentIdController.text = '12345678';
+    });
+    
+    if (mounted) {
+      RegistrationHelpers.showSnackBar(
+        context,
+        'Form autofilled with Dasarathi Narayanan\'s data',
+        backgroundColor: Colors.orange,
+      );
+    }
   }
 
   Future<void> _register() async {
@@ -130,7 +149,53 @@ class _UnifiedRegistrationFormState extends State<UnifiedRegistrationForm> {
               color: Colors.grey[600],
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
+          
+          // Autofill button (only in debug mode)
+          if (kDebugMode) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.orange.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Developer Mode',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _autofillMenteeData,
+                      icon: const Icon(Icons.person_add, size: 20),
+                      label: const Text('Autofill Mentee: Dasarathi Narayanan'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange[700],
+                        side: BorderSide(color: Colors.orange[700]!),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          const SizedBox(height: 16),
           
           // Full Name
           RegistrationTextField(

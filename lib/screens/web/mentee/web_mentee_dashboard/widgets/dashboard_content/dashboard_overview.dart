@@ -15,6 +15,8 @@ class DashboardOverview extends StatelessWidget {
   final Function(int) onNavigateToTab;
   final Function(String) onMessageMentor;
   final VoidCallback onCheckInMeeting;
+  final Function(String meetingId)? onAcceptMeeting;
+  final Function(String meetingId)? onRejectMeeting;
 
   const DashboardOverview({
     super.key,
@@ -22,6 +24,8 @@ class DashboardOverview extends StatelessWidget {
     required this.onNavigateToTab,
     required this.onMessageMentor,
     required this.onCheckInMeeting,
+    this.onAcceptMeeting,
+    this.onRejectMeeting,
   });
 
   @override
@@ -112,6 +116,8 @@ class DashboardOverview extends StatelessWidget {
             meetings: dashboardData!.upcomingMeetings,
             onViewCalendar: () => onNavigateToTab(1), // Navigate to Schedule tab
             onCheckIn: onCheckInMeeting,
+            onAcceptMeeting: onAcceptMeeting,
+            onRejectMeeting: onRejectMeeting,
           ),
         ],
       );
@@ -134,6 +140,8 @@ class DashboardOverview extends StatelessWidget {
             meetings: dashboardData!.upcomingMeetings,
             onViewCalendar: () => onNavigateToTab(1),
             onCheckIn: onCheckInMeeting,
+            onAcceptMeeting: onAcceptMeeting,
+            onRejectMeeting: onRejectMeeting,
           ),
         ),
       ],

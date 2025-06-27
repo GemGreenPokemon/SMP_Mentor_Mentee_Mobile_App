@@ -6,11 +6,15 @@ import '../../utils/dashboard_helpers.dart';
 class MeetingItem extends StatelessWidget {
   final Meeting meeting;
   final VoidCallback onCheckIn;
+  final Function(String meetingId)? onAccept;
+  final Function(String meetingId)? onReject;
 
   const MeetingItem({
     super.key,
     required this.meeting,
     required this.onCheckIn,
+    this.onAccept,
+    this.onReject,
   });
 
   @override
@@ -90,26 +94,68 @@ class MeetingItem extends StatelessWidget {
             ),
           ),
           const SizedBox(height: DashboardSizes.spacingSmall),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: onCheckIn,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DashboardColors.primaryDark,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DashboardSizes.spacingMedium,
-                  vertical: DashboardSizes.spacingSmall,
+          if (meeting.status == 'pending' && onAccept != null && onReject != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => onReject!(meeting.id),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: DashboardColors.errorRed,
+                    side: BorderSide(color: DashboardColors.errorRed),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DashboardSizes.spacingMedium,
+                      vertical: DashboardSizes.spacingSmall,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    textStyle: DashboardTextStyles.bodySmall,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                    ),
+                  ),
+                  child: const Text('Decline'),
                 ),
-                minimumSize: const Size(0, 32),
-                textStyle: DashboardTextStyles.bodySmall,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                const SizedBox(width: DashboardSizes.spacingSmall),
+                ElevatedButton(
+                  onPressed: () => onAccept!(meeting.id),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DashboardColors.successGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DashboardSizes.spacingMedium,
+                      vertical: DashboardSizes.spacingSmall,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    textStyle: DashboardTextStyles.bodySmall,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                    ),
+                  ),
+                  child: const Text('Accept'),
                 ),
+              ],
+            )
+          else if (meeting.status == 'accepted' || meeting.status == 'confirmed')
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: onCheckIn,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DashboardColors.primaryDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DashboardSizes.spacingMedium,
+                    vertical: DashboardSizes.spacingSmall,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  textStyle: DashboardTextStyles.bodySmall,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                  ),
+                ),
+                child: const Text('Check In'),
               ),
-              child: const Text('Check In'),
             ),
-          ),
         ],
       ),
     );

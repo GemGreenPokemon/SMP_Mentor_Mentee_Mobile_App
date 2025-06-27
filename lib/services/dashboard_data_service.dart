@@ -508,84 +508,130 @@ class DashboardDataService {
     try {
       _initializeFirestore();
       
-      // Determine if we're in emulator mode
-      final isEmulator = kDebugMode || const String.fromEnvironment('USE_EMULATOR', defaultValue: 'false') == 'true';
+      if (kDebugMode) {
+        print('🔥 Dashboard: Getting upcoming meetings for mentee');
+        print('🔥 Dashboard: Mentee Firebase UID: $menteeFirebaseUid');
+      }
       
-      // Get mentee's document ID if in emulator mode
-      String menteeIdentifier = menteeFirebaseUid;
-      if (isEmulator) {
-        // First get the mentee's document to find their doc ID
-        final menteeQuery = await _firestore!
-            .collection(_universityPath)
-            .doc('data')
-            .collection('users')
-            .where('firebase_uid', isEqualTo: menteeFirebaseUid)
-            .limit(1)
-            .get();
-            
-        if (menteeQuery.docs.isNotEmpty) {
-          menteeIdentifier = menteeQuery.docs.first.id;
+      // First get the mentee's document to find their doc ID
+      final menteeQuery = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('users')
+          .where('firebase_uid', isEqualTo: menteeFirebaseUid)
+          .limit(1)
+          .get();
+          
+      if (menteeQuery.docs.isEmpty) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: No mentee document found for UID: $menteeFirebaseUid');
         }
+        return [];
+      }
+      
+      final menteeDocId = menteeQuery.docs.first.id;
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Found mentee doc ID: $menteeDocId');
       }
       
       final now = DateTime.now();
-      // Query using appropriate field based on environment
-      final menteeField = isEmulator ? 'mentee_doc_id' : 'mentee_uid';
       
-      final meetings = await _firestore!
-          .collection(_universityPath)
-          .doc('data')
-          .collection('meetings')
-          .where(menteeField, isEqualTo: menteeIdentifier)
-          .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
-          .orderBy('start_time')
-          .limit(3)
-          .get();
+      if (kDebugMode) {
+        print('🔥 Dashboard: Querying meetings where mentee_doc_id = $menteeDocId');
+      }
+      
+      // Try compound query first
+      QuerySnapshot<Map<String, dynamic>> meetingsSnapshot;
+      
+      try {
+        meetingsSnapshot = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('meetings')
+            .where('mentee_doc_id', isEqualTo: menteeDocId)
+            .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
+            .orderBy('start_time')
+            .limit(5)
+            .get();
+            
+        if (kDebugMode) {
+          print('🔥 Dashboard: Compound query successful');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('🔥 Dashboard: Compound query failed, trying simpler query: $e');
+        }
+        
+        // Fallback: simpler query without status filter
+        meetingsSnapshot = await _firestore!
+            .collection(_universityPath)
+            .doc('data')
+            .collection('meetings')
+            .where('mentee_doc_id', isEqualTo: menteeDocId)
+            .orderBy('start_time')
+            .limit(10)
+            .get();
+      }
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} meetings for mentee');
+      }
       
       final upcomingMeetings = <Map<String, dynamic>>[];
       final colors = ['blue', 'green', 'orange'];
       int colorIndex = 0;
       
-      for (final doc in meetings.docs) {
+      for (final doc in meetingsSnapshot.docs) {
         final data = doc.data();
+        final status = data['status'] ?? 'pending';
+        
+        // Filter by status if compound query failed
+        if (!['pending', 'accepted', 'confirmed'].contains(status)) {
+          continue;
+        }
+        
         final startTime = (data['start_time'] as Timestamp?)?.toDate();
         
         if (startTime != null && startTime.isAfter(now)) {
           upcomingMeetings.add({
+            'id': doc.id,
             'title': data['topic'] ?? 'Meeting with Mentor',
             'time': '${_formatMeetingDate(startTime)} at ${_formatMeetingTime(startTime)}',
             'location': data['location'] ?? 'TBD',
             'color': colors[colorIndex % colors.length],
+            'mentorName': data['mentor_name'] ?? 'Your Mentor',
+            'status': status,
           });
           colorIndex++;
+          
+          if (kDebugMode) {
+            print('🔥 Dashboard: Added meeting: ${data['topic']} on ${_formatMeetingDate(startTime)}');
+          }
         }
       }
       
-      // If no upcoming meetings, return defaults
+      // If no upcoming meetings, return empty array
+      // The UI will handle displaying "No upcoming meetings"
       if (upcomingMeetings.isEmpty) {
-        return [
-          {
-            'title': 'No upcoming meetings',
-            'time': 'Schedule with your mentor',
-            'location': 'TBD',
-            'color': 'grey',
-          }
-        ];
+        if (kDebugMode) {
+          print('🔥 Dashboard: No upcoming meetings found for mentee');
+        }
+        return [];
+      }
+      
+      if (kDebugMode) {
+        print('🔥 Dashboard: Returning ${upcomingMeetings.length} upcoming meetings');
       }
       
       return upcomingMeetings;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting mentee dashboard meetings: $e');
+        print('🔥 Dashboard: Error getting mentee dashboard meetings: $e');
+        print('🔥 Dashboard: Stack trace: ${StackTrace.current}');
       }
-      return [
-        {
-          'title': 'Weekly Check-in',
-          'time': 'Tomorrow at 2:00 PM',
-          'location': 'KL 109',
-          'color': 'blue',
-        }
-      ];
+      // Return empty array on error - UI will handle it
+      return [];
     }
   }
 
@@ -658,22 +704,141 @@ class DashboardDataService {
         throw Exception('User not authenticated');
       }
 
-      // For now, use mock data structure until we have mentee-specific endpoints
+      // Initialize Firestore
+      _initializeFirestore();
+
+      if (kDebugMode) {
+        print('🔥 Dashboard: Getting mentee data for user ${currentUser.uid}');
+      }
+
+      // Get the mentee's user document from Firestore
+      final usersSnapshot = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('users')
+          .where('firebase_uid', isEqualTo: currentUser.uid)
+          .get();
+
+      Map<String, dynamic> menteeData = {};
+      Map<String, dynamic> mentorInfo = {};
+
+      if (usersSnapshot.docs.isNotEmpty) {
+        menteeData = usersSnapshot.docs.first.data();
+        
+        if (kDebugMode) {
+          print('🔥 Dashboard: Found mentee data: ${menteeData['name']}');
+          print('🔥 Dashboard: Mentee has mentor: ${menteeData['mentor']}');
+        }
+
+        // Get mentor data if assigned
+        if (menteeData['mentor'] != null && menteeData['mentor'].toString().isNotEmpty) {
+          final mentorId = menteeData['mentor'].toString().trim();
+          
+          if (kDebugMode) {
+            print('🔥 Dashboard: Looking for mentor with ID: "$mentorId"');
+          }
+
+          // Try to get mentor by document ID first
+          try {
+            final mentorDoc = await _firestore!
+                .collection(_universityPath)
+                .doc('data')
+                .collection('users')
+                .doc(mentorId)
+                .get();
+
+            if (mentorDoc.exists) {
+              final mentorData = mentorDoc.data()!;
+              
+              if (kDebugMode) {
+                print('🔥 Dashboard: Found mentor by ID: ${mentorData['name']}');
+              }
+              
+              mentorInfo = {
+                'id': mentorDoc.id,
+                'firebase_uid': mentorData['firebase_uid'] ?? mentorDoc.id, // Add actual Firebase UID
+                'name': mentorData['name'] ?? 'Unknown Mentor',
+                'email': mentorData['email'] ?? '',
+                'program': '${mentorData['year_major'] ?? 'Unknown Year'}, ${mentorData['department'] ?? 'Unknown Department'}',
+                'yearLevel': mentorData['year_major'] ?? 'Unknown Year',
+                'photoUrl': mentorData['photoUrl'] ?? '',
+                'assignedDate': 'Sep 1, 2024', // TODO: Get actual assignment date
+              };
+              
+              if (kDebugMode) {
+                print('🔥 Dashboard: Mentor info created: ${mentorInfo['name']}');
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('🔥 Dashboard: Error getting mentor by ID: $e');
+              print('🔥 Dashboard: Trying fallback query by name...');
+            }
+            
+            // Fallback: if document ID didn't work, try querying by name
+            // This handles cases where mentor field might contain a name instead of ID
+            final mentorQuery = await _firestore!
+                .collection(_universityPath)
+                .doc('data')
+                .collection('users')
+                .where('name', isEqualTo: mentorId)
+                .where('user_type', isEqualTo: 'mentor')
+                .get();
+
+            if (mentorQuery.docs.isNotEmpty) {
+              final mentorDoc = mentorQuery.docs.first;
+              final mentorData = mentorDoc.data();
+              
+              mentorInfo = {
+                'id': mentorDoc.id,
+                'firebase_uid': mentorData['firebase_uid'] ?? mentorDoc.id, // Add actual Firebase UID
+                'name': mentorData['name'] ?? 'Unknown Mentor',
+                'email': mentorData['email'] ?? '',
+                'program': '${mentorData['year_major'] ?? 'Unknown Year'}, ${mentorData['department'] ?? 'Unknown Department'}',
+                'yearLevel': mentorData['year_major'] ?? 'Unknown Year',
+                'photoUrl': mentorData['photoUrl'] ?? '',
+                'assignedDate': 'Sep 1, 2024', // TODO: Get actual assignment date
+              };
+              
+              if (kDebugMode) {
+                print('🔥 Dashboard: Found mentor by name query: ${mentorInfo['name']}');
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback if no user document found
+        if (kDebugMode) {
+          print('🔥 Dashboard: No mentee document found, using fallback data');
+        }
+        menteeData = {
+          'name': currentUser.displayName ?? currentUser.email?.split('@')[0] ?? 'Mentee',
+          'department': 'Unknown Department',
+          'year_major': 'Unknown Year',
+        };
+      }
+
       final menteeProfile = {
-        'name': currentUser.displayName ?? currentUser.email ?? 'Mentee',
         'id': currentUser.uid,
+        'name': menteeData['name'] ?? (currentUser.displayName ?? currentUser.email?.split('@')[0] ?? 'Mentee'),
         'email': currentUser.email,
-        'department': 'Biology', // TODO: Get from user profile
-        'year_major': '1st Year, Biology Major', // TODO: Get from user profile
+        'photoUrl': menteeData['photoUrl'] ?? '',
+        'program': '${menteeData['year_major'] ?? 'Unknown Year'}, ${menteeData['department'] ?? 'Unknown Department'}',
+        'yearLevel': menteeData['year_major'] ?? 'Unknown Year',
       };
 
-      // Mock mentor data - in production, this would come from a mentee-specific endpoint
-      final mentorData = {
-        'name': 'Sarah Martinez',
-        'program': '3rd Year, Computer Science Major',
-        'email': 'sarah.martinez@university.edu',
-        'assignedDate': 'Feb 1, 2024',
-      };
+      // If no mentor found, use default
+      if (mentorInfo.isEmpty) {
+        mentorInfo = {
+          'id': '',
+          'name': 'No Mentor Assigned',
+          'email': '',
+          'program': 'Please contact coordinator',
+          'yearLevel': '',
+          'photoUrl': '',
+          'assignedDate': '',
+        };
+      }
 
       // Get real announcements from Firebase for mentees
       List<Map<String, dynamic>> menteeAnnouncementsList = [];
@@ -704,29 +869,45 @@ class DashboardDataService {
         // Fall back to empty list if error occurs
       }
 
+      // Calculate progress metrics (TODO: Get from actual data)
+      final progressData = {
+        'checklistCompletion': 0.7,
+        'meetingAttendance': 0.9,
+        'completedTasks': 14,
+        'totalTasks': 20,
+        'attendedMeetings': 9,
+        'totalMeetings': 10,
+      };
+
+      // Get recent activity (TODO: Get from actual activity logs)
+      final recentActivity = [
+        {
+          'text': 'Completed task "Review mentor feedback"',
+          'time': '2 days ago',
+          'icon': 'check_circle',
+          'color': 'green',
+        },
+        {
+          'text': 'Attended meeting "Weekly Check-in"',
+          'time': '4 days ago',
+          'icon': 'event_available',
+          'color': 'blue',
+        },
+        {
+          'text': 'Submitted progress report',
+          'time': '1 week ago',
+          'icon': 'assignment_turned_in',
+          'color': 'purple',
+        },
+      ];
+
       return {
         'menteeProfile': menteeProfile,
-        'mentor': mentorData,
-        'progress': {
-          'checklistCompletion': 0.7,
-          'meetingAttendance': 0.9,
-        },
+        'mentorInfo': mentorInfo,
+        'progressData': progressData,
         'announcements': menteeAnnouncementsList,
         'upcomingMeetings': await _getMenteeUpcomingMeetingsForDashboard(currentUser.uid),
-        'recentActivity': [
-          {
-            'text': 'Completed task "Review mentor feedback"',
-            'time': '2 days ago',
-            'icon': 'check_circle',
-            'color': 'green',
-          },
-          {
-            'text': 'Attended meeting "Weekly Check-in"',
-            'time': '4 days ago',
-            'icon': 'event_available',
-            'color': 'blue',
-          },
-        ],
+        'recentActivities': recentActivity,
       };
     } catch (e) {
       if (kDebugMode) {

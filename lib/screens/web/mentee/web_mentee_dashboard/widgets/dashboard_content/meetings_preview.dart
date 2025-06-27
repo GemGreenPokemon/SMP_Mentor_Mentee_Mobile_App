@@ -8,12 +8,16 @@ class MeetingsPreview extends StatelessWidget {
   final List<Meeting> meetings;
   final VoidCallback onViewCalendar;
   final VoidCallback onCheckIn;
+  final Function(String meetingId)? onAcceptMeeting;
+  final Function(String meetingId)? onRejectMeeting;
 
   const MeetingsPreview({
     super.key,
     required this.meetings,
     required this.onViewCalendar,
     required this.onCheckIn,
+    this.onAcceptMeeting,
+    this.onRejectMeeting,
   });
 
   @override
@@ -64,6 +68,8 @@ class MeetingsPreview extends StatelessWidget {
                 child: MeetingItem(
                   meeting: meeting,
                   onCheckIn: onCheckIn,
+                  onAccept: onAcceptMeeting,
+                  onReject: onRejectMeeting,
                 ),
               );
             }).toList(),

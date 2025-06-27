@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../services/mentee_service.dart';
 import '../../../../services/auth_service.dart';
+import '../../../../services/cloud_function_service.dart';
 import '../../../mobile/shared/checkin_checkout_screen.dart';
 import '../../shared/web_chat/web_chat_screen.dart';
 import '../../shared/web_messaging/web_messaging_screen.dart';
@@ -40,6 +41,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
     with TickerProviderStateMixin, AutoRefreshMixin {
   int _selectedIndex = 0;
   late MenteeDashboardRefreshController _refreshController;
+  final CloudFunctionService _cloudFunctions = CloudFunctionService();
   
   late AnimationController _sidebarAnimationController;
   late Animation<double> _sidebarAnimation;
@@ -112,13 +114,24 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
   }
 
   void _contactMentor() {
-    final mentorInfo = _refreshController.mentorInfo ?? MentorInfo.defaultMentor();
+    final mentorInfo = _refreshController.mentorInfo;
+    if (mentorInfo == null || mentorInfo.id.isEmpty) {
+      // Show a message if no mentor is assigned
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No mentor assigned yet. Please contact your coordinator.'),
+        ),
+      );
+      return;
+    }
+    
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => WebChatScreen(
-          recipientName: mentorInfo.name,
-          recipientRole: '${mentorInfo.yearLevel}, ${mentorInfo.program}',
+        builder: (context) => WebMessagingScreen(
+          preSelectedUserId: mentorInfo.id,
+          preSelectedUserName: mentorInfo.name,
+          showBackButton: true,
         ),
       ),
     );
@@ -129,7 +142,17 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
   }
 
   void _navigateToMentorChat(String mentorId) {
-    final mentorInfo = _refreshController.mentorInfo ?? MentorInfo.defaultMentor();
+    final mentorInfo = _refreshController.mentorInfo;
+    if (mentorInfo == null || mentorInfo.id.isEmpty) {
+      // Show a message if no mentor is assigned
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No mentor assigned yet. Please contact your coordinator.'),
+        ),
+      );
+      return;
+    }
+    
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -156,6 +179,126 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
       ),
     );
   }
+
+  Future<void> _acceptMeeting(String meetingId) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final result = await _cloudFunctions.acceptMeeting(meetingId: meetingId);
+      
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (result['success'] == true) {
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting accepted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        
+        // Refresh dashboard data
+        await _refreshController.refresh();
+      } else {
+        throw Exception(result['error'] ?? 'Failed to accept meeting');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accepting meeting: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectMeeting(String meetingId) async {
+    // First show confirmation dialog
+    final shouldReject = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Decline Meeting'),
+        content: const Text('Are you sure you want to decline this meeting request?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Decline'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldReject != true) return;
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final result = await _cloudFunctions.rejectMeeting(
+        meetingId: meetingId,
+        rejectionReason: 'Schedule conflict', // You might want to ask for a reason
+      );
+      
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (result['success'] == true) {
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting declined'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        
+        // Refresh dashboard data
+        await _refreshController.refresh();
+      } else {
+        throw Exception(result['error'] ?? 'Failed to decline meeting');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error declining meeting: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +353,8 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
             onNavigateToTab: _navigateToTab,
             onMessageMentor: _navigateToMentorChat,
             onCheckInMeeting: _navigateToCheckIn,
+            onAcceptMeeting: _acceptMeeting,
+            onRejectMeeting: _rejectMeeting,
           ),
         );
       

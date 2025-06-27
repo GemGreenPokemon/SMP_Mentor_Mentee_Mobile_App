@@ -114,13 +114,14 @@ export const acceptMeeting = functions.https.onCall(async (data: StatusUpdateDat
       throw new functions.https.HttpsError('not-found', 'Meeting not found');
     }
     
-    const meeting = meetingDoc.data as Meeting & { mentor_uid?: string };
+    const meeting = meetingDoc.data as Meeting & { mentor_uid?: string; mentee_uid?: string };
     
-    // Check permissions - only mentor can accept
+    // Check permissions - both mentor and mentee can accept
     if (!['coordinator', 'super_admin'].includes(authContext.role || '')) {
       const userUid = authContext.uid;
-      if (userUid !== meeting.mentor_id && userUid !== meeting.mentor_uid) {
-        throw new functions.https.HttpsError('permission-denied', 'Only the mentor can accept this meeting');
+      if (userUid !== meeting.mentor_id && userUid !== meeting.mentor_uid &&
+          userUid !== meeting.mentee_id && userUid !== meeting.mentee_uid) {
+        throw new functions.https.HttpsError('permission-denied', 'Only the mentor or mentee can accept this meeting');
       }
     }
 
@@ -179,13 +180,14 @@ export const rejectMeeting = functions.https.onCall(async (data: StatusUpdateDat
       throw new functions.https.HttpsError('not-found', 'Meeting not found');
     }
     
-    const meeting = meetingDoc.data as Meeting & { mentor_uid?: string };
+    const meeting = meetingDoc.data as Meeting & { mentor_uid?: string; mentee_uid?: string };
     
-    // Check permissions - only mentor can reject
+    // Check permissions - both mentor and mentee can reject
     if (!['coordinator', 'super_admin'].includes(authContext.role || '')) {
       const userUid = authContext.uid;
-      if (userUid !== meeting.mentor_id && userUid !== meeting.mentor_uid) {
-        throw new functions.https.HttpsError('permission-denied', 'Only the mentor can reject this meeting');
+      if (userUid !== meeting.mentor_id && userUid !== meeting.mentor_uid &&
+          userUid !== meeting.mentee_id && userUid !== meeting.mentee_uid) {
+        throw new functions.https.HttpsError('permission-denied', 'Only the mentor or mentee can reject this meeting');
       }
     }
 

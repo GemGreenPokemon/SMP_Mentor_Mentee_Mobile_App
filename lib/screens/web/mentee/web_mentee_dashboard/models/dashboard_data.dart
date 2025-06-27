@@ -29,11 +29,11 @@ class MenteeDashboardData {
       menteeProfile: data['menteeProfile'] != null 
           ? MenteeProfile.fromMap(data['menteeProfile']) 
           : null,
-      mentorInfo: data['mentor'] != null 
-          ? MentorInfo.fromMap(data['mentor']) 
+      mentorInfo: data['mentorInfo'] != null 
+          ? MentorInfo.fromMap(data['mentorInfo']) 
           : null,
-      progressData: data['progress'] != null
-          ? ProgressData.fromMap(data['progress'])
+      progressData: data['progressData'] != null
+          ? ProgressData.fromMap(data['progressData'])
           : ProgressData.empty(),
       announcements: (data['announcements'] as List<dynamic>?)
           ?.map((a) => Announcement.fromMap(a))
@@ -41,7 +41,9 @@ class MenteeDashboardData {
       upcomingMeetings: (data['upcomingMeetings'] as List<dynamic>?)
           ?.map((m) => Meeting.fromMap(m))
           .toList() ?? [],
-      recentActivities: [],
+      recentActivities: (data['recentActivities'] as List<dynamic>?)
+          ?.map((a) => Activity.fromMap(a))
+          .toList() ?? [],
     );
   }
 }

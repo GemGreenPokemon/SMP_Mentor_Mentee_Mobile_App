@@ -186,13 +186,44 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
             print('DEBUG: Mentee loaded - id: ${mentee['id']}, name: ${mentee['name']}, firebase_uid: ${mentee['firebase_uid']}');
           }
         }
+        
+        // Load mentor info if user is a mentee
+        if (!widget.isMentor && dashboardData['mentorInfo'] != null) {
+          _mentorsList = [{
+            'id': dashboardData['mentorInfo']['id'] ?? '',
+            'firebase_uid': dashboardData['mentorInfo']['firebase_uid'] ?? dashboardData['mentorInfo']['id'] ?? '',
+            'name': dashboardData['mentorInfo']['name'] ?? 'Unknown',
+            'program': dashboardData['mentorInfo']['program'] ?? '',
+            'display': dashboardData['mentorInfo']['name'] ?? 'Unknown',
+          }];
+          
+          print('DEBUG: Loaded mentor info for mentee');
+          print('DEBUG: Mentor - id: ${_mentorsList[0]['id']}, name: ${_mentorsList[0]['name']}, firebase_uid: ${_mentorsList[0]['firebase_uid']}');
+        }
       });
       
       print('DEBUG: Loading calendar data for: ${_currentUserData?['name']}');
       
-      // Subscribe to real-time updates for this user
-      _meetingService.subscribeToAvailability(firebaseUser.uid);
-      _meetingService.subscribeToMeetings(firebaseUser.uid);
+      // Subscribe to real-time updates
+      if (widget.isMentor) {
+        // Mentors subscribe to their own availability
+        _meetingService.subscribeToAvailability(firebaseUser.uid);
+        _meetingService.subscribeToMeetings(firebaseUser.uid);
+      } else {
+        // Mentees subscribe to their mentor's availability
+        if (_mentorsList.isNotEmpty && _mentorsList[0]['firebase_uid'] != '') {
+          final mentorUid = _mentorsList[0]['firebase_uid'];
+          print('DEBUG: Mentee subscribing to mentor availability - mentor UID: $mentorUid');
+          _meetingService.subscribeToAvailability(mentorUid);
+          _meetingService.subscribeToMeetings(firebaseUser.uid); // Still subscribe to own meetings
+          
+          // Auto-select the mentor for mentees
+          _selectedMenteeOrMentor = _mentorsList[0];
+          print('DEBUG: Auto-selected mentor for mentee: ${_selectedMenteeOrMentor?['name']}');
+        } else {
+          print('DEBUG: No mentor assigned to mentee yet');
+        }
+      }
       
       // Initial load is now triggered just to restore state
       await _loadCalendarData();
@@ -232,14 +263,8 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
     try {
       print('\n📆 Setting up subscriptions...');
       
-      // Don't load data here as the stream will provide it
-      // Just set up the subscriptions
-      print('📆 Calling subscribeToAvailability with userId: $userId');
-      _meetingService.subscribeToAvailability(userId);
-      
-      print('📆 Calling subscribeToMeetings with userId: $userId');
-      _meetingService.subscribeToMeetings(userId);
-            print('📆 ✅ Subscriptions setup complete');
+      // Subscriptions are already set up in _loadCurrentUser, so we don't need to do it again here
+      print('📆 ✅ Subscriptions already setup in _loadCurrentUser');
       
       setState(() {
         _isLoadingData = false;
