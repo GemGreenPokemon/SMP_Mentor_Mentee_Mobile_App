@@ -250,11 +250,9 @@ export async function initializeUserSubcollections(
     const userDocRef = db.collection(universityPath).doc('data').collection('users').doc(userId);
     
     // Define all subcollections that should be created for each user
+    // NOTE: meetings, availability, and requestedMeetings have been moved to top-level collections
     const subcollections = [
       'checklists',
-      'availability', 
-      'requestedMeetings',
-      'meetings',
       'notes',
       'ratings'
     ];

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smp_mentor_mentee_mobile_app/utils/responsive.dart';
-import 'package:smp_mentor_mentee_mobile_app/services/meeting_service.dart';
+import 'package:smp_mentor_mentee_mobile_app/services/meeting/meeting_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/auth_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/dashboard_data_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/models/availability.dart';
@@ -192,7 +192,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       
       // Subscribe to real-time updates for this user
       _meetingService.subscribeToAvailability(firebaseUser.uid);
-      _meetingService.subscribeToMeetings(firebaseUser.uid, widget.isMentor);
+      _meetingService.subscribeToMeetings(firebaseUser.uid);
       
       // Initial load is now triggered just to restore state
       await _loadCalendarData();
@@ -237,8 +237,8 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       print('📆 Calling subscribeToAvailability with userId: $userId');
       _meetingService.subscribeToAvailability(userId);
       
-      print('📆 Calling subscribeToMeetings with userId: $userId, isMentor: ${widget.isMentor}');
-      _meetingService.subscribeToMeetings(userId, widget.isMentor);
+      print('📆 Calling subscribeToMeetings with userId: $userId');
+      _meetingService.subscribeToMeetings(userId);
             print('📆 ✅ Subscriptions setup complete');
       
       setState(() {
@@ -417,7 +417,8 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
       appBar: _buildAppBar(),
       body: _isLoadingData 
         ? const Center(
-            child: Column(              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
@@ -817,11 +818,7 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
 
     try {
       // Use the new removeAvailabilitySlot method
-      final success = await _meetingService.removeAvailabilitySlot(
-        _authService.currentUser!.uid,
-        slot.day,
-        slot.slotStart,
-      );
+      final success = await _meetingService.removeAvailabilitySlot(slot.id);
 
       if (success) {
         // Refresh calendar data
@@ -1028,14 +1025,18 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           
           if (_isCustomTimeRequest) {
             // Request custom meeting time
-            await _meetingService.requestCustomMeeting(
+            final meeting = Meeting(
+              id: _uuid.v4(),
               mentorId: mentorId,
               menteeId: menteeId,
               startTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!),
               endTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))),
               topic: _titleController.text,
               location: _locationController.text,
+              status: 'pending',
+              synced: false,
             );
+            await _meetingService.createMeeting(meeting);
           } else {            // Create regular meeting request
             final meeting = Meeting(
               id: _uuid.v4(),

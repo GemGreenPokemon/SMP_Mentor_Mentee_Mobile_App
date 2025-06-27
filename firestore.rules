@@ -56,9 +56,13 @@ service cloud.firestore {
           hasRole('developer')
         );
         
-        // User subcollections - matches all documents in any subcollection
-        match /{document=**} {
-          allow read, write: if isInUniversity(universityPath) && isOwner(userId);
+        // User subcollections - Now excludes meetings, availability, requestedMeetings
+        match /{subcollection}/{document} {
+          allow read, write: if isInUniversity(universityPath) && 
+            isOwner(userId) &&
+            subcollection != 'meetings' &&
+            subcollection != 'availability' &&
+            subcollection != 'requestedMeetings';
         }
       }
       
@@ -115,14 +119,70 @@ service cloud.firestore {
         }
       }
       
-      // Meetings collection
+      // Meetings collection (UPDATED for new structure)
       match /meetings/{meetingId} {
+        function isMeetingParticipant() {
+          return isAuthenticated() && (
+            request.auth.uid == resource.data.mentor_uid ||
+            request.auth.uid == resource.data.mentee_uid
+          );
+        }
+        
+        function willBeMeetingParticipant() {
+          return isAuthenticated() && (
+            request.auth.uid == request.resource.data.mentor_uid ||
+            request.auth.uid == request.resource.data.mentee_uid
+          );
+        }
+        
+        // Read: Any authenticated user in university can view meetings
         allow read: if isInUniversity(universityPath);
-        allow write: if isInUniversity(universityPath) && (
-          hasRole('mentor') || 
-          hasRole('mentee') || 
+        
+        // Create: Mentor, mentee, or coordinator can create meetings
+        allow create: if isInUniversity(universityPath) && (
+          willBeMeetingParticipant() ||
           hasRole('coordinator')
         );
+        
+        // Update: Only participants or coordinator can update
+        allow update: if isInUniversity(universityPath) && (
+          isMeetingParticipant() ||
+          hasRole('coordinator')
+        );
+        
+        // Delete: Only coordinator (prefer soft delete via status)
+        allow delete: if isInUniversity(universityPath) && hasRole('coordinator');
+      }
+      
+      // Availability collection (NEW - moved from user subcollection)
+      match /availability/{availabilityId} {
+        function isMentorOwner() {
+          return isAuthenticated() && request.auth.uid == resource.data.mentor_uid;
+        }
+        
+        function willBeMentorOwner() {
+          return isAuthenticated() && request.auth.uid == request.resource.data.mentor_uid;
+        }
+        
+        // Read: Anyone in university can view availability
+        allow read: if isInUniversity(universityPath);
+        
+        // Create: Only mentors can create their own availability
+        allow create: if isInUniversity(universityPath) && 
+          hasRole('mentor') &&
+          willBeMentorOwner();
+        
+        // Update: Mentor owns it, or mentee booking it, or coordinator
+        allow update: if isInUniversity(universityPath) && (
+          isMentorOwner() ||
+          (hasRole('mentee') && !resource.data.is_booked && request.resource.data.is_booked) ||
+          hasRole('coordinator')
+        );
+        
+        // Delete: Only mentor can delete their own unbooked availability
+        allow delete: if isInUniversity(universityPath) && 
+          isMentorOwner() &&
+          !resource.data.is_booked;
       }
       
       // Announcements collection
@@ -143,14 +203,106 @@ service cloud.firestore {
         );
       }
       
+      // Progress Reports collection
+      match /progress_reports/{reportId} {
+        allow read: if isInUniversity(universityPath) && (
+          request.auth.uid == resource.data.mentee_id ||
+          request.auth.uid == resource.data.mentor_id ||
+          hasRole('coordinator') ||
+          hasRole('developer')
+        );
+        allow write: if isInUniversity(universityPath) && (
+          request.auth.uid == resource.data.mentor_id ||
+          hasRole('coordinator') ||
+          hasRole('developer')
+        );
+      }
+      
+      // Events collection
+      match /events/{eventId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('coordinator') || 
+          hasRole('developer')
+        );
+      }
+      
+      // Resources collection
+      match /resources/{resourceId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('coordinator') || 
+          hasRole('mentor') ||
+          hasRole('developer')
+        );
+      }
+      
+      // Checklists collection
+      match /checklists/{checklistId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('coordinator') || 
+          hasRole('mentor') ||
+          hasRole('developer')
+        );
+      }
+      
+      // Newsletters collection
+      match /newsletters/{newsletterId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('coordinator') || 
+          hasRole('developer')
+        );
+      }
+      
+      // Notifications collection
+      match /notifications/{notificationId} {
+        allow read: if isInUniversity(universityPath) && 
+          request.auth.uid == resource.data.userId;
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('coordinator') || 
+          hasRole('developer')
+        );
+      }
+      
+      // Mentee Goals collection
+      match /mentee_goals/{goalId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('mentor') ||
+          hasRole('coordinator') || 
+          hasRole('developer')
+        );
+      }
+      
+      // Action Items collection
+      match /action_items/{itemId} {
+        allow read: if isInUniversity(universityPath);
+        allow write: if isInUniversity(universityPath) && (
+          hasRole('mentor') ||
+          hasRole('coordinator') || 
+          hasRole('developer')
+        );
+      }
+      
       // Catch-all for other collections at the data level
       match /{collection}/{document} {
         allow read: if isInUniversity(universityPath) && 
           collection != 'users' && 
           collection != 'conversations' && 
           collection != 'meetings' && 
+          collection != 'availability' &&
           collection != 'announcements' &&
-          collection != 'mentorships';
+          collection != 'mentorships' &&
+          collection != 'progress_reports' &&
+          collection != 'events' &&
+          collection != 'resources' &&
+          collection != 'checklists' &&
+          collection != 'newsletters' &&
+          collection != 'notifications' &&
+          collection != 'mentee_goals' &&
+          collection != 'action_items';
         allow write: if isInUniversity(universityPath) && (
           hasRole('coordinator') || 
           hasRole('developer')
@@ -158,8 +310,17 @@ service cloud.firestore {
           collection != 'users' && 
           collection != 'conversations' && 
           collection != 'meetings' && 
+          collection != 'availability' &&
           collection != 'announcements' &&
-          collection != 'mentorships';
+          collection != 'mentorships' &&
+          collection != 'progress_reports' &&
+          collection != 'events' &&
+          collection != 'resources' &&
+          collection != 'checklists' &&
+          collection != 'newsletters' &&
+          collection != 'notifications' &&
+          collection != 'mentee_goals' &&
+          collection != 'action_items';
       }
     }
     
@@ -173,7 +334,7 @@ service cloud.firestore {
     }
     
     // Development/Testing override - REMOVE IN PRODUCTION
-    // Uncomment the line below to allow all access for testing
+    // TODO: Comment out the line below before deploying to production
     match /{document=**} { allow read, write: if true; }
   }
 }

@@ -23,6 +23,7 @@ import { createUser, updateUser, deleteUser, getAllUsers, bulkCreateUsers, bulkA
 import { checkMenteeAcknowledgment, submitMenteeAcknowledgment } from './users/acknowledgment';
 import { createAnnouncement, updateAnnouncement, deleteAnnouncement, getAnnouncements } from './announcements/management';
 import { setClaimsOnLogin, syncClaimsOnLogin, setClaimsOnRegistration } from './auth/triggers';
+// Import from new modular meetings structure
 import { 
   createMeeting, 
   updateMeeting, 
@@ -34,7 +35,7 @@ import {
   getAvailableSlots,
   requestMeeting,
   removeAvailabilitySlot
-} from './meetings/management';
+} from './meetings';
 import {
   createConversation,
   sendMessage,
@@ -46,6 +47,10 @@ import {
   runUnitTest,
   runTestSuite
 } from './testing/test-runner';
+import {
+  migrateMeetingsAndAvailability,
+  cleanupOldMeetingSubcollections
+} from './migrations/meetings-availability-migration';
 // Temporarily commented out to avoid build errors:
 // import { sendMessage, getChatHistory } from './messaging/chat';
 // import { generateProgressReport, submitProgressReport } from './reports/progress';
@@ -123,5 +128,59 @@ export const healthCheck = functions.https.onRequest((req, res) => {
 
 // Test Runner Functions (Developer only)
 export { runUnitTest, runTestSuite };
+
+// Temporary debug function for Timestamp issue
+export const debugTimestamp = functions.https.onCall(async (data, context) => {
+  const results: any = {};
+  
+  // Test 1: Check admin
+  results.adminExists = !!admin;
+  results.adminFirestoreExists = !!admin.firestore;
+  results.adminFirestoreType = typeof admin.firestore;
+  
+  // Test 2: Direct access
+  try {
+    results.directTimestamp = !!admin.firestore.Timestamp;
+    results.directFieldValue = !!admin.firestore.FieldValue;
+    results.directTimestampType = typeof admin.firestore.Timestamp;
+  } catch (e: any) {
+    results.directError = e.message;
+  }
+  
+  // Test 3: Via function call
+  try {
+    const db = admin.firestore();
+    results.dbExists = !!db;
+    results.dbType = typeof db;
+  } catch (e: any) {
+    results.dbError = e.message;
+  }
+  
+  // Test 4: Try the actual operation
+  try {
+    const testDate = new Date();
+    const timestamp = admin.firestore.Timestamp.fromDate(testDate);
+    results.timestampCreated = !!timestamp;
+  } catch (e: any) {
+    results.timestampError = e.message;
+  }
+  
+  // Test 5: Import method
+  try {
+    const { Timestamp, FieldValue } = await import('firebase-admin/firestore');
+    results.importedTimestamp = !!Timestamp;
+    results.importedFieldValue = !!FieldValue;
+    const importedTs = Timestamp.fromDate(new Date());
+    results.importedTimestampWorks = !!importedTs;
+  } catch (e: any) {
+    results.importError = e.message;
+  }
+  
+  return results;
+});
+
+// Migration Functions
+export const migrateAllMeetingsAndAvailability = migrateMeetingsAndAvailability;
+export const cleanupMeetingSubcollections = cleanupOldMeetingSubcollections;
 
 // Utility Functions

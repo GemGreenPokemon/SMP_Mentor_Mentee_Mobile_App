@@ -1029,7 +1029,7 @@ class CloudFunctionService {
   String getCurrentUniversityPath() {
     // TODO: Implement logic to get university path from current user context
     // This would typically come from Firebase Auth custom claims or user preferences
-    final universityPath = 'california_merced_uc_merced'; // Default for now - matches DirectDatabaseService format
+    final universityPath = 'california_merced_uc_merced'; // Correct path as confirmed
     print('🔍 CloudFunctionService.getCurrentUniversityPath: $universityPath');
     return universityPath;
   }

@@ -160,20 +160,20 @@ class MeetingDetailsForm extends StatelessWidget {
           ),
         ],
         // Batch operations for availability
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             TextButton.icon(
               icon: const Icon(Icons.select_all, size: 16),
               label: const Text('Select All'),
               onPressed: onSelectAll,
             ),
-            const SizedBox(width: 8),
             TextButton.icon(
               icon: const Icon(Icons.clear, size: 16),
               label: const Text('Clear All'),
               onPressed: onClearAll,
             ),
-            const SizedBox(width: 8),
             TextButton.icon(
               icon: const Icon(Icons.copy, size: 16),
               label: const Text('Copy to Other Days'),

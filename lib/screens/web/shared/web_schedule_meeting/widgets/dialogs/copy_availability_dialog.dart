@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:smp_mentor_mentee_mobile_app/models/availability.dart';
-import 'package:smp_mentor_mentee_mobile_app/services/meeting_service.dart';
+import 'package:smp_mentor_mentee_mobile_app/services/meeting/meeting_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/auth_service.dart';
 import '../../utils/date_time_helpers.dart';
 

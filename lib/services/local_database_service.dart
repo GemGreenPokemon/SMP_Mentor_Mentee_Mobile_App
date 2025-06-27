@@ -168,6 +168,34 @@ class LocalDatabaseService {
     return result.first['count'] as int;
   }
 
+  Future<List<Map<String, dynamic>>> getUnsyncedAvailability() async {
+    final db = await database;
+    return await db.query(
+      'availability',
+      where: 'synced = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<int> markAvailabilitySynced(String id) async {
+    final db = await database;
+    return await db.update(
+      'availability',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> upsertAvailability(Map<String, dynamic> availability) async {
+    final db = await database;
+    await db.insert(
+      'availability',
+      availability,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   // ========== MEETING OPERATIONS ==========
   Future<Meeting> createMeeting(Meeting meeting) async {
     final db = await database;
@@ -258,6 +286,34 @@ class LocalDatabaseService {
       orderBy: 'start_time ASC',
     );
     return maps.map((map) => Meeting.fromMap(map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getUnsyncedMeetings() async {
+    final db = await database;
+    return await db.query(
+      'meetings',
+      where: 'synced = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<int> markMeetingSynced(String id) async {
+    final db = await database;
+    return await db.update(
+      'meetings',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> upsertMeeting(Map<String, dynamic> meeting) async {
+    final db = await database;
+    await db.insert(
+      'meetings',
+      meeting,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   // ========== ANNOUNCEMENT OPERATIONS ==========

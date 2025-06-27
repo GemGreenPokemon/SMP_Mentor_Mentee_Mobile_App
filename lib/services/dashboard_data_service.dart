@@ -240,17 +240,18 @@ class DashboardDataService {
   }
 
   /// Get upcoming meetings for a mentee
-  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetings(String menteeId, String mentorId) async {
+  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetings(String menteeDocId, String mentorFirebaseUid) async {
     try {
       _initializeFirestore();
       
       final now = DateTime.now();
+      // Query the top-level meetings collection using Firebase UIDs
       final meetings = await _firestore!
           .collection(_universityPath)
           .doc('data')
           .collection('meetings')
-          .where('mentee_id', isEqualTo: menteeId)
-          .where('mentor_id', isEqualTo: mentorId)
+          .where('mentee_doc_id', isEqualTo: menteeDocId)
+          .where('mentor_uid', isEqualTo: mentorFirebaseUid)
           .where('status', whereIn: ['pending', 'accepted'])
           .orderBy('start_time')
           .limit(3)
@@ -261,7 +262,7 @@ class DashboardDataService {
       
       for (final doc in meetings.docs) {
         final data = doc.data();
-        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        final startTime = (data['start_time'] as Timestamp?)?.toDate();
         
         if (startTime != null && startTime.isAfter(now)) {
           upcomingMeetings.add({
@@ -336,81 +337,31 @@ class DashboardDataService {
         print('🔥 Dashboard: Getting upcoming meetings for mentor: $mentorFirebaseUid');
       }
       
-      // First, find the mentor's document ID using their Firebase UID
-      final mentorQuery = await _firestore!
-          .collection(_universityPath)
-          .doc('data')
-          .collection('users')
-          .where('firebase_uid', isEqualTo: mentorFirebaseUid)
-          .limit(1)
-          .get();
-      
-      if (mentorQuery.docs.isEmpty) {
-        if (kDebugMode) {
-          print('🔥 Dashboard: No mentor document found for Firebase UID: $mentorFirebaseUid');
-        }
-        return [];
-      }
-      
-      final mentorDocId = mentorQuery.docs.first.id;
-      final mentorData = mentorQuery.docs.first.data();
-      
-      if (kDebugMode) {
-        print('🔥 Dashboard: Found mentor document ID: $mentorDocId');
-        print('🔥 Dashboard: Mentor name: ${mentorData['name']}');
-      }
-      
-      // Query meetings subcollection for this mentor
+      // Query the top-level meetings collection directly using Firebase UID
       final now = DateTime.now();
       final meetingsSnapshot = await _firestore!
           .collection(_universityPath)
           .doc('data')
-          .collection('users')
-          .doc(mentorDocId)
           .collection('meetings')
+          .where('mentor_uid', isEqualTo: mentorFirebaseUid)
           .where('status', whereIn: ['pending', 'accepted'])
           .orderBy('start_time')
           .limit(10)
           .get();
       
       if (kDebugMode) {
-        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} meetings in subcollection');
+        print('🔥 Dashboard: Found ${meetingsSnapshot.docs.length} meetings in top-level collection');
       }
       
       final upcomingMeetings = <Map<String, dynamic>>[];
-      final menteeNames = <String, String>{}; // Cache for mentee names
       
       for (final doc in meetingsSnapshot.docs) {
         final data = doc.data();
-        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        final startTime = (data['start_time'] as Timestamp?)?.toDate();
         
         if (startTime != null && startTime.isAfter(now)) {
-          // Get mentee name if not cached
-          final menteeId = data['mentee_id'] ?? '';
-          String menteeName = 'Unknown Mentee';
-          
-          if (menteeId.isNotEmpty && !menteeNames.containsKey(menteeId)) {
-            // Look up mentee by document ID
-            try {
-              final menteeDoc = await _firestore!
-                  .collection(_universityPath)
-                  .doc('data')
-                  .collection('users')
-                  .doc(menteeId)
-                  .get();
-              
-              if (menteeDoc.exists) {
-                menteeName = menteeDoc.data()?['name'] ?? 'Unknown Mentee';
-                menteeNames[menteeId] = menteeName;
-              }
-            } catch (e) {
-              if (kDebugMode) {
-                print('🔥 Dashboard: Error fetching mentee name for ID $menteeId: $e');
-              }
-            }
-          } else if (menteeNames.containsKey(menteeId)) {
-            menteeName = menteeNames[menteeId]!;
-          }
+          // Use denormalized mentee name from the meeting document
+          final menteeName = data['mentee_name'] ?? 'Unknown Mentee';
           
           upcomingMeetings.add({
             'id': doc.id,
@@ -449,16 +400,17 @@ class DashboardDataService {
   }
 
   /// Get upcoming meetings for mentee dashboard
-  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetingsForDashboard(String menteeId) async {
+  Future<List<Map<String, dynamic>>> _getMenteeUpcomingMeetingsForDashboard(String menteeFirebaseUid) async {
     try {
       _initializeFirestore();
       
       final now = DateTime.now();
+      // Query top-level meetings collection using Firebase UID
       final meetings = await _firestore!
           .collection(_universityPath)
           .doc('data')
           .collection('meetings')
-          .where('mentee_id', isEqualTo: menteeId)
+          .where('mentee_uid', isEqualTo: menteeFirebaseUid)
           .where('status', whereIn: ['pending', 'accepted'])
           .orderBy('start_time')
           .limit(3)
@@ -470,7 +422,7 @@ class DashboardDataService {
       
       for (final doc in meetings.docs) {
         final data = doc.data();
-        final startTime = DateTime.tryParse(data['start_time'] ?? '');
+        final startTime = (data['start_time'] as Timestamp?)?.toDate();
         
         if (startTime != null && startTime.isAfter(now)) {
           upcomingMeetings.add({
