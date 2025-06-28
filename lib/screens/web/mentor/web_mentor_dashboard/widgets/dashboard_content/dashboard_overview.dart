@@ -15,6 +15,10 @@ class DashboardOverview extends StatefulWidget {
   final Function(int) onNavigateToTab;
   final Function(Mentee) onMessageMentee;
   final VoidCallback onCheckInMeeting;
+  final Function(String)? onAcceptMeeting;
+  final Function(String)? onRejectMeeting;
+  final Function(String)? onClearMeeting;
+  final String? currentUserId;
 
   const DashboardOverview({
     super.key,
@@ -22,6 +26,10 @@ class DashboardOverview extends StatefulWidget {
     required this.onNavigateToTab,
     required this.onMessageMentee,
     required this.onCheckInMeeting,
+    this.onAcceptMeeting,
+    this.onRejectMeeting,
+    this.onClearMeeting,
+    this.currentUserId,
   });
 
   @override
@@ -55,6 +63,10 @@ class _DashboardOverviewState extends State<DashboardOverview> {
         meetings: widget.dashboardData!.upcomingMeetings,
         onViewCalendar: () => widget.onNavigateToTab(2),
         onCheckIn: widget.onCheckInMeeting,
+        onAcceptMeeting: widget.onAcceptMeeting,
+        onRejectMeeting: widget.onRejectMeeting,
+        onClearMeeting: widget.onClearMeeting,
+        currentUserId: widget.currentUserId,
       ),
       DashboardLayoutConfig.announcementsCard: AnnouncementsPreview(
         announcements: widget.dashboardData!.announcements,

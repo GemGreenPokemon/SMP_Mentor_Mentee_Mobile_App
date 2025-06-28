@@ -131,6 +131,7 @@ class Meeting {
   final String color;
   final String? startTime;
   final String? status;
+  final String? createdBy;
 
   Meeting({
     required this.id,
@@ -141,6 +142,7 @@ class Meeting {
     required this.color,
     this.startTime,
     this.status,
+    this.createdBy,
   });
 
   factory Meeting.fromMap(Map<String, dynamic> map) {
@@ -153,6 +155,7 @@ class Meeting {
       color: map['color'] ?? 'blue',
       startTime: map['startTime'],
       status: map['status'],
+      createdBy: map['createdBy'],
     );
   }
 }

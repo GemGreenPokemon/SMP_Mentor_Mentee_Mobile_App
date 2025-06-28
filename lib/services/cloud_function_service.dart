@@ -323,14 +323,17 @@ class CloudFunctionService {
       print('🔍   location: $location');
       print('🔍   availability_id: $availabilityId');
       
+      // Combine date and time into full datetime strings
+      final startDateTime = '${date}T${startTime}:00';
+      final endDateTime = endTime.isNotEmpty ? '${date}T${endTime}:00' : null;
+      
       final HttpsCallable callable = _functions.httpsCallable('scheduleMeeting');  // Use exported name
       final HttpsCallableResult result = await callable.call(<String, dynamic>{
         'universityPath': universityPath,
         'mentor_id': mentorId,
         'mentee_id': menteeId,
-        'date': date,
-        'start_time': startTime,
-        'end_time': endTime,
+        'start_time': startDateTime,
+        'end_time': endDateTime,
         'topic': topic,
         'location': location,
         'availability_id': availabilityId,
@@ -471,17 +474,13 @@ class CloudFunctionService {
   /// Remove specific availability slot
   Future<Map<String, dynamic>> removeAvailabilitySlot({
     required String universityPath,
-    required String mentorId,
-    required String day,
-    required String slotStart,
+    required String slotId,
   }) async {
     try {
-      final HttpsCallable callable = _functions.httpsCallable('removeAvailability');
+      final HttpsCallable callable = _functions.httpsCallable('removeAvailabilitySlot');
       final HttpsCallableResult result = await callable.call(<String, dynamic>{
         'universityPath': universityPath,
-        'mentor_id': mentorId,
-        'day': day,
-        'slot_start': slotStart,
+        'slot_id': slotId,
       });
       return Map<String, dynamic>.from(result.data ?? {});
     } on FirebaseFunctionsException catch (e) {

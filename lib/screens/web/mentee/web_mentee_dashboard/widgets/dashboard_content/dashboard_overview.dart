@@ -17,6 +17,8 @@ class DashboardOverview extends StatelessWidget {
   final VoidCallback onCheckInMeeting;
   final Function(String meetingId)? onAcceptMeeting;
   final Function(String meetingId)? onRejectMeeting;
+  final Function(String meetingId)? onClearMeeting;
+  final String? currentUserId;
 
   const DashboardOverview({
     super.key,
@@ -26,6 +28,8 @@ class DashboardOverview extends StatelessWidget {
     required this.onCheckInMeeting,
     this.onAcceptMeeting,
     this.onRejectMeeting,
+    this.onClearMeeting,
+    this.currentUserId,
   });
 
   @override
@@ -118,6 +122,8 @@ class DashboardOverview extends StatelessWidget {
             onCheckIn: onCheckInMeeting,
             onAcceptMeeting: onAcceptMeeting,
             onRejectMeeting: onRejectMeeting,
+            onClearMeeting: onClearMeeting,
+            currentUserId: currentUserId,
           ),
         ],
       );
@@ -142,6 +148,8 @@ class DashboardOverview extends StatelessWidget {
             onCheckIn: onCheckInMeeting,
             onAcceptMeeting: onAcceptMeeting,
             onRejectMeeting: onRejectMeeting,
+            onClearMeeting: onClearMeeting,
+            currentUserId: currentUserId,
           ),
         ),
       ],

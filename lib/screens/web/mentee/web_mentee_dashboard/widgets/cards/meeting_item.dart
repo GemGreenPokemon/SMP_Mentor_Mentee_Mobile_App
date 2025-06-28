@@ -8,6 +8,8 @@ class MeetingItem extends StatelessWidget {
   final VoidCallback onCheckIn;
   final Function(String meetingId)? onAccept;
   final Function(String meetingId)? onReject;
+  final Function(String meetingId)? onClear;
+  final String? currentUserId;
 
   const MeetingItem({
     super.key,
@@ -15,6 +17,8 @@ class MeetingItem extends StatelessWidget {
     required this.onCheckIn,
     this.onAccept,
     this.onReject,
+    this.onClear,
+    this.currentUserId,
   });
 
   @override
@@ -94,7 +98,7 @@ class MeetingItem extends StatelessWidget {
             ),
           ),
           const SizedBox(height: DashboardSizes.spacingSmall),
-          if (meeting.status == 'pending' && onAccept != null && onReject != null)
+          if (meeting.status == 'pending' && meeting.createdBy != currentUserId && onAccept != null && onReject != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -134,6 +138,62 @@ class MeetingItem extends StatelessWidget {
                   child: const Text('Accept'),
                 ),
               ],
+            )
+          else if (meeting.status == 'pending' && meeting.createdBy == currentUserId)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DashboardSizes.spacingMedium,
+                  vertical: DashboardSizes.spacingSmall,
+                ),
+                decoration: BoxDecoration(
+                  color: DashboardColors.warningYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                  border: Border.all(
+                    color: DashboardColors.warningYellow.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 14,
+                      color: DashboardColors.warningYellow,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Waiting for response',
+                      style: DashboardTextStyles.bodySmall.copyWith(
+                        color: DashboardColors.warningYellow,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (meeting.status == 'rejected' && onClear != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: () => onClear!(meeting.id),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: DashboardColors.errorRed,
+                  side: BorderSide(color: DashboardColors.errorRed),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DashboardSizes.spacingMedium,
+                    vertical: DashboardSizes.spacingSmall,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  textStyle: DashboardTextStyles.bodySmall,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                  ),
+                ),
+                child: const Text('Clear'),
+              ),
             )
           else if (meeting.status == 'accepted' || meeting.status == 'confirmed')
             Align(

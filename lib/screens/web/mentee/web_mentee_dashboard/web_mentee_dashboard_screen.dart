@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../services/mentee_service.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/cloud_function_service.dart';
+import '../../../../services/meeting/meeting_service.dart';
 import '../../../mobile/shared/checkin_checkout_screen.dart';
 import '../../shared/web_chat/web_chat_screen.dart';
 import '../../shared/web_messaging/web_messaging_screen.dart';
@@ -42,6 +43,8 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
   int _selectedIndex = 0;
   late MenteeDashboardRefreshController _refreshController;
   final CloudFunctionService _cloudFunctions = CloudFunctionService();
+  final MeetingService _meetingService = MeetingService();
+  final AuthService _authService = AuthService();
   
   late AnimationController _sidebarAnimationController;
   late Animation<double> _sidebarAnimation;
@@ -191,12 +194,12 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
         ),
       );
 
-      final result = await _cloudFunctions.acceptMeeting(meetingId: meetingId);
+      final success = await _meetingService.acceptMeeting(meetingId);
       
       // Close loading dialog
       if (mounted) Navigator.pop(context);
 
-      if (result['success'] == true) {
+      if (success) {
         // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +213,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
         // Refresh dashboard data
         await _refreshController.refresh();
       } else {
-        throw Exception(result['error'] ?? 'Failed to accept meeting');
+        throw Exception('Failed to accept meeting');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -260,15 +263,15 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
         ),
       );
 
-      final result = await _cloudFunctions.rejectMeeting(
-        meetingId: meetingId,
-        rejectionReason: 'Schedule conflict', // You might want to ask for a reason
+      final success = await _meetingService.rejectMeeting(
+        meetingId,
+        reason: 'Schedule conflict', // You might want to ask for a reason
       );
       
       // Close loading dialog
       if (mounted) Navigator.pop(context);
 
-      if (result['success'] == true) {
+      if (success) {
         // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -282,7 +285,7 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
         // Refresh dashboard data
         await _refreshController.refresh();
       } else {
-        throw Exception(result['error'] ?? 'Failed to decline meeting');
+        throw Exception('Failed to decline meeting');
       }
     } catch (e) {
       // Close loading dialog if still open
@@ -292,6 +295,54 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error declining meeting: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearMeeting(String meetingId) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Delete the meeting
+      final success = await _meetingService.cancelMeeting(meetingId);
+      
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (success) {
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting cleared from your list'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        
+        // Refresh dashboard data
+        await _refreshController.refresh();
+      } else {
+        throw Exception('Failed to clear meeting');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error clearing meeting: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -355,6 +406,8 @@ class _WebMenteeDashboardScreenState extends State<WebMenteeDashboardScreen>
             onCheckInMeeting: _navigateToCheckIn,
             onAcceptMeeting: _acceptMeeting,
             onRejectMeeting: _rejectMeeting,
+            onClearMeeting: _clearMeeting,
+            currentUserId: _authService.currentUser?.uid,
           ),
         );
       

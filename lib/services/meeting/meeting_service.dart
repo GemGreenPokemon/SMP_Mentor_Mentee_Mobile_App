@@ -161,8 +161,65 @@ class MeetingService {
 
   /// Get availability by mentor
   Future<List<Availability>> getAvailabilityByMentor(String mentorId) async {
-    _ensureInitialized();
-    return await _availabilityRepository!.getAvailabilityByMentor(mentorId);
+    try {
+      // Use cloud function to get mentor availability
+      final result = await _cloudFunctions.getMentorAvailability(
+        universityPath: _universityPath,
+        mentorId: mentorId,
+      );
+
+      if (result['success'] == true && result['data'] != null) {
+        final data = result['data'] as List<dynamic>;
+        
+        // Convert the data to List<Availability>
+        // The cloud function returns data with a 'slots' array, but our Availability model
+        // represents individual slots. We need to flatten this structure.
+        final List<Availability> availabilities = [];
+        
+        for (final item in data) {
+          final Map<String, dynamic> availData = item as Map<String, dynamic>;
+          final day = availData['day'] ?? '';
+          final slots = availData['slots'] as List<dynamic>? ?? [];
+          
+          // If there are slots, create an Availability object for each slot
+          if (slots.isNotEmpty) {
+            for (final slot in slots) {
+              availabilities.add(Availability(
+                id: '${availData['id']}_${slot['slot_start']}', // Create unique ID
+                mentorId: availData['mentor_id'] ?? mentorId,
+                day: day,
+                slotStart: slot['slot_start'] ?? '',
+                slotEnd: slot['slot_end'],
+                isBooked: slot['is_booked'] ?? false,
+                menteeId: slot['booked_by_uid'],
+                synced: availData['synced'] ?? true,
+              ));
+            }
+          } else {
+            // If no slots array, treat it as a single slot (backward compatibility)
+            availabilities.add(Availability(
+              id: availData['id'] ?? '',
+              mentorId: availData['mentor_id'] ?? mentorId,
+              day: day,
+              slotStart: availData['slot_start'] ?? '',
+              slotEnd: availData['slot_end'],
+              isBooked: availData['is_booked'] ?? false,
+              menteeId: availData['mentee_id'],
+              synced: availData['synced'] ?? true,
+            ));
+          }
+        }
+        
+        return availabilities;
+      } else {
+        throw Exception(result['error'] ?? result['message'] ?? 'Failed to get availability');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting availability: $e');
+      }
+      return [];
+    }
   }
 
   /// Subscribe to real-time availability updates
@@ -173,8 +230,25 @@ class MeetingService {
 
   /// Remove availability slot
   Future<bool> removeAvailabilitySlot(String slotId) async {
-    _ensureInitialized();
-    return await _availabilityRepository!.deleteSlot(slotId);
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        throw Exception(MeetingConstants.errorUserNotAuthenticated);
+      }
+
+      // Use cloud function to remove availability slot
+      final result = await _cloudFunctions.removeAvailabilitySlot(
+        universityPath: _universityPath,
+        slotId: slotId,
+      );
+
+      return result['success'] == true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error removing availability slot: $e');
+      }
+      return false;
+    }
   }
 
   // ========== MEETING OPERATIONS ==========
@@ -187,54 +261,49 @@ class MeetingService {
         throw Exception(MeetingConstants.errorUserNotAuthenticated);
       }
 
-      _ensureInitialized();
+      // Parse date and time from the meeting startTime
+      final startDateTime = DateTime.parse(meeting.startTime);
+      final date = '${startDateTime.year}-${startDateTime.month.toString().padLeft(2, '0')}-${startDateTime.day.toString().padLeft(2, '0')}';
+      final startTime = '${startDateTime.hour.toString().padLeft(2, '0')}:${startDateTime.minute.toString().padLeft(2, '0')}';
       
-      // Get user data for both mentor and mentee
-      final usersData = await _userRepository!.getUsersDataByUids([
-        meeting.mentorId,
-        meeting.menteeId,
-      ]);
-      
-      final mentorData = usersData[meeting.mentorId];
-      final menteeData = usersData[meeting.menteeId];
-      
-      if (mentorData == null || menteeData == null) {
-        throw Exception(MeetingConstants.errorUserDocumentNotFound);
+      String? endTime;
+      if (meeting.endTime != null) {
+        final endDateTime = DateTime.parse(meeting.endTime!);
+        endTime = '${endDateTime.hour.toString().padLeft(2, '0')}:${endDateTime.minute.toString().padLeft(2, '0')}';
       }
 
-      // Create meeting using repository
-      final createdMeeting = await _meetingRepository!.createMeeting(
-        mentorUid: meeting.mentorId,
-        menteeUid: meeting.menteeId,
-        mentorDocId: mentorData['id'],
-        menteeDocId: menteeData['id'],
-        mentorName: mentorData['name'] ?? '',
-        menteeName: menteeData['name'] ?? '',
-        startTime: DateTime.parse(meeting.startTime),
-        endTime: meeting.endTime != null ? DateTime.parse(meeting.endTime!) : null,
+      // Use cloud function to create meeting
+      final result = await _cloudFunctions.createMeeting(
+        universityPath: _universityPath,
+        mentorId: meeting.mentorId,
+        menteeId: meeting.menteeId,
+        date: date,
+        startTime: startTime,
+        endTime: endTime ?? '',
         topic: meeting.topic,
         location: meeting.location,
-        availabilitySlotId: meeting.availabilityId,
-        status: meeting.status,
+        availabilityId: meeting.availabilityId,
       );
-      
-      // If an availability slot was specified, book it
-      if (meeting.availabilityId != null && meeting.availabilityId!.isNotEmpty) {
-        print('Booking availability slot: ${meeting.availabilityId}');
-        final bookingSuccess = await _availabilityRepository!.bookSlot(
-          slotId: meeting.availabilityId!,
-          menteeUid: meeting.menteeId,
-          menteeDocId: menteeData['id'],
-          menteeName: menteeData['name'] ?? '',
-          meetingId: createdMeeting.id,
-        );
+
+      if (result['success'] == true && result['data'] != null) {
+        final data = result['data'] as Map<String, dynamic>;
         
-        if (!bookingSuccess) {
-          print('Warning: Failed to book availability slot');
-        }
+        // Convert cloud function response to Meeting object
+        return Meeting(
+          id: data['id'] ?? '',
+          mentorId: data['mentor_id'] ?? meeting.mentorId,
+          menteeId: data['mentee_id'] ?? meeting.menteeId,
+          startTime: data['start_time'] ?? meeting.startTime,
+          endTime: data['end_time'],
+          topic: data['topic'] ?? meeting.topic,
+          location: data['location'] ?? meeting.location,
+          status: data['status'] ?? 'pending',
+          availabilityId: data['availability_id'],
+          synced: true,
+        );
+      } else {
+        throw Exception(result['error'] ?? result['message'] ?? MeetingConstants.errorMeetingCreationFailed);
       }
-      
-      return createdMeeting;
     } catch (e) {
       if (kDebugMode) {
         print('Error creating meeting: $e');
@@ -251,17 +320,42 @@ class MeetingService {
 
   /// Update meeting
   Future<int> updateMeeting(Meeting meeting) async {
-    _ensureInitialized();
-    
-    final success = await _meetingRepository!.updateMeeting(
-      meetingId: meeting.id,
-      startTime: DateTime.parse(meeting.startTime),
-      endTime: meeting.endTime != null ? DateTime.parse(meeting.endTime!) : null,
-      topic: meeting.topic,
-      location: meeting.location,
-    );
-    
-    return success ? 1 : 0;
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        throw Exception(MeetingConstants.errorUserNotAuthenticated);
+      }
+
+      // Parse date and time from the meeting startTime
+      final startDateTime = DateTime.parse(meeting.startTime);
+      final date = '${startDateTime.year}-${startDateTime.month.toString().padLeft(2, '0')}-${startDateTime.day.toString().padLeft(2, '0')}';
+      final startTime = '${startDateTime.hour.toString().padLeft(2, '0')}:${startDateTime.minute.toString().padLeft(2, '0')}';
+      
+      String? endTime;
+      if (meeting.endTime != null) {
+        final endDateTime = DateTime.parse(meeting.endTime!);
+        endTime = '${endDateTime.hour.toString().padLeft(2, '0')}:${endDateTime.minute.toString().padLeft(2, '0')}';
+      }
+
+      // Use cloud function to update meeting
+      final result = await _cloudFunctions.updateMeeting(
+        universityPath: _universityPath,
+        meetingId: meeting.id,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        topic: meeting.topic,
+        location: meeting.location,
+        status: meeting.status,
+      );
+
+      return result['success'] == true ? 1 : 0;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating meeting: $e');
+      }
+      return 0;
+    }
   }
 
   /// Cancel meeting
@@ -270,14 +364,14 @@ class MeetingService {
       final currentUser = _authService.currentUser;
       if (currentUser == null) return false;
       
-      _ensureInitialized();
-      
-      return await _meetingRepository!.updateMeetingStatus(
+      // Use cloud function to cancel meeting
+      final result = await _cloudFunctions.cancelMeeting(
+        universityPath: _universityPath,
         meetingId: meetingId,
-        status: MeetingConstants.statusCancelled,
-        updatedBy: currentUser.uid,
         reason: reason,
       );
+      
+      return result['success'] == true;
     } catch (e) {
       if (kDebugMode) {
         print('Error canceling meeting: $e');
@@ -292,13 +386,14 @@ class MeetingService {
       final currentUser = _authService.currentUser;
       if (currentUser == null) return false;
       
-      _ensureInitialized();
-      
-      return await _meetingRepository!.updateMeetingStatus(
+      // Use cloud function to update meeting status to accepted
+      final result = await _cloudFunctions.updateMeeting(
+        universityPath: _universityPath,
         meetingId: meetingId,
         status: MeetingConstants.statusAccepted,
-        updatedBy: currentUser.uid,
       );
+      
+      return result['success'] == true;
     } catch (e) {
       if (kDebugMode) {
         print('Error accepting meeting: $e');
@@ -313,14 +408,16 @@ class MeetingService {
       final currentUser = _authService.currentUser;
       if (currentUser == null) return false;
       
-      _ensureInitialized();
-      
-      return await _meetingRepository!.updateMeetingStatus(
+      // Use cloud function to update meeting status to rejected
+      // Note: The cloud function updateMeeting doesn't support reason field,
+      // so we'll need to use cancelMeeting which does support reason
+      final result = await _cloudFunctions.cancelMeeting(
+        universityPath: _universityPath,
         meetingId: meetingId,
-        status: MeetingConstants.statusRejected,
-        updatedBy: currentUser.uid,
-        reason: reason,
+        reason: reason ?? 'Meeting rejected by mentor',
       );
+      
+      return result['success'] == true;
     } catch (e) {
       if (kDebugMode) {
         print('Error rejecting meeting: $e');
@@ -345,20 +442,57 @@ class MeetingService {
         throw Exception(MeetingConstants.errorUserNotAuthenticated);
       }
 
-      final meeting = Meeting(
-        id: '', // Will be generated
-        mentorId: mentorId,
-        menteeId: currentUser.uid,
-        startTime: '${date}T${startTime}:00',
-        endTime: endTime != null ? '${date}T${endTime}:00' : null,
-        topic: topic,
-        location: location,
-        status: MeetingConstants.statusPending,
-        availabilityId: availabilityId,
-        synced: false,
-      );
+      // If availabilityId is provided, use createMeeting (which supports availability booking)
+      // Otherwise use requestMeeting for custom time requests
+      if (availabilityId != null && availabilityId.isNotEmpty) {
+        // Create a meeting object and use createMeeting
+        final meeting = Meeting(
+          id: '', // Will be generated
+          mentorId: mentorId,
+          menteeId: currentUser.uid,
+          startTime: '${date}T${startTime}:00',
+          endTime: endTime != null ? '${date}T${endTime}:00' : null,
+          topic: topic ?? '',
+          location: location ?? '',
+          status: MeetingConstants.statusPending,
+          availabilityId: availabilityId,
+          synced: false,
+        );
+        
+        return await createMeeting(meeting);
+      } else {
+        // Use requestMeeting for custom time requests (no availability slot)
+        final result = await _cloudFunctions.requestMeeting(
+          universityPath: _universityPath,
+          mentorId: mentorId,
+          menteeId: currentUser.uid,
+          date: date,
+          startTime: startTime,
+          endTime: endTime ?? '',
+          topic: topic,
+          location: location,
+        );
 
-      return await createMeeting(meeting);
+        if (result['success'] == true && result['data'] != null) {
+          final data = result['data'] as Map<String, dynamic>;
+          
+          // Convert cloud function response to Meeting object
+          return Meeting(
+            id: data['id'] ?? '',
+            mentorId: data['mentor_id'] ?? mentorId,
+            menteeId: data['mentee_id'] ?? currentUser.uid,
+            startTime: data['start_time'] ?? '${date}T${startTime}:00',
+            endTime: data['end_time'] ?? (endTime != null ? '${date}T${endTime}:00' : null),
+            topic: data['topic'] ?? topic,
+            location: data['location'] ?? location,
+            status: data['status'] ?? MeetingConstants.statusPending,
+            availabilityId: null, // No availability ID for custom requests
+            synced: true,
+          );
+        } else {
+          throw Exception(result['error'] ?? result['message'] ?? 'Failed to request meeting');
+        }
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error requesting meeting: $e');

@@ -8,12 +8,20 @@ class MeetingsCarousel extends StatelessWidget {
   final List<Meeting> meetings;
   final VoidCallback onViewCalendar;
   final VoidCallback onCheckIn;
+  final Function(String)? onAcceptMeeting;
+  final Function(String)? onRejectMeeting;
+  final Function(String)? onClearMeeting;
+  final String? currentUserId;
 
   const MeetingsCarousel({
     super.key,
     required this.meetings,
     required this.onViewCalendar,
     required this.onCheckIn,
+    this.onAcceptMeeting,
+    this.onRejectMeeting,
+    this.onClearMeeting,
+    this.currentUserId,
   });
 
   @override
@@ -72,12 +80,19 @@ class MeetingsCarousel extends StatelessWidget {
                       SizedBox(
                         width: 280,
                         child: MeetingItem(
+                          id: meetings[i].id,
                           title: meetings[i].title,
                           menteeName: meetings[i].menteeName,
                           time: meetings[i].time,
                           location: meetings[i].location,
                           color: _getColorFromString(meetings[i].color),
+                          status: meetings[i].status,
+                          createdBy: meetings[i].createdBy,
+                          currentUserId: currentUserId,
                           onTap: onCheckIn,
+                          onAccept: onAcceptMeeting,
+                          onReject: onRejectMeeting,
+                          onClear: onClearMeeting,
                         ),
                       ),
                     ],

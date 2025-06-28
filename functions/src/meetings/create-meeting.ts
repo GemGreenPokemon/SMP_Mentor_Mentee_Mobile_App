@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { verifyAuth } from '../utils/auth';
 import { getUniversityCollection } from '../utils/database';
 import { Meeting } from '../types';
@@ -55,6 +56,13 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
     }
 
     console.log(`Creating meeting between mentor ${mentorDoc.id} and mentee ${menteeDoc.id}`);
+    console.log('Input data:', { start_time, end_time, topic, location, availability_id });
+    console.log('Admin check:', {
+      hasAdmin: !!admin,
+      hasFirestore: !!admin.firestore,
+      hasTimestamp: !!admin.firestore?.Timestamp,
+      hasFromDate: !!admin.firestore?.Timestamp?.fromDate
+    });
 
     // Generate human-readable meeting ID
     const meetingId = generateMeetingId(mentorDoc.id, menteeDoc.id, start_time);
@@ -72,16 +80,16 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
       mentor_name: mentorDoc.data.name || '',
       mentee_name: menteeDoc.data.name || '',
       // Meeting details - store as Timestamps in Firestore
-      start_time: admin.firestore.Timestamp.fromDate(new Date(start_time)),
-      end_time: end_time ? admin.firestore.Timestamp.fromDate(new Date(end_time)) : null,
+      start_time: Timestamp.fromDate(new Date(start_time)),
+      end_time: end_time ? Timestamp.fromDate(new Date(end_time)) : null,
       topic: topic || '',
       location: location || '',
       status: 'pending',
       availability_id: availability_id || null,
       // Metadata
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      created_at: FieldValue.serverTimestamp(),
       created_by: authContext.uid,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
       // For type compatibility with Meeting interface
       mentor_id: mentor_id,
       mentee_id: mentee_id
@@ -103,8 +111,8 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
           booked_by_doc_id: menteeDoc.id,
           booked_by_name: menteeDoc.data.name || '',
           meeting_id: meetingId,
-          booked_at: admin.firestore.FieldValue.serverTimestamp(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp()
+          booked_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp()
         });
 
         console.log(`Marked availability slot ${availability_id} as booked for meeting ${meetingId}`);

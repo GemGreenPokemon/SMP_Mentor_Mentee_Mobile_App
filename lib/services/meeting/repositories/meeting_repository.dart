@@ -40,6 +40,7 @@ class MeetingRepository {
     String? topic,
     String? location,
     String? availabilitySlotId,
+    String? createdBy,
     String status = MeetingConstants.statusPending,
   }) async {
     try {
@@ -61,7 +62,7 @@ class MeetingRepository {
         'status': status,
         'availability_slot_id': availabilitySlotId,
         'created_at': FieldValue.serverTimestamp(),
-        'created_by': menteeUid, // Assuming mentee creates the meeting request
+        'created_by': createdBy ?? menteeUid, // Use actual creator or default to mentee
         'updated_at': FieldValue.serverTimestamp(),
       };
       
@@ -326,6 +327,7 @@ class MeetingRepository {
       location: data['location'],
       status: data['status'] ?? MeetingConstants.statusPending,
       availabilityId: data['availability_slot_id'],
+      createdBy: data['created_by'],
       synced: true,
     );
   }

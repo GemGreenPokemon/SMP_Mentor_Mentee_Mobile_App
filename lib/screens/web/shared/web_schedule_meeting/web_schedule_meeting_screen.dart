@@ -995,8 +995,14 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           print('DEBUG: Mentee id field: ${_selectedMenteeOrMentor?['id']}');
           print('DEBUG: Mentee firebase_uid field: ${_selectedMenteeOrMentor?['firebase_uid']}');
           
-          // Use document ID as primary identifier (e.g., "Dasarathi_Narayanan")
-          menteeId = _selectedMenteeOrMentor?['id'] ?? _selectedMenteeOrMentor?['firebase_uid'] ?? '';
+          // Use Firebase UID as primary identifier, fallback to document ID
+          menteeId = _selectedMenteeOrMentor?['firebase_uid'] ?? '';
+          
+          // If firebase_uid is empty, try to use the document ID
+          if (menteeId.isEmpty && _selectedMenteeOrMentor?['id'] != null) {
+            menteeId = _selectedMenteeOrMentor!['id'];
+            print('DEBUG: Using document ID as fallback: $menteeId');
+          }
           
           if (menteeId.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(              const SnackBar(

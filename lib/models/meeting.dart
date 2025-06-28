@@ -10,6 +10,7 @@ class Meeting {
   final String? availabilityId;
   final bool synced;
   final DateTime? createdAt;
+  final String? createdBy;
 
   Meeting({
     required this.id,
@@ -23,6 +24,7 @@ class Meeting {
     this.availabilityId,
     this.synced = false,
     this.createdAt,
+    this.createdBy,
   });
 
   factory Meeting.fromMap(Map<String, dynamic> map) {
@@ -40,6 +42,7 @@ class Meeting {
       createdAt: map['created_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'])
           : null,
+      createdBy: map['created_by'],
     );
   }
 
@@ -56,6 +59,7 @@ class Meeting {
       'availability_id': availabilityId,
       'synced': synced ? 1 : 0,
       'created_at': createdAt?.millisecondsSinceEpoch,
+      'created_by': createdBy,
     };
   }
 
@@ -71,6 +75,7 @@ class Meeting {
     String? availabilityId,
     bool? synced,
     DateTime? createdAt,
+    String? createdBy,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -84,6 +89,7 @@ class Meeting {
       availabilityId: availabilityId ?? this.availabilityId,
       synced: synced ?? this.synced,
       createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }

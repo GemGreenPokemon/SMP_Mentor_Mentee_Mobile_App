@@ -475,6 +475,7 @@ class DashboardDataService {
             'color': _getMeetingColor(upcomingMeetings.length),
             'startTime': startTime.toIso8601String(),
             'status': status,
+            'createdBy': data['created_by'],
           });
           
           if (kDebugMode) {
@@ -602,6 +603,7 @@ class DashboardDataService {
             'color': colors[colorIndex % colors.length],
             'mentorName': data['mentor_name'] ?? 'Your Mentor',
             'status': status,
+            'createdBy': data['created_by'],
           });
           colorIndex++;
           

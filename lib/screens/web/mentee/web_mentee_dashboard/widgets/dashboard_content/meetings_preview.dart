@@ -10,6 +10,8 @@ class MeetingsPreview extends StatelessWidget {
   final VoidCallback onCheckIn;
   final Function(String meetingId)? onAcceptMeeting;
   final Function(String meetingId)? onRejectMeeting;
+  final Function(String meetingId)? onClearMeeting;
+  final String? currentUserId;
 
   const MeetingsPreview({
     super.key,
@@ -18,6 +20,8 @@ class MeetingsPreview extends StatelessWidget {
     required this.onCheckIn,
     this.onAcceptMeeting,
     this.onRejectMeeting,
+    this.onClearMeeting,
+    this.currentUserId,
   });
 
   @override
@@ -70,6 +74,8 @@ class MeetingsPreview extends StatelessWidget {
                   onCheckIn: onCheckIn,
                   onAccept: onAcceptMeeting,
                   onReject: onRejectMeeting,
+                  onClear: onClearMeeting,
+                  currentUserId: currentUserId,
                 ),
               );
             }).toList(),

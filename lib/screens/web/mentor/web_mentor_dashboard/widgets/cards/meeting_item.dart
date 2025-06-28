@@ -2,21 +2,35 @@ import 'package:flutter/material.dart';
 import '../../utils/dashboard_constants.dart';
 
 class MeetingItem extends StatefulWidget {
+  final String id;
   final String title;
   final String menteeName;
   final String time;
   final String location;
   final Color color;
+  final String? status;
+  final String? createdBy;
+  final String? currentUserId;
   final VoidCallback onTap;
+  final Function(String)? onAccept;
+  final Function(String)? onReject;
+  final Function(String)? onClear;
 
   const MeetingItem({
     super.key,
+    required this.id,
     required this.title,
     required this.menteeName,
     required this.time,
     required this.location,
     required this.color,
+    this.status,
+    this.createdBy,
+    this.currentUserId,
     required this.onTap,
+    this.onAccept,
+    this.onReject,
+    this.onClear,
   });
 
   @override
@@ -154,45 +168,162 @@ class _MeetingItemState extends State<MeetingItem>
             const SizedBox(height: 6),
             _buildInfoRow(Icons.location_on, widget.location, isHovered),
             const SizedBox(height: DashboardSizes.spacingMedium),
-            Align(
-              alignment: Alignment.centerRight,
-              child: AnimatedContainer(
-                duration: DashboardDurations.microAnimation,
-                transform: Matrix4.identity()
-                  ..scale(isHovered ? 1.05 : 1.0),
-                child: ElevatedButton(
-                  onPressed: widget.onTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isHovered 
-                        ? widget.color
-                        : DashboardColors.primaryDark,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isHovered ? 20 : 16,
-                      vertical: isHovered ? 10 : 8,
+            if (widget.status == 'pending' && widget.createdBy != widget.currentUserId && widget.onAccept != null && widget.onReject != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AnimatedContainer(
+                    duration: DashboardDurations.microAnimation,
+                    transform: Matrix4.identity()
+                      ..scale(isHovered ? 1.05 : 1.0),
+                    child: OutlinedButton(
+                      onPressed: () => widget.onReject!(widget.id),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: DashboardColors.statusRed,
+                        side: BorderSide(
+                          color: isHovered 
+                              ? DashboardColors.statusRed
+                              : DashboardColors.statusRed.withOpacity(0.6),
+                          width: isHovered ? 2 : 1,
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isHovered ? 20 : 16,
+                          vertical: isHovered ? 10 : 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                        ),
+                      ),
+                      child: const Text('Decline'),
                     ),
-                    elevation: isHovered ? 4 : 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                  ),
+                  const SizedBox(width: DashboardSizes.spacingSmall),
+                  AnimatedContainer(
+                    duration: DashboardDurations.microAnimation,
+                    transform: Matrix4.identity()
+                      ..scale(isHovered ? 1.05 : 1.0),
+                    child: ElevatedButton(
+                      onPressed: () => widget.onAccept!(widget.id),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHovered 
+                            ? DashboardColors.statusGreen
+                            : DashboardColors.statusGreen.withOpacity(0.9),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isHovered ? 20 : 16,
+                          vertical: isHovered ? 10 : 8,
+                        ),
+                        elevation: isHovered ? 4 : 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                        ),
+                      ),
+                      child: const Text('Accept'),
+                    ),
+                  ),
+                ],
+              )
+            else if (widget.status == 'rejected' && widget.onClear != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: AnimatedContainer(
+                  duration: DashboardDurations.microAnimation,
+                  transform: Matrix4.identity()
+                    ..scale(isHovered ? 1.05 : 1.0),
+                  child: OutlinedButton(
+                    onPressed: () => widget.onClear!(widget.id),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: DashboardColors.statusRed,
+                      side: BorderSide(
+                        color: isHovered 
+                            ? DashboardColors.statusRed
+                            : DashboardColors.statusRed.withOpacity(0.6),
+                        width: isHovered ? 2 : 1,
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isHovered ? 20 : 16,
+                        vertical: isHovered ? 10 : 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                      ),
+                    ),
+                    child: const Text('Clear'),
+                  ),
+                ),
+              )
+            else if (widget.status == 'pending' && widget.createdBy == widget.currentUserId)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: DashboardColors.statusOrange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                    border: Border.all(
+                      color: DashboardColors.statusOrange.withOpacity(0.3),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AnimatedContainer(
-                        duration: DashboardDurations.microAnimation,
-                        margin: EdgeInsets.only(right: isHovered ? 8 : 4),
-                        child: Icon(
-                          Icons.video_call,
-                          size: isHovered ? 18 : 16,
+                      Icon(
+                        Icons.schedule,
+                        size: 16,
+                        color: DashboardColors.statusOrange,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Waiting for response',
+                        style: TextStyle(
+                          color: DashboardColors.statusOrange,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const Text(DashboardStrings.checkIn),
                     ],
                   ),
                 ),
+              )
+            else
+              Align(
+                alignment: Alignment.centerRight,
+                child: AnimatedContainer(
+                  duration: DashboardDurations.microAnimation,
+                  transform: Matrix4.identity()
+                    ..scale(isHovered ? 1.05 : 1.0),
+                  child: ElevatedButton(
+                    onPressed: widget.onTap,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isHovered 
+                          ? widget.color
+                          : DashboardColors.primaryDark,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isHovered ? 20 : 16,
+                        vertical: isHovered ? 10 : 8,
+                      ),
+                      elevation: isHovered ? 4 : 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: DashboardDurations.microAnimation,
+                          margin: EdgeInsets.only(right: isHovered ? 8 : 4),
+                          child: Icon(
+                            Icons.video_call,
+                            size: isHovered ? 18 : 16,
+                          ),
+                        ),
+                        const Text(DashboardStrings.checkIn),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),
