@@ -285,8 +285,9 @@ class DashboardDataService {
       for (final doc in meetings.docs) {
         final data = doc.data();
         final startTime = (data['start_time'] as Timestamp?)?.toDate();
+        final endTime = (data['end_time'] as Timestamp?)?.toDate();
         
-        if (startTime != null && startTime.isAfter(now)) {
+        if (startTime != null && _shouldShowMeeting(startTime, endTime, now)) {
           upcomingMeetings.add({
             'title': data['topic'] ?? 'Meeting',
             'date': _formatMeetingDate(startTime),
@@ -348,6 +349,24 @@ class DashboardDataService {
     final period = time.hour >= 12 ? 'PM' : 'AM';
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';
+  }
+  
+  /// Check if a meeting should be shown (upcoming or ongoing)
+  bool _shouldShowMeeting(DateTime startTime, DateTime? endTime, DateTime now) {
+    // If meeting hasn't started yet, show it
+    if (startTime.isAfter(now)) {
+      return true;
+    }
+    
+    // If meeting has started, check if it's still ongoing
+    if (endTime != null) {
+      // If end time is specified, show until end time passes
+      return now.isBefore(endTime);
+    } else {
+      // If no end time, assume 1 hour duration as default
+      final defaultEndTime = startTime.add(const Duration(hours: 1));
+      return now.isBefore(defaultEndTime);
+    }
   }
   
   /// Get upcoming meetings for the mentor across all their mentees
@@ -461,8 +480,9 @@ class DashboardDataService {
         }
         
         final startTime = (data['start_time'] as Timestamp?)?.toDate();
+        final endTime = (data['end_time'] as Timestamp?)?.toDate();
         
-        if (startTime != null && startTime.isAfter(now)) {
+        if (startTime != null && _shouldShowMeeting(startTime, endTime, now)) {
           // Use denormalized mentee name from the meeting document
           final menteeName = data['mentee_name'] ?? 'Unknown Mentee';
           
@@ -587,14 +607,32 @@ class DashboardDataService {
         final data = doc.data();
         final status = data['status'] ?? 'pending';
         
+        if (kDebugMode) {
+          print('🔥 Dashboard: Processing meeting ${doc.id}:');
+          print('🔥 Dashboard:   - Status: $status');
+          print('🔥 Dashboard:   - Start time: ${data['start_time']}');
+          print('🔥 Dashboard:   - Topic: ${data['topic']}');
+        }
+        
         // Filter by status if compound query failed
         if (!['pending', 'accepted', 'confirmed'].contains(status)) {
+          if (kDebugMode) {
+            print('🔥 Dashboard:   ❌ Skipped - invalid status');
+          }
           continue;
         }
         
         final startTime = (data['start_time'] as Timestamp?)?.toDate();
+        final endTime = (data['end_time'] as Timestamp?)?.toDate();
         
-        if (startTime != null && startTime.isAfter(now)) {
+        if (kDebugMode) {
+          print('🔥 Dashboard:   - Parsed start time: $startTime');
+          print('🔥 Dashboard:   - Parsed end time: $endTime');
+          print('🔥 Dashboard:   - Current time: $now');
+          print('🔥 Dashboard:   - Should show meeting: ${startTime != null ? _shouldShowMeeting(startTime, endTime, now) : false}');
+        }
+        
+        if (startTime != null && _shouldShowMeeting(startTime, endTime, now)) {
           upcomingMeetings.add({
             'id': doc.id,
             'title': data['topic'] ?? 'Meeting with Mentor',
@@ -608,7 +646,15 @@ class DashboardDataService {
           colorIndex++;
           
           if (kDebugMode) {
-            print('🔥 Dashboard: Added meeting: ${data['topic']} on ${_formatMeetingDate(startTime)}');
+            print('🔥 Dashboard: ✅ Added meeting: ${data['topic']} on ${_formatMeetingDate(startTime)}');
+          }
+        } else {
+          if (kDebugMode) {
+            if (startTime == null) {
+              print('🔥 Dashboard:   ❌ Skipped - no start time');
+            } else {
+              print('🔥 Dashboard:   ❌ Skipped - meeting in the past');
+            }
           }
         }
       }
@@ -733,27 +779,56 @@ class DashboardDataService {
         }
 
         // Get mentor data if assigned
+        if (kDebugMode) {
+          print('🔥 Dashboard: Checking mentor field...');
+          print('🔥 Dashboard: mentor field is null: ${menteeData['mentor'] == null}');
+          print('🔥 Dashboard: mentor field isEmpty: ${menteeData['mentor']?.toString().isEmpty}');
+        }
+        
         if (menteeData['mentor'] != null && menteeData['mentor'].toString().isNotEmpty) {
           final mentorId = menteeData['mentor'].toString().trim();
           
           if (kDebugMode) {
-            print('🔥 Dashboard: Looking for mentor with ID: "$mentorId"');
+            print('🔥 Dashboard: === MENTOR LOOKUP DEBUG ===');
+            print('🔥 Dashboard: Raw mentor field value: ${menteeData['mentor']}');
+            print('🔥 Dashboard: Mentor field type: ${menteeData['mentor'].runtimeType}');
+            print('🔥 Dashboard: Trimmed mentor ID: "$mentorId"');
+            print('🔥 Dashboard: Mentor ID length: ${mentorId.length}');
+            print('🔥 Dashboard: University path: $_universityPath');
           }
 
           // Try to get mentor by document ID first
           try {
+            // Convert spaces to underscores for document ID format
+            final mentorDocId = mentorId.replaceAll(' ', '_');
+            
+            if (kDebugMode) {
+              print('🔥 Dashboard: Converted mentor ID for document lookup: "$mentorDocId"');
+            }
+            
             final mentorDoc = await _firestore!
                 .collection(_universityPath)
                 .doc('data')
                 .collection('users')
-                .doc(mentorId)
+                .doc(mentorDocId)
                 .get();
 
-            if (mentorDoc.exists) {
+            if (kDebugMode) {
+              print('🔥 Dashboard: Document exists: ${mentorDoc.exists}');
+              if (mentorDoc.exists) {
+                print('🔥 Dashboard: Mentor document data: ${mentorDoc.data()}');
+              }
+            }
+
+            if (mentorDoc.exists && (mentorDoc.data()?['user_type'] == 'mentor' || mentorDoc.data()?['userType'] == 'mentor')) {
               final mentorData = mentorDoc.data()!;
               
               if (kDebugMode) {
-                print('🔥 Dashboard: Found mentor by ID: ${mentorData['name']}');
+                print('🔥 Dashboard: ✅ Found mentor by document ID!');
+                print('🔥 Dashboard: Mentor name: ${mentorData['name']}');
+                print('🔥 Dashboard: Mentor user_type: ${mentorData['user_type']}');
+                print('🔥 Dashboard: Mentor firebase_uid: ${mentorData['firebase_uid']}');
+                print('🔥 Dashboard: Mentor document fields: ${mentorData.keys.toList()}');
               }
               
               mentorInfo = {
@@ -770,42 +845,65 @@ class DashboardDataService {
               if (kDebugMode) {
                 print('🔥 Dashboard: Mentor info created: ${mentorInfo['name']}');
               }
+            } else {
+              if (kDebugMode) {
+                print('🔥 Dashboard: Document not found or not a mentor, trying name query...');
+              }
+              
+              // Try querying by name since the mentor field contains a name
+              final mentorQuery = await _firestore!
+                  .collection(_universityPath)
+                  .doc('data')
+                  .collection('users')
+                  .where('name', isEqualTo: mentorId)
+                  .where('userType', isEqualTo: 'mentor')
+                  .get();
+
+              if (kDebugMode) {
+                print('🔥 Dashboard: Name query returned ${mentorQuery.docs.length} documents');
+              }
+
+              if (mentorQuery.docs.isNotEmpty) {
+                final mentorDoc = mentorQuery.docs.first;
+                final mentorData = mentorDoc.data();
+                
+                if (kDebugMode) {
+                  print('🔥 Dashboard: ✅ Found mentor by name!');
+                  print('🔥 Dashboard: Mentor doc ID: ${mentorDoc.id}');
+                  print('🔥 Dashboard: Mentor name: ${mentorData['name']}');
+                  print('🔥 Dashboard: Mentor user_type: ${mentorData['user_type']}');
+                  print('🔥 Dashboard: Mentor firebase_uid: ${mentorData['firebase_uid']}');
+                }
+                
+                mentorInfo = {
+                  'id': mentorDoc.id,
+                  'firebase_uid': mentorData['firebase_uid'] ?? mentorDoc.id,
+                  'name': mentorData['name'] ?? 'Unknown Mentor',
+                  'email': mentorData['email'] ?? '',
+                  'program': '${mentorData['year_major'] ?? 'Unknown Year'}, ${mentorData['department'] ?? 'Unknown Department'}',
+                  'yearLevel': mentorData['year_major'] ?? 'Unknown Year',
+                  'photoUrl': mentorData['photoUrl'] ?? '',
+                  'assignedDate': 'Sep 1, 2024', // TODO: Get actual assignment date
+                };
+                
+                if (kDebugMode) {
+                  print('🔥 Dashboard: Mentor info created: ${mentorInfo['name']}');
+                }
+              } else {
+                if (kDebugMode) {
+                  print('🔥 Dashboard: ❌ No mentor found by name either');
+                }
+              }
             }
           } catch (e) {
             if (kDebugMode) {
-              print('🔥 Dashboard: Error getting mentor by ID: $e');
-              print('🔥 Dashboard: Trying fallback query by name...');
+              print('🔥 Dashboard: ❌ Unexpected error: $e');
+              print('🔥 Dashboard: Error type: ${e.runtimeType}');
             }
-            
-            // Fallback: if document ID didn't work, try querying by name
-            // This handles cases where mentor field might contain a name instead of ID
-            final mentorQuery = await _firestore!
-                .collection(_universityPath)
-                .doc('data')
-                .collection('users')
-                .where('name', isEqualTo: mentorId)
-                .where('user_type', isEqualTo: 'mentor')
-                .get();
-
-            if (mentorQuery.docs.isNotEmpty) {
-              final mentorDoc = mentorQuery.docs.first;
-              final mentorData = mentorDoc.data();
-              
-              mentorInfo = {
-                'id': mentorDoc.id,
-                'firebase_uid': mentorData['firebase_uid'] ?? mentorDoc.id, // Add actual Firebase UID
-                'name': mentorData['name'] ?? 'Unknown Mentor',
-                'email': mentorData['email'] ?? '',
-                'program': '${mentorData['year_major'] ?? 'Unknown Year'}, ${mentorData['department'] ?? 'Unknown Department'}',
-                'yearLevel': mentorData['year_major'] ?? 'Unknown Year',
-                'photoUrl': mentorData['photoUrl'] ?? '',
-                'assignedDate': 'Sep 1, 2024', // TODO: Get actual assignment date
-              };
-              
-              if (kDebugMode) {
-                print('🔥 Dashboard: Found mentor by name query: ${mentorInfo['name']}');
-              }
-            }
+          }
+        } else {
+          if (kDebugMode) {
+            print('🔥 Dashboard: ⚠️ No mentor field or mentor field is empty');
           }
         }
       } else {

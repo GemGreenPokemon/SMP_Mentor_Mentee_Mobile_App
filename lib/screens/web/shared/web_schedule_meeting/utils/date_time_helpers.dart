@@ -41,7 +41,7 @@ class DateTimeHelpers {
   }
   
   static String createISODateTime(DateTime date, DateTime time) {
-    // Combine date and time into a single DateTime and format as ISO
+    // Combine date and time into a single DateTime in local timezone
     final combined = DateTime(
       date.year,
       date.month,
@@ -49,7 +49,23 @@ class DateTimeHelpers {
       time.hour,
       time.minute,
     );
-    return combined.toIso8601String();
+    
+    // Get timezone offset
+    final offset = combined.timeZoneOffset;
+    final hours = offset.inHours.abs();
+    final minutes = (offset.inMinutes.abs() % 60);
+    final sign = offset.isNegative ? '-' : '+';
+    
+    // Format with explicit timezone offset
+    final year = combined.year.toString().padLeft(4, '0');
+    final month = combined.month.toString().padLeft(2, '0');
+    final day = combined.day.toString().padLeft(2, '0');
+    final hour = combined.hour.toString().padLeft(2, '0');
+    final minute = combined.minute.toString().padLeft(2, '0');
+    final offsetStr = '$sign${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+    
+    // Return ISO string with timezone offset (e.g., 2025-07-03T17:00:00-07:00)
+    return '$year-$month-${day}T$hour:$minute:00$offsetStr';
   }
 
   static List<DateTime> generateTimeSlots() {

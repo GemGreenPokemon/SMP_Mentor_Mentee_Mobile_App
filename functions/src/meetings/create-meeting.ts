@@ -28,6 +28,13 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
     
     const { universityPath, mentor_id, mentee_id, start_time, end_time, topic, location, availability_id } = data;
     
+    // Debug logging for timezone issue
+    console.log('DEBUG: Create meeting request:');
+    console.log('  - start_time string:', start_time);
+    console.log('  - start_time parsed:', new Date(start_time));
+    console.log('  - start_time UTC:', new Date(start_time).toUTCString());
+    console.log('  - start_time ISO:', new Date(start_time).toISOString());
+    
     // Validate input
     if (!mentor_id || !mentee_id || !start_time) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
@@ -80,6 +87,7 @@ export const createMeeting = functions.https.onCall(async (data: CreateMeetingDa
       mentor_name: mentorDoc.data.name || '',
       mentee_name: menteeDoc.data.name || '',
       // Meeting details - store as Timestamps in Firestore
+      // Parse the ISO string properly to maintain timezone
       start_time: Timestamp.fromDate(new Date(start_time)),
       end_time: end_time ? Timestamp.fromDate(new Date(end_time)) : null,
       topic: topic || '',

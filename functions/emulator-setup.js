@@ -103,9 +103,109 @@ async function setupEmulatorSuperAdmin() {
   }
 }
 
+// Function to create test users
+async function createTestUsers() {
+  console.log('\n🔧 Creating test users...');
+  
+  try {
+    const db = admin.firestore();
+    
+    /* COMMENTED OUT MENTEE CREATION
+    // Test user: Dasarathi Narayanan (Mentee)
+    const dasarathiEmail = 'dnarayanan@ucmerced.edu';
+    const dasarathiPassword = '123456';
+    
+    try {
+      // Check if user already exists
+      const existingUser = await admin.auth().getUserByEmail(dasarathiEmail);
+      console.log(`✅ Test user Dasarathi already exists with UID: ${existingUser.uid}`);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        // Create the user in Firebase Auth
+        const dasarathiUser = await admin.auth().createUser({
+          email: dasarathiEmail,
+          password: dasarathiPassword,
+          displayName: 'Dasarathi Narayanan',
+          emailVerified: true,
+        });
+        
+        console.log(`✅ Created test user: Dasarathi Narayanan (${dasarathiUser.uid})`);
+        
+        // Set custom claims
+        await admin.auth().setCustomUserClaims(dasarathiUser.uid, {
+          role: 'mentee',
+          university_path: 'california_merced_uc_merced'
+        });
+        
+        // Create Firestore document
+        const userDoc = {
+          name: 'Dasarathi Narayanan',
+          email: dasarathiEmail,
+          firebase_uid: dasarathiUser.uid,
+          user_type: 'mentee',
+          student_id: '12345678',
+          year_major: '1st year, Computer Science and Engineering(CSE)',
+          department: 'Computer Science and Engineering(CSE)',
+          major: 'Computer Science and Engineering',
+          program: 'Computer Science and Engineering',
+          mentor_id: 'Emerald_Nash', // Assign to existing mentor
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          email_verified: true,
+          registration_complete: true,
+          acknowledgment_submitted: false
+        };
+        
+        await db.collection('california_merced_uc_merced')
+          .doc('data')
+          .collection('users')
+          .doc('Dasarathi_Narayanan')
+          .set(userDoc);
+        
+        console.log('✅ Created Firestore document for Dasarathi Narayanan');
+        
+        // Also add to mentees array of the mentor
+        const mentorRef = db.collection('california_merced_uc_merced')
+          .doc('data')
+          .collection('users')
+          .doc('Emerald_Nash');
+          
+        await mentorRef.update({
+          mentees: admin.firestore.FieldValue.arrayUnion('Dasarathi_Narayanan')
+        });
+        
+        console.log('✅ Added Dasarathi to Emerald Nash\'s mentees list');
+      } else {
+        throw error;
+      }
+    }
+    
+    console.log('\n📋 Test User Credentials:');
+    console.log('==========================');
+    console.log('Mentee - Dasarathi Narayanan:');
+    console.log(`Email: ${dasarathiEmail}`);
+    console.log(`Password: ${dasarathiPassword}`);
+    console.log(`Role: mentee`);
+    console.log(`Mentor: Emerald Nash`);
+    console.log('==========================\n');
+    */
+    
+    console.log('✅ Test user creation skipped (commented out)');
+    
+  } catch (error) {
+    console.error('❌ Error creating test users:', error);
+    throw error;
+  }
+}
+
 // Run the setup
-setupEmulatorSuperAdmin().then(() => {
+setupEmulatorSuperAdmin().then(async () => {
   console.log('✅ Emulator setup completed successfully');
+  
+  // Create test users
+  await createTestUsers();
+  
+  console.log('\n✅ All emulator setup tasks completed!');
   process.exit(0);
 }).catch((error) => {
   console.error('❌ Setup failed:', error);

@@ -33,7 +33,10 @@ class MeetingHelpers {
   /// Convert Timestamp to ISO string
   static String timestampToIsoString(dynamic timestamp) {
     if (timestamp is Timestamp) {
-      return timestamp.toDate().toIso8601String();
+      // Convert to local DateTime and return ISO string
+      final utcDate = timestamp.toDate();
+      final localDate = utcDate.toLocal();
+      return localDate.toIso8601String();
     } else if (timestamp is String) {
       return timestamp;
     }

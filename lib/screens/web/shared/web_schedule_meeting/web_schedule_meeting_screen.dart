@@ -1036,12 +1036,21 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
           }
           
           // Create meeting with availability ID
+          // Debug the time being sent
+          final startTimeStr = DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!);
+          final endTimeStr = DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30)));
+          
+          print('DEBUG: Creating meeting with times:');
+          print('  - Selected time: $_selectedTime');
+          print('  - Start time ISO: $startTimeStr');
+          print('  - End time ISO: $endTimeStr');
+          
           final meeting = Meeting(
             id: _uuid.v4(),
             mentorId: mentorId,
             menteeId: menteeId,
-            startTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!),
-            endTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))), // 30 min meeting
+            startTime: startTimeStr,
+            endTime: endTimeStr, // 30 min meeting
             topic: _titleController.text,
             location: _locationController.text,
             status: 'pending', // All meetings start as pending
@@ -1069,12 +1078,21 @@ class _WebScheduleMeetingScreenState extends State<WebScheduleMeetingScreen> {
             );
             await _meetingService.createMeeting(meeting);
           } else {            // Create regular meeting request
+            // Debug the time being sent
+            final startTimeStr = DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!);
+            final endTimeStr = DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30)));
+            
+            print('DEBUG: Mentee creating meeting with times:');
+            print('  - Selected time: $_selectedTime');
+            print('  - Start time ISO: $startTimeStr');
+            print('  - End time ISO: $endTimeStr');
+            
             final meeting = Meeting(
               id: _uuid.v4(),
               mentorId: mentorId,
               menteeId: menteeId,
-              startTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!),
-              endTime: DateTimeHelpers.createISODateTime(_selectedDay!, _selectedTime!.add(const Duration(minutes: 30))),
+              startTime: startTimeStr,
+              endTime: endTimeStr,
               topic: _titleController.text,
               location: _locationController.text,
               status: 'pending', // Mentee requests need mentor approval
