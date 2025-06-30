@@ -220,6 +220,46 @@ export const submitMenteeAcknowledgment = functions.https.onCall(async (data, co
       await admin.auth().setCustomUserClaims(userId, customClaims);
       console.log(`Custom claims set successfully for mentee ${userId}:`, customClaims);
       
+      // Update meetings where this mentee has placeholder UIDs
+      console.log(`📝 Updating meetings with placeholder UIDs for mentee: ${userDoc.id}`);
+      try {
+        const meetingsCollection = admin.firestore()
+          .collection(universityPath)
+          .doc('data')
+          .collection('meetings');
+        
+        const userDocId = userDoc.id;
+        
+        // Search for meetings where mentee_doc_id matches and mentee_uid is still the placeholder
+        console.log(`📝 Searching for meetings where mentee_doc_id == "${userDocId}" AND mentee_uid == "${userDocId}"`);
+        const menteeMeetings = await meetingsCollection
+          .where('mentee_doc_id', '==', userDocId)
+          .where('mentee_uid', '==', userDocId)
+          .get();
+        
+        if (!menteeMeetings.empty) {
+          console.log(`📝 Found ${menteeMeetings.size} meeting(s) to update`);
+          const batch = admin.firestore().batch();
+          
+          menteeMeetings.forEach(doc => {
+            console.log(`📝   - Updating meeting: ${doc.id}`);
+            batch.update(doc.ref, { 
+              mentee_uid: userId,
+              updated_at: FieldValue.serverTimestamp()
+            });
+          });
+          
+          await batch.commit();
+          console.log(`📝 ✅ Updated ${menteeMeetings.size} meeting(s) with correct mentee_uid`);
+        } else {
+          console.log(`📝 No meetings found with placeholder mentee_uid`);
+        }
+      } catch (meetingError) {
+        // Log error but don't fail the acknowledgment process
+        console.error('📝 ⚠️ Error updating meeting UIDs:', meetingError);
+        console.error('📝 Meeting update failed, but continuing with acknowledgment success');
+      }
+      
       // Return success with claims info
       return {
         success: true,

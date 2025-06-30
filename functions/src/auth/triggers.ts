@@ -119,6 +119,64 @@ export const syncClaimsOnLogin = functions.https.onCall(async (data, context) =>
         last_login: FieldValue.serverTimestamp()
       });
       console.log(`📝 Updated user document with firebase_uid: ${userUid}`);
+      
+      // Update meetings where this user is a participant with placeholder UID
+      console.log(`🔐 Updating meetings with placeholder UIDs for user: ${userSnapshot.docs[0].id}`);
+      
+      try {
+        const meetingsCollection = getUniversityCollection(universityPath, 'meetings');
+        const userDocId = userSnapshot.docs[0].id;
+        
+        // Based on user role, update the appropriate UID field
+        if (userType === 'mentee') {
+          console.log(`🔐 Searching for meetings where mentee_doc_id == "${userDocId}" AND mentee_uid == "${userDocId}"`);
+          const menteeMeetings = await meetingsCollection
+            .where('mentee_doc_id', '==', userDocId)
+            .where('mentee_uid', '==', userDocId)
+            .get();
+          
+          if (!menteeMeetings.empty) {
+            console.log(`🔐 Found ${menteeMeetings.size} meeting(s) to update`);
+            const batch = admin.firestore().batch();
+            
+            menteeMeetings.forEach(doc => {
+              console.log(`🔐   - Updating meeting: ${doc.id}`);
+              batch.update(doc.ref, { 
+                mentee_uid: userUid,
+                updated_at: FieldValue.serverTimestamp()
+              });
+            });
+            
+            await batch.commit();
+            console.log(`🔐 ✅ Updated ${menteeMeetings.size} meeting(s) with correct mentee_uid`);
+          }
+        } else if (userType === 'mentor') {
+          console.log(`🔐 Searching for meetings where mentor_doc_id == "${userDocId}" AND mentor_uid == "${userDocId}"`);
+          const mentorMeetings = await meetingsCollection
+            .where('mentor_doc_id', '==', userDocId)
+            .where('mentor_uid', '==', userDocId)
+            .get();
+          
+          if (!mentorMeetings.empty) {
+            console.log(`🔐 Found ${mentorMeetings.size} meeting(s) to update`);
+            const batch = admin.firestore().batch();
+            
+            mentorMeetings.forEach(doc => {
+              console.log(`🔐   - Updating meeting: ${doc.id}`);
+              batch.update(doc.ref, { 
+                mentor_uid: userUid,
+                updated_at: FieldValue.serverTimestamp()
+              });
+            });
+            
+            await batch.commit();
+            console.log(`🔐 ✅ Updated ${mentorMeetings.size} meeting(s) with correct mentor_uid`);
+          }
+        }
+      } catch (meetingError) {
+        // Log error but don't fail the login process
+        console.error('🔐 ⚠️ Error updating meeting UIDs:', meetingError);
+      }
     } else {
       await userDocRef.update({
         last_login: FieldValue.serverTimestamp()
@@ -316,6 +374,72 @@ export const setClaimsOnRegistration = functions.https.onCall(async (data, conte
       });
       
       console.log(`🔐 ✅ User document updated (took ${Date.now() - updateStartTime}ms)`);
+      
+      // Update meetings where this user is a participant with placeholder UID
+      console.log(`🔐 Updating meetings with placeholder UIDs for user: ${userSnapshot.docs[0].id}`);
+      const meetingsUpdateStartTime = Date.now();
+      
+      try {
+        const meetingsCollection = getUniversityCollection(universityPath, 'meetings');
+        const userDocId = userSnapshot.docs[0].id;
+        
+        // Based on user role, update the appropriate UID field
+        if (userType === 'mentee') {
+          console.log(`🔐 Searching for meetings where mentee_doc_id == "${userDocId}" AND mentee_uid == "${userDocId}"`);
+          const menteeMeetings = await meetingsCollection
+            .where('mentee_doc_id', '==', userDocId)
+            .where('mentee_uid', '==', userDocId)
+            .get();
+          
+          if (!menteeMeetings.empty) {
+            console.log(`🔐 Found ${menteeMeetings.size} meeting(s) to update`);
+            const batch = admin.firestore().batch();
+            
+            menteeMeetings.forEach(doc => {
+              console.log(`🔐   - Updating meeting: ${doc.id}`);
+              batch.update(doc.ref, { 
+                mentee_uid: uid,
+                updated_at: FieldValue.serverTimestamp()
+              });
+            });
+            
+            await batch.commit();
+            console.log(`🔐 ✅ Updated ${menteeMeetings.size} meeting(s) with correct mentee_uid`);
+          } else {
+            console.log(`🔐 No meetings found with placeholder mentee_uid`);
+          }
+        } else if (userType === 'mentor') {
+          console.log(`🔐 Searching for meetings where mentor_doc_id == "${userDocId}" AND mentor_uid == "${userDocId}"`);
+          const mentorMeetings = await meetingsCollection
+            .where('mentor_doc_id', '==', userDocId)
+            .where('mentor_uid', '==', userDocId)
+            .get();
+          
+          if (!mentorMeetings.empty) {
+            console.log(`🔐 Found ${mentorMeetings.size} meeting(s) to update`);
+            const batch = admin.firestore().batch();
+            
+            mentorMeetings.forEach(doc => {
+              console.log(`🔐   - Updating meeting: ${doc.id}`);
+              batch.update(doc.ref, { 
+                mentor_uid: uid,
+                updated_at: FieldValue.serverTimestamp()
+              });
+            });
+            
+            await batch.commit();
+            console.log(`🔐 ✅ Updated ${mentorMeetings.size} meeting(s) with correct mentor_uid`);
+          } else {
+            console.log(`🔐 No meetings found with placeholder mentor_uid`);
+          }
+        }
+        
+        console.log(`🔐 Meeting UID update completed in ${Date.now() - meetingsUpdateStartTime}ms`);
+      } catch (meetingError) {
+        // Log error but don't fail the entire registration process
+        console.error('🔐 ⚠️ Error updating meeting UIDs:', meetingError);
+        console.error('🔐 Meeting update failed, but continuing with registration');
+      }
     } else {
       // Just update last_login
       const updateStartTime = Date.now();
