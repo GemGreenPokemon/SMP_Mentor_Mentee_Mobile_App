@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { verifyAuth } from '../utils/auth';
 import { getUniversityCollection, getDocument, updateDocument } from '../utils/database';
 import { Meeting } from '../types';
@@ -11,7 +12,9 @@ interface StatusUpdateData {
 }
 
 /**
- * Cancel/Delete a meeting
+ * Cancel or Reject a meeting
+ * - If meeting is pending: sets status to 'rejected' (no reason required)
+ * - If meeting is confirmed: sets status to 'cancelled' (reason should be provided)
  * Updates meeting status in top-level collection only
  */
 export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateData, context) => {
@@ -40,18 +43,29 @@ export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateDat
       const userUid = authContext.uid;
       if (userUid !== meeting.mentor_id && userUid !== meeting.mentee_id &&
           userUid !== meeting.mentor_uid && userUid !== meeting.mentee_uid) {
-        throw new functions.https.HttpsError('permission-denied', 'Can only cancel meetings you are part of');
+        throw new functions.https.HttpsError('permission-denied', 'Can only cancel/reject meetings you are part of');
       }
     }
 
-    const updates = {
-      status: 'cancelled',
-      cancelled_at: admin.firestore.FieldValue.serverTimestamp(),
-      cancelled_by: authContext.uid,
-      cancellation_reason: reason || null,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    // Determine if this is a rejection (from pending) or cancellation (from confirmed)
+    const isPending = meeting.status === 'pending';
+    
+    const updates: any = {
+      status: isPending ? 'rejected' : 'cancelled',
+      updated_at: FieldValue.serverTimestamp(),
       updated_by: authContext.uid
     };
+    
+    if (isPending) {
+      // Rejection fields (no reason needed for pending meetings)
+      updates.rejected_at = FieldValue.serverTimestamp();
+      updates.rejected_by = authContext.uid;
+    } else {
+      // Cancellation fields (reason required for confirmed meetings)
+      updates.cancelled_at = FieldValue.serverTimestamp();
+      updates.cancelled_by = authContext.uid;
+      updates.cancellation_reason = reason || null;
+    }
 
     const result = await updateDocument(meetingsCollection, meetingId, updates);
 
@@ -66,7 +80,7 @@ export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateDat
           booked_by_name: null,
           meeting_id: null,
           booked_at: null,
-          updated_at: admin.firestore.FieldValue.serverTimestamp()
+          updated_at: FieldValue.serverTimestamp()
         });
         console.log(`Unbooked availability slot ${meeting.availability_id}`);
       } catch (error) {
@@ -75,7 +89,7 @@ export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateDat
     }
 
     if (result.success) {
-      console.log(`Meeting cancelled: ${meetingId} in ${universityPath}`);
+      console.log(`Meeting ${isPending ? 'rejected' : 'cancelled'}: ${meetingId} in ${universityPath}`);
     }
 
     return result;
@@ -87,7 +101,7 @@ export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateDat
       throw error;
     }
     
-    throw new functions.https.HttpsError('internal', 'Failed to cancel meeting');
+    throw new functions.https.HttpsError('internal', 'Failed to cancel/reject meeting');
   }
 });
 
@@ -132,9 +146,9 @@ export const acceptMeeting = functions.https.onCall(async (data: StatusUpdateDat
 
     const updates = {
       status: 'accepted',
-      accepted_at: admin.firestore.FieldValue.serverTimestamp(),
+      accepted_at: FieldValue.serverTimestamp(),
       accepted_by: authContext.uid,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
       updated_by: authContext.uid
     };
 
@@ -198,10 +212,10 @@ export const rejectMeeting = functions.https.onCall(async (data: StatusUpdateDat
 
     const updates = {
       status: 'rejected',
-      rejected_at: admin.firestore.FieldValue.serverTimestamp(),
+      rejected_at: FieldValue.serverTimestamp(),
       rejected_by: authContext.uid,
       rejection_reason: reason || null,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
       updated_by: authContext.uid
     };
 
@@ -218,7 +232,7 @@ export const rejectMeeting = functions.https.onCall(async (data: StatusUpdateDat
           booked_by_name: null,
           meeting_id: null,
           booked_at: null,
-          updated_at: admin.firestore.FieldValue.serverTimestamp()
+          updated_at: FieldValue.serverTimestamp()
         });
         console.log(`Unbooked availability slot ${meeting.availability_id}`);
       } catch (error) {

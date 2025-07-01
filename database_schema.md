@@ -7,6 +7,13 @@
   - Added `assigned_by`, `overall_progress` fields to mentorships table
   - Created new tables: `mentee_goals`, `action_items`, `notifications`
 
+- **6/30/25**: Updated meetings table schema to support dynamic status-based fields:
+  - Added documentation for dynamic fields that appear based on meeting status changes
+  - Clarified status values: 'pending', 'confirmed', 'rejected', 'cancelled', 'rescheduled'
+  - Documented rejection fields: `rejected_at`, `rejected_by`
+  - Documented cancellation fields: `cancelled_at`, `cancelled_by`, `cancellation_reason`
+  - Added Firebase UID fields: `mentor_uid`, `mentee_uid` for permission checks
+
 ## Introduction
 
 This schema serves dual purposes:
@@ -71,20 +78,58 @@ CREATE TABLE availability (
 ```sql
 CREATE TABLE meetings (
   id TEXT PRIMARY KEY,
-  mentor_id TEXT NOT NULL,
-  mentee_id TEXT NOT NULL,
+  mentor_id TEXT NOT NULL,                   -- Mentor's Firebase UID
+  mentee_id TEXT NOT NULL,                   -- Mentee's Firebase UID
+  mentor_doc_id TEXT NOT NULL,               -- Mentor's document ID (for queries)
+  mentee_doc_id TEXT NOT NULL,               -- Mentee's document ID (for queries)
+  mentor_uid TEXT NOT NULL,                  -- Mentor's Firebase UID (for permission checks)
+  mentee_uid TEXT NOT NULL,                  -- Mentee's Firebase UID (for permission checks)
+  mentor_name TEXT NOT NULL,                 -- Denormalized for display
+  mentee_name TEXT NOT NULL,                 -- Denormalized for display
   start_time TEXT NOT NULL,                  -- ISO format or UTC
   end_time TEXT,                             -- Nullable
   topic TEXT,
   location TEXT,                             -- Meeting location (physical or virtual) - Added 5/29/25
-  status TEXT DEFAULT 'pending',             -- 'pending', 'accepted', 'rejected', 'cancelled'
+  status TEXT DEFAULT 'pending',             -- 'pending', 'confirmed', 'rejected', 'cancelled', 'rescheduled' - Updated 6/30/25
   availability_id TEXT,                      -- Optional ref to availability
-  synced INTEGER DEFAULT 0,
   created_at INTEGER,
+  created_by TEXT,                           -- Firebase UID of creator
+  updated_at INTEGER,
+  updated_by TEXT,                           -- Firebase UID of last updater
+  
+  -- Dynamic fields added based on status changes (Added 6/30/25):
+  -- For rejected meetings (from pending):
+  rejected_at INTEGER,                       -- Timestamp when rejected
+  rejected_by TEXT,                          -- Firebase UID of who rejected
+  
+  -- For cancelled meetings (from confirmed):
+  cancelled_at INTEGER,                      -- Timestamp when cancelled
+  cancelled_by TEXT,                         -- Firebase UID of who cancelled
+  cancellation_reason TEXT,                  -- Required reason for cancellation
+  
+  -- For confirmed meetings:
+  confirmed_at INTEGER,                      -- Timestamp when confirmed
+  confirmed_by TEXT,                         -- Firebase UID of who confirmed
+  
+  -- For rescheduled meetings (mentor only):
+  rescheduled_at INTEGER,                    -- Timestamp when rescheduled
+  rescheduled_by TEXT,                       -- Firebase UID of who rescheduled
+  
+  synced INTEGER DEFAULT 0,
   FOREIGN KEY (mentor_id) REFERENCES users(id),
   FOREIGN KEY (mentee_id) REFERENCES users(id)
 );
 ```
+
+**Note on Dynamic Fields (Added 6/30/25):**
+- Fields like `rejected_at`, `cancelled_at`, etc. are added dynamically when status changes occur
+- This approach keeps initial documents clean and provides an audit trail
+- In Firestore, these fields only exist after the corresponding action has occurred
+- Status transitions:
+  - `pending` → `confirmed` (adds `confirmed_at`, `confirmed_by`)
+  - `pending` → `rejected` (adds `rejected_at`, `rejected_by`)
+  - `confirmed` → `cancelled` (adds `cancelled_at`, `cancelled_by`, `cancellation_reason`)
+  - `confirmed` → `rescheduled` (adds `rescheduled_at`, `rescheduled_by`)
 
 ### 🔹 resources
 ```sql

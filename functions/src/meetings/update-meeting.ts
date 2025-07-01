@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { verifyAuth } from '../utils/auth';
 import { getUniversityCollection, getDocument, updateDocument } from '../utils/database';
 import { Meeting } from '../types';
@@ -51,7 +52,7 @@ export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingDa
 
     // Prepare update data
     const updates: any = {
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
       updated_by: authContext.uid
     };
 
@@ -65,7 +66,7 @@ export const updateMeeting = functions.https.onCall(async (data: UpdateMeetingDa
     if (updateData.topic !== undefined) {
       updates.topic = updateData.topic;
     }
-    if (updateData.location !== undefined) {
+    if (updateData.location !== undefined && updateData.location !== null) {
       updates.location = updateData.location;
     }
     if (updateData.status) {

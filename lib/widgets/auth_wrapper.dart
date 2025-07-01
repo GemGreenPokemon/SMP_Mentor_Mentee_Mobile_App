@@ -58,6 +58,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (user == null) {
         // User signed out
         print('🔧 AuthWrapper: User signed out');
+        // Stop listening to real-time updates when user signs out
+        _realTimeUserService.stopListening();
         setState(() {
           _isLoading = false;
           _userRole = null;
