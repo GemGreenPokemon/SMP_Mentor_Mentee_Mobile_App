@@ -589,7 +589,7 @@ class DashboardDataService {
             .where('mentee_doc_id', isEqualTo: menteeDocId)
             .where('status', whereIn: ['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'])
             .orderBy('start_time')
-            .limit(5)
+            .limit(20)
             .get();
             
         if (kDebugMode) {
@@ -1027,6 +1027,12 @@ class DashboardDataService {
           'color': 'purple',
         },
       ];
+
+      if (kDebugMode) {
+        print('🔥 Dashboard: About to fetch meetings for mentee');
+        print('🔥 Dashboard: currentUser.uid = ${currentUser.uid}');
+        print('🔥 Dashboard: currentUser.email = ${currentUser.email}');
+      }
 
       return {
         'menteeProfile': menteeProfile,

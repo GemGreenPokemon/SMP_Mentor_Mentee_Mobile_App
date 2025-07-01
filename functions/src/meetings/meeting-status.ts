@@ -5,6 +5,60 @@ import { verifyAuth } from '../utils/auth';
 import { getUniversityCollection, getDocument, updateDocument } from '../utils/database';
 import { Meeting } from '../types';
 
+/**
+ * Helper function to remove an availability slot
+ * Handles both array-based (new format) and document-based (old format) availability
+ */
+async function removeAvailabilitySlot(
+  universityPath: string, 
+  availabilityId: string, 
+  reason: string
+): Promise<void> {
+  try {
+    const availabilityCollection = getUniversityCollection(universityPath, 'availability');
+    
+    // Parse the availability ID format: "docId_slot_index"
+    const parts = availabilityId.split('_slot_');
+    if (parts.length === 2) {
+      const docId = parts[0];
+      const slotIndex = parseInt(parts[1], 10);
+      
+      console.log(`Removing availability slot: doc=${docId}, index=${slotIndex}`);
+      
+      // Get the availability document
+      const availDoc = await availabilityCollection.doc(docId).get();
+      if (availDoc.exists) {
+        const data = availDoc.data();
+        if (data && data.slots && Array.isArray(data.slots)) {
+          // Remove the slot at the specified index
+          const updatedSlots = [...data.slots];
+          updatedSlots.splice(slotIndex, 1);
+          
+          // Update the document with the modified slots array
+          await availabilityCollection.doc(docId).update({
+            slots: updatedSlots,
+            updated_at: FieldValue.serverTimestamp()
+          });
+          
+          console.log(`Removed slot ${slotIndex} from availability document ${docId} after meeting ${reason}`);
+        } else {
+          console.error(`Availability document ${docId} has no slots array`);
+        }
+      } else {
+        console.error(`Availability document ${docId} not found`);
+      }
+    } else {
+      // Fallback for old format - try direct deletion
+      console.log(`Attempting direct deletion for availability ID: ${availabilityId}`);
+      await availabilityCollection.doc(availabilityId).delete();
+      console.log(`Deleted availability document ${availabilityId} after meeting ${reason}`);
+    }
+  } catch (error) {
+    console.error(`Failed to remove availability slot: ${error}`);
+    // Log but don't fail the overall operation
+  }
+}
+
 interface StatusUpdateData {
   universityPath: string;
   meetingId: string;
@@ -69,23 +123,13 @@ export const cancelMeeting = functions.https.onCall(async (data: StatusUpdateDat
 
     const result = await updateDocument(meetingsCollection, meetingId, updates);
 
-    // If meeting had an availability slot, unbook it
+    // If meeting had an availability slot, remove it entirely
     if (meeting.availability_id) {
-      try {
-        const availabilityCollection = getUniversityCollection(universityPath, 'availability');
-        await availabilityCollection.doc(meeting.availability_id).update({
-          is_booked: false,
-          booked_by_uid: null,
-          booked_by_doc_id: null,
-          booked_by_name: null,
-          meeting_id: null,
-          booked_at: null,
-          updated_at: FieldValue.serverTimestamp()
-        });
-        console.log(`Unbooked availability slot ${meeting.availability_id}`);
-      } catch (error) {
-        console.error(`Failed to unbook availability slot: ${error}`);
-      }
+      await removeAvailabilitySlot(
+        universityPath, 
+        meeting.availability_id, 
+        isPending ? 'rejection' : 'cancellation'
+      );
     }
 
     if (result.success) {
@@ -221,23 +265,13 @@ export const rejectMeeting = functions.https.onCall(async (data: StatusUpdateDat
 
     const result = await updateDocument(meetingsCollection, meetingId, updates);
 
-    // If meeting had an availability slot, unbook it
+    // If meeting had an availability slot, remove it entirely
     if (meeting.availability_id) {
-      try {
-        const availabilityCollection = getUniversityCollection(universityPath, 'availability');
-        await availabilityCollection.doc(meeting.availability_id).update({
-          is_booked: false,
-          booked_by_uid: null,
-          booked_by_doc_id: null,
-          booked_by_name: null,
-          meeting_id: null,
-          booked_at: null,
-          updated_at: FieldValue.serverTimestamp()
-        });
-        console.log(`Unbooked availability slot ${meeting.availability_id}`);
-      } catch (error) {
-        console.error(`Failed to unbook availability slot: ${error}`);
-      }
+      await removeAvailabilitySlot(
+        universityPath, 
+        meeting.availability_id, 
+        'rejection'
+      );
     }
 
     if (result.success) {
