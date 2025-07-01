@@ -589,7 +589,6 @@ class DashboardDataService {
             .where('mentee_doc_id', isEqualTo: menteeDocId)
             .where('status', whereIn: ['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'])
             .orderBy('start_time')
-            .limit(20)
             .get();
             
         if (kDebugMode) {
@@ -607,7 +606,6 @@ class DashboardDataService {
             .collection('meetings')
             .where('mentee_doc_id', isEqualTo: menteeDocId)
             .orderBy('start_time')
-            .limit(10)
             .get();
       }
       
