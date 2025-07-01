@@ -426,6 +426,71 @@ class MeetingService {
     }
   }
 
+  /// Delete/Clear a meeting from the database
+  Future<bool> deleteMeeting(String meetingId) async {
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) return false;
+      
+      // Ensure repositories are initialized
+      _ensureInitialized();
+      
+      // Use the repository to actually delete the meeting
+      await _meetingRepository!.deleteMeeting(meetingId);
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting meeting: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Hide a meeting from the current user's view
+  Future<bool> hideMeeting(String meetingId) async {
+    try {
+      if (kDebugMode) {
+        print('🔍 MeetingService.hideMeeting: Starting to hide meeting $meetingId');
+      }
+      
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        if (kDebugMode) {
+          print('🔍 MeetingService.hideMeeting: No current user, returning false');
+        }
+        return false;
+      }
+      
+      if (kDebugMode) {
+        print('🔍 MeetingService.hideMeeting: Current user UID: ${currentUser.uid}');
+        print('🔍 MeetingService.hideMeeting: University path: $_universityPath');
+      }
+      
+      final result = await _cloudFunctions.hideMeeting(
+        universityPath: _universityPath,
+        meetingId: meetingId,
+      );
+      
+      if (kDebugMode) {
+        print('🔍 MeetingService.hideMeeting: Cloud function result: $result');
+      }
+      
+      final success = result['success'] == true;
+      if (kDebugMode) {
+        print('🔍 MeetingService.hideMeeting: Returning success: $success');
+      }
+      
+      return success;
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔍 MeetingService.hideMeeting: Error occurred: $e');
+        print('🔍 MeetingService.hideMeeting: Error type: ${e.runtimeType}');
+      }
+      return false;
+    }
+  }
+
   /// Request a meeting (mentee only)
   Future<Meeting?> requestMeeting({
     required String mentorId,

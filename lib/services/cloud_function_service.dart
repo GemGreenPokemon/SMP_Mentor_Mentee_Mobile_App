@@ -279,6 +279,42 @@ class CloudFunctionService {
     }
   }
 
+  /// Hide a meeting from user's view
+  Future<Map<String, dynamic>> hideMeeting({
+    required String universityPath,
+    required String meetingId,
+  }) async {
+    try {
+      print('🔍 CloudFunctionService.hideMeeting: Starting');
+      print('🔍 CloudFunctionService.hideMeeting: universityPath: $universityPath');
+      print('🔍 CloudFunctionService.hideMeeting: meetingId: $meetingId');
+      
+      final HttpsCallable callable = _functions.httpsCallable('hideMeeting');
+      print('🔍 CloudFunctionService.hideMeeting: Calling cloud function...');
+      
+      final HttpsCallableResult result = await callable.call(<String, dynamic>{
+        'universityPath': universityPath,
+        'meetingId': meetingId,
+      });
+      
+      print('🔍 CloudFunctionService.hideMeeting: Raw result data: ${result.data}');
+      final resultMap = Map<String, dynamic>.from(result.data ?? {});
+      print('🔍 CloudFunctionService.hideMeeting: Processed result: $resultMap');
+      
+      return resultMap;
+    } on FirebaseFunctionsException catch (e) {
+      print('🔍 CloudFunctionService.hideMeeting: FirebaseFunctionsException');
+      print('🔍 CloudFunctionService.hideMeeting: Code: ${e.code}');
+      print('🔍 CloudFunctionService.hideMeeting: Message: ${e.message}');
+      print('🔍 CloudFunctionService.hideMeeting: Details: ${e.details}');
+      rethrow;
+    } catch (e) {
+      print('🔍 CloudFunctionService.hideMeeting: Unknown error: $e');
+      print('🔍 CloudFunctionService.hideMeeting: Error type: ${e.runtimeType}');
+      rethrow;
+    }
+  }
+
   /// Cancel a meeting
   Future<Map<String, dynamic>> cancelMeeting({
     required String universityPath,

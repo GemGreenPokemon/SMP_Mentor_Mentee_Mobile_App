@@ -132,6 +132,8 @@ class Meeting {
   final String? startTime;
   final String? status;
   final String? createdBy;
+  final String? cancellationReason;
+  final String? cancelledBy;
 
   Meeting({
     required this.id,
@@ -143,6 +145,8 @@ class Meeting {
     this.startTime,
     this.status,
     this.createdBy,
+    this.cancellationReason,
+    this.cancelledBy,
   });
 
   factory Meeting.fromMap(Map<String, dynamic> map) {
@@ -156,6 +160,8 @@ class Meeting {
       startTime: map['startTime'],
       status: map['status'],
       createdBy: map['createdBy'],
+      cancellationReason: map['cancellationReason'],
+      cancelledBy: map['cancelledBy'],
     );
   }
 }

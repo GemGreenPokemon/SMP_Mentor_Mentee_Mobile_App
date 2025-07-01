@@ -18,6 +18,7 @@ class DashboardOverview extends StatelessWidget {
   final Function(String meetingId)? onAcceptMeeting;
   final Function(String meetingId)? onRejectMeeting;
   final Function(String meetingId)? onClearMeeting;
+  final Function(String meetingId)? onCancelMeeting;
   final String? currentUserId;
 
   const DashboardOverview({
@@ -29,6 +30,7 @@ class DashboardOverview extends StatelessWidget {
     this.onAcceptMeeting,
     this.onRejectMeeting,
     this.onClearMeeting,
+    this.onCancelMeeting,
     this.currentUserId,
   });
 
@@ -123,6 +125,7 @@ class DashboardOverview extends StatelessWidget {
             onAcceptMeeting: onAcceptMeeting,
             onRejectMeeting: onRejectMeeting,
             onClearMeeting: onClearMeeting,
+            onCancelMeeting: onCancelMeeting,
             currentUserId: currentUserId,
           ),
         ],
@@ -149,6 +152,7 @@ class DashboardOverview extends StatelessWidget {
             onAcceptMeeting: onAcceptMeeting,
             onRejectMeeting: onRejectMeeting,
             onClearMeeting: onClearMeeting,
+            onCancelMeeting: onCancelMeeting,
             currentUserId: currentUserId,
           ),
         ),

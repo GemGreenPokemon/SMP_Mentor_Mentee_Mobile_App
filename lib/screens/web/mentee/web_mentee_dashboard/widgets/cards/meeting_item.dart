@@ -9,6 +9,7 @@ class MeetingItem extends StatelessWidget {
   final Function(String meetingId)? onAccept;
   final Function(String meetingId)? onReject;
   final Function(String meetingId)? onClear;
+  final Function(String meetingId)? onCancel;
   final String? currentUserId;
 
   const MeetingItem({
@@ -18,6 +19,7 @@ class MeetingItem extends StatelessWidget {
     this.onAccept,
     this.onReject,
     this.onClear,
+    this.onCancel,
     this.currentUserId,
   });
 
@@ -195,6 +197,128 @@ class MeetingItem extends StatelessWidget {
                 child: const Text('Clear'),
               ),
             )
+          else if (meeting.status == 'cancelled')
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (meeting.cancellationReason != null && meeting.cancellationReason!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: DashboardSizes.spacingSmall),
+                    padding: const EdgeInsets.all(DashboardSizes.spacingSmall),
+                    decoration: BoxDecoration(
+                      color: DashboardColors.errorRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(DashboardSizes.cardBorderRadius),
+                      border: Border.all(
+                        color: DashboardColors.errorRed.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cancelled by ${meeting.cancelledBy == currentUserId ? "you" : "mentor"}',
+                          style: DashboardTextStyles.bodySmall.copyWith(
+                            color: DashboardColors.errorRed,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Reason: ${meeting.cancellationReason}',
+                          style: DashboardTextStyles.caption.copyWith(
+                            color: DashboardColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    margin: const EdgeInsets.only(bottom: DashboardSizes.spacingSmall),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DashboardSizes.spacingSmall,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: DashboardColors.errorRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(DashboardSizes.cardBorderRadius),
+                      border: Border.all(
+                        color: DashboardColors.errorRed.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'Meeting Cancelled',
+                      style: DashboardTextStyles.bodySmall.copyWith(
+                        color: DashboardColors.errorRed,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (onClear != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      onPressed: () => onClear!(meeting.id),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: DashboardColors.errorRed,
+                        side: BorderSide(color: DashboardColors.errorRed),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DashboardSizes.spacingMedium,
+                          vertical: DashboardSizes.spacingSmall,
+                        ),
+                        minimumSize: const Size(0, 32),
+                        textStyle: DashboardTextStyles.bodySmall,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                        ),
+                      ),
+                      child: const Text('Clear'),
+                    ),
+                  ),
+              ],
+            )
+          else if ((meeting.status == 'accepted' || meeting.status == 'confirmed') && onCancel != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => onCancel!(meeting.id),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: DashboardColors.errorRed,
+                    side: BorderSide(color: DashboardColors.errorRed),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DashboardSizes.spacingMedium,
+                      vertical: DashboardSizes.spacingSmall,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    textStyle: DashboardTextStyles.bodySmall,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: DashboardSizes.spacingSmall),
+                ElevatedButton(
+                  onPressed: onCheckIn,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DashboardColors.primaryDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DashboardSizes.spacingMedium,
+                    vertical: DashboardSizes.spacingSmall,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  textStyle: DashboardTextStyles.bodySmall,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(DashboardSizes.buttonBorderRadius),
+                  ),
+                ),
+                child: const Text('Check In'),
+              ),
+              ],
+            )
           else if (meeting.status == 'accepted' || meeting.status == 'confirmed')
             Align(
               alignment: Alignment.centerRight,
@@ -215,7 +339,7 @@ class MeetingItem extends StatelessWidget {
                 ),
                 child: const Text('Check In'),
               ),
-            ),
+            )
         ],
       ),
     );

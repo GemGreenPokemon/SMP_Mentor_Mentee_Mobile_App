@@ -20,3 +20,6 @@ export {
 
 // Meeting requests
 export { requestMeeting } from './request-meeting';
+
+// Meeting visibility operations
+export { hideMeeting, unhideMeeting } from './hide-meeting';

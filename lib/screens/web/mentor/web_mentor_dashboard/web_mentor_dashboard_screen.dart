@@ -278,6 +278,7 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
   }
 
   Future<void> _clearMeeting(String meetingId) async {
+    print('🔍 _clearMeeting: Starting to clear meeting $meetingId');
     try {
       // Show loading indicator
       showDialog(
@@ -288,13 +289,16 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
         ),
       );
 
-      // Delete the meeting
-      final success = await _meetingService.cancelMeeting(meetingId);
+      print('🔍 _clearMeeting: Calling hideMeeting...');
+      // Hide the meeting from view
+      final success = await _meetingService.hideMeeting(meetingId);
+      print('🔍 _clearMeeting: hideMeeting returned: $success');
       
       // Close loading dialog
       if (mounted) Navigator.pop(context);
 
       if (success) {
+        print('🔍 _clearMeeting: Success! Showing success message');
         // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -305,12 +309,17 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
           );
         }
         
+        print('🔍 _clearMeeting: Refreshing dashboard data...');
         // Refresh dashboard data
         await _refreshController.refresh();
+        print('🔍 _clearMeeting: Dashboard refresh complete');
       } else {
+        print('🔍 _clearMeeting: hideMeeting returned false');
         throw Exception('Failed to clear meeting');
       }
     } catch (e) {
+      print('🔍 _clearMeeting: Error occurred: $e');
+      print('🔍 _clearMeeting: Error type: ${e.runtimeType}');
       // Close loading dialog if still open
       if (mounted && Navigator.canPop(context)) Navigator.pop(context);
       
@@ -323,6 +332,114 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
         );
       }
     }
+  }
+
+  Future<void> _cancelMeeting(String meetingId) async {
+    // Show confirmation dialog with reason input
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Meeting'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to cancel this meeting?'),
+            const SizedBox(height: 16),
+            const Text(
+              'Please provide a reason for cancellation:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              decoration: const InputDecoration(
+                hintText: 'Enter cancellation reason...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              onChanged: (value) => _cancellationReason = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, {'confirm': true, 'reason': _cancellationReason}),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Cancel Meeting'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result['confirm'] == true && result['reason']?.isNotEmpty == true) {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        await _meetingService.cancelMeeting(meetingId, reason: result['reason']);
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog
+          
+          // Refresh dashboard data
+          await _refreshController.refresh();
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting cancelled successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error cancelling meeting: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  String _cancellationReason = '';
+
+  Future<void> _rescheduleMeeting(String meetingId) async {
+    // Navigate to schedule meeting screen with reschedule mode
+    Navigator.pushNamed(
+      context,
+      '/schedule-meeting',
+      arguments: {
+        'rescheduleMode': true,
+        'meetingId': meetingId,
+      },
+    ).then((result) async {
+      if (result == true) {
+        // Meeting was rescheduled successfully, refresh dashboard
+        await _refreshController.refresh();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting rescheduled successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    });
   }
 
   @override
@@ -383,6 +500,8 @@ class _WebMentorDashboardScreenState extends State<WebMentorDashboardScreen>
             onAcceptMeeting: _acceptMeeting,
             onRejectMeeting: _rejectMeeting,
             onClearMeeting: _clearMeeting,
+            onCancelMeeting: _cancelMeeting,
+            onRescheduleMeeting: _rescheduleMeeting,
             currentUserId: _authService.currentUser?.uid,
           ),
         );

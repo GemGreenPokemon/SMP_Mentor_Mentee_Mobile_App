@@ -11,6 +11,8 @@ class MeetingsCarousel extends StatelessWidget {
   final Function(String)? onAcceptMeeting;
   final Function(String)? onRejectMeeting;
   final Function(String)? onClearMeeting;
+  final Function(String)? onCancelMeeting;
+  final Function(String)? onRescheduleMeeting;
   final String? currentUserId;
 
   const MeetingsCarousel({
@@ -21,6 +23,8 @@ class MeetingsCarousel extends StatelessWidget {
     this.onAcceptMeeting,
     this.onRejectMeeting,
     this.onClearMeeting,
+    this.onCancelMeeting,
+    this.onRescheduleMeeting,
     this.currentUserId,
   });
 
@@ -89,10 +93,14 @@ class MeetingsCarousel extends StatelessWidget {
                           status: meetings[i].status,
                           createdBy: meetings[i].createdBy,
                           currentUserId: currentUserId,
+                          cancellationReason: meetings[i].cancellationReason,
+                          cancelledBy: meetings[i].cancelledBy,
                           onTap: onCheckIn,
                           onAccept: onAcceptMeeting,
                           onReject: onRejectMeeting,
                           onClear: onClearMeeting,
+                          onCancel: onCancelMeeting,
+                          onReschedule: onRescheduleMeeting,
                         ),
                       ),
                     ],

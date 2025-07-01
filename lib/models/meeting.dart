@@ -11,6 +11,9 @@ class Meeting {
   final bool synced;
   final DateTime? createdAt;
   final String? createdBy;
+  final String? cancellationReason;
+  final String? cancelledBy;
+  final DateTime? cancelledAt;
 
   Meeting({
     required this.id,
@@ -25,6 +28,9 @@ class Meeting {
     this.synced = false,
     this.createdAt,
     this.createdBy,
+    this.cancellationReason,
+    this.cancelledBy,
+    this.cancelledAt,
   });
 
   factory Meeting.fromMap(Map<String, dynamic> map) {
@@ -43,6 +49,11 @@ class Meeting {
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'])
           : null,
       createdBy: map['created_by'],
+      cancellationReason: map['cancellation_reason'],
+      cancelledBy: map['cancelled_by'],
+      cancelledAt: map['cancelled_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['cancelled_at'])
+          : null,
     );
   }
 
@@ -60,6 +71,9 @@ class Meeting {
       'synced': synced ? 1 : 0,
       'created_at': createdAt?.millisecondsSinceEpoch,
       'created_by': createdBy,
+      'cancellation_reason': cancellationReason,
+      'cancelled_by': cancelledBy,
+      'cancelled_at': cancelledAt?.millisecondsSinceEpoch,
     };
   }
 
@@ -76,6 +90,9 @@ class Meeting {
     bool? synced,
     DateTime? createdAt,
     String? createdBy,
+    String? cancellationReason,
+    String? cancelledBy,
+    DateTime? cancelledAt,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -90,6 +107,9 @@ class Meeting {
       synced: synced ?? this.synced,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
+      cancelledBy: cancelledBy ?? this.cancelledBy,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
     );
   }
 }

@@ -18,6 +18,8 @@ class DashboardOverview extends StatefulWidget {
   final Function(String)? onAcceptMeeting;
   final Function(String)? onRejectMeeting;
   final Function(String)? onClearMeeting;
+  final Function(String)? onCancelMeeting;
+  final Function(String)? onRescheduleMeeting;
   final String? currentUserId;
 
   const DashboardOverview({
@@ -29,6 +31,8 @@ class DashboardOverview extends StatefulWidget {
     this.onAcceptMeeting,
     this.onRejectMeeting,
     this.onClearMeeting,
+    this.onCancelMeeting,
+    this.onRescheduleMeeting,
     this.currentUserId,
   });
 
@@ -66,6 +70,8 @@ class _DashboardOverviewState extends State<DashboardOverview> {
         onAcceptMeeting: widget.onAcceptMeeting,
         onRejectMeeting: widget.onRejectMeeting,
         onClearMeeting: widget.onClearMeeting,
+        onCancelMeeting: widget.onCancelMeeting,
+        onRescheduleMeeting: widget.onRescheduleMeeting,
         currentUserId: widget.currentUserId,
       ),
       DashboardLayoutConfig.announcementsCard: AnnouncementsPreview(

@@ -274,7 +274,7 @@ class DashboardDataService {
           .collection('meetings')
           .where('mentee_doc_id', isEqualTo: menteeDocId)
           .where(mentorField, isEqualTo: mentorIdentifier)
-          .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
+          .where('status', whereIn: ['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'])
           .orderBy('start_time')
           .limit(3)
           .get();
@@ -425,7 +425,7 @@ class DashboardDataService {
             .doc('data')
             .collection('meetings')
             .where(fieldToQuery, isEqualTo: mentorIdentifier)
-            .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
+            .where('status', whereIn: ['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'])
             .orderBy('start_time')
             .limit(10)
             .get();
@@ -475,7 +475,21 @@ class DashboardDataService {
         final status = data['status'] ?? 'pending';
         
         // Filter by status if compound query failed
-        if (!['pending', 'accepted', 'confirmed'].contains(status)) {
+        if (!['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'].contains(status)) {
+          continue;
+        }
+        
+        // Filter out meetings hidden by the current user
+        final hiddenBy = List<String>.from(data['hidden_by'] ?? []);
+        if (kDebugMode) {
+          print('🔥 Dashboard: Meeting ${doc.id} hidden_by: $hiddenBy');
+          print('🔥 Dashboard: Current mentor UID: $mentorFirebaseUid');
+          print('🔥 Dashboard: Is hidden by current user: ${hiddenBy.contains(mentorFirebaseUid)}');
+        }
+        if (hiddenBy.contains(mentorFirebaseUid)) {
+          if (kDebugMode) {
+            print('🔥 Dashboard: ❌ Skipping meeting ${doc.id} - hidden by current user');
+          }
           continue;
         }
         
@@ -496,6 +510,8 @@ class DashboardDataService {
             'startTime': startTime.toIso8601String(),
             'status': status,
             'createdBy': data['created_by'],
+            'cancellationReason': data['cancellation_reason'],
+            'cancelledBy': data['cancelled_by'],
           });
           
           if (kDebugMode) {
@@ -571,7 +587,7 @@ class DashboardDataService {
             .doc('data')
             .collection('meetings')
             .where('mentee_doc_id', isEqualTo: menteeDocId)
-            .where('status', whereIn: ['pending', 'accepted', 'confirmed'])
+            .where('status', whereIn: ['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'])
             .orderBy('start_time')
             .limit(5)
             .get();
@@ -615,9 +631,18 @@ class DashboardDataService {
         }
         
         // Filter by status if compound query failed
-        if (!['pending', 'accepted', 'confirmed'].contains(status)) {
+        if (!['pending', 'accepted', 'confirmed', 'cancelled', 'rejected'].contains(status)) {
           if (kDebugMode) {
             print('🔥 Dashboard:   ❌ Skipped - invalid status');
+          }
+          continue;
+        }
+        
+        // Filter out meetings hidden by the current user
+        final hiddenBy = List<String>.from(data['hidden_by'] ?? []);
+        if (hiddenBy.contains(menteeFirebaseUid)) {
+          if (kDebugMode) {
+            print('🔥 Dashboard:   ❌ Skipped - hidden by current user');
           }
           continue;
         }
@@ -642,6 +667,8 @@ class DashboardDataService {
             'mentorName': data['mentor_name'] ?? 'Your Mentor',
             'status': status,
             'createdBy': data['created_by'],
+            'cancellationReason': data['cancellation_reason'],
+            'cancelledBy': data['cancelled_by'],
           });
           colorIndex++;
           

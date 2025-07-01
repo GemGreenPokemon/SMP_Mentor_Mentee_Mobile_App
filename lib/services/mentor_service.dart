@@ -358,10 +358,6 @@ class MentorService extends ChangeNotifier {
       debugPrint('Found ${allMentorMeetings.length} total meetings for mentor');
       
       final upcomingMeetings = meetings.where((meeting) {
-        // Filter out cancelled meetings
-        if (meeting.status == 'cancelled') {
-          return false;
-        }
         final startTime = DateTime.tryParse(meeting.startTime);
         return startTime != null && startTime.isAfter(DateTime.now());
       }).toList();

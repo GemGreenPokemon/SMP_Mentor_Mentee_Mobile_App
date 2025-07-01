@@ -11,10 +11,14 @@ class MeetingItem extends StatefulWidget {
   final String? status;
   final String? createdBy;
   final String? currentUserId;
+  final String? cancellationReason;
+  final String? cancelledBy;
   final VoidCallback onTap;
   final Function(String)? onAccept;
   final Function(String)? onReject;
   final Function(String)? onClear;
+  final Function(String)? onCancel;
+  final Function(String)? onReschedule;
 
   const MeetingItem({
     super.key,
@@ -27,10 +31,14 @@ class MeetingItem extends StatefulWidget {
     this.status,
     this.createdBy,
     this.currentUserId,
+    this.cancellationReason,
+    this.cancelledBy,
     required this.onTap,
     this.onAccept,
     this.onReject,
     this.onClear,
+    this.onCancel,
+    this.onReschedule,
   });
 
   @override
@@ -252,6 +260,91 @@ class _MeetingItemState extends State<MeetingItem>
                   ),
                 ),
               )
+            else if (widget.status == 'cancelled')
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (widget.cancellationReason != null && widget.cancellationReason!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: DashboardColors.statusRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                        border: Border.all(
+                          color: DashboardColors.statusRed.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cancelled by ${widget.cancelledBy == widget.currentUserId ? "you" : "other party"}',
+                            style: TextStyle(
+                              color: DashboardColors.statusRed,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Reason: ${widget.cancellationReason}',
+                            style: TextStyle(
+                              color: DashboardColors.textGrey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: DashboardColors.statusRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                        border: Border.all(
+                          color: DashboardColors.statusRed.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        'Meeting Cancelled',
+                        style: TextStyle(
+                          color: DashboardColors.statusRed,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  if (widget.onClear != null)
+                    AnimatedContainer(
+                      duration: DashboardDurations.microAnimation,
+                      transform: Matrix4.identity()
+                        ..scale(isHovered ? 1.05 : 1.0),
+                      child: OutlinedButton(
+                        onPressed: () => widget.onClear!(widget.id),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: DashboardColors.statusRed,
+                          side: BorderSide(
+                            color: isHovered 
+                                ? DashboardColors.statusRed
+                                : DashboardColors.statusRed.withOpacity(0.6),
+                            width: isHovered ? 2 : 1,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isHovered ? 20 : 16,
+                            vertical: isHovered ? 10 : 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                          ),
+                        ),
+                        child: const Text('Clear'),
+                      ),
+                    ),
+                ],
+              )
             else if (widget.status == 'pending' && widget.createdBy == widget.currentUserId)
               Align(
                 alignment: Alignment.centerRight,
@@ -283,6 +376,64 @@ class _MeetingItemState extends State<MeetingItem>
                     ],
                   ),
                 ),
+              )
+            else if ((widget.status == 'accepted' || widget.status == 'confirmed') && (widget.onCancel != null || widget.onReschedule != null))
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (widget.onCancel != null)
+                    AnimatedContainer(
+                      duration: DashboardDurations.microAnimation,
+                      transform: Matrix4.identity()
+                        ..scale(isHovered ? 1.05 : 1.0),
+                      child: OutlinedButton(
+                        onPressed: () => widget.onCancel!(widget.id),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: DashboardColors.statusRed,
+                          side: BorderSide(
+                            color: isHovered 
+                                ? DashboardColors.statusRed
+                                : DashboardColors.statusRed.withOpacity(0.6),
+                            width: isHovered ? 2 : 1,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isHovered ? 20 : 16,
+                            vertical: isHovered ? 10 : 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                  if (widget.onCancel != null && widget.onReschedule != null)
+                    const SizedBox(width: DashboardSizes.spacingSmall),
+                  if (widget.onReschedule != null)
+                    AnimatedContainer(
+                      duration: DashboardDurations.microAnimation,
+                      transform: Matrix4.identity()
+                        ..scale(isHovered ? 1.05 : 1.0),
+                      child: ElevatedButton(
+                        onPressed: () => widget.onReschedule!(widget.id),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isHovered 
+                              ? DashboardColors.accentBlue
+                              : DashboardColors.accentBlue.withOpacity(0.9),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isHovered ? 20 : 16,
+                            vertical: isHovered ? 10 : 8,
+                          ),
+                          elevation: isHovered ? 4 : 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DashboardSizes.borderRadiusSmall),
+                          ),
+                        ),
+                        child: const Text('Reschedule'),
+                      ),
+                    ),
+                ],
               )
             else
               Align(

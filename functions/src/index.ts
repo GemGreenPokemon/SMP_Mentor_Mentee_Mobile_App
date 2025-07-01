@@ -34,7 +34,9 @@ import {
   getMentorAvailability,
   getAvailableSlots,
   requestMeeting,
-  removeAvailabilitySlot
+  removeAvailabilitySlot,
+  hideMeeting as hideMeetingFunc,
+  unhideMeeting as unhideMeetingFunc
 } from './meetings';
 import {
   createConversation,
@@ -98,6 +100,10 @@ export const getAvailability = getMentorAvailability;
 export const getBookableSlots = getAvailableSlots;
 export const requestMeetingTime = requestMeeting;
 export const removeAvailability = removeAvailabilitySlot;
+
+// Meeting Visibility Functions  
+export const hideMeeting = hideMeetingFunc;
+export const unhideMeeting = unhideMeetingFunc;
 
 // Messaging Functions (New Conversation-based)
 export const createChatConversation = createConversation;

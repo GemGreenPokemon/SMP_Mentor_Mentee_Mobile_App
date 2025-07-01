@@ -11,6 +11,7 @@ class MeetingsPreview extends StatelessWidget {
   final Function(String meetingId)? onAcceptMeeting;
   final Function(String meetingId)? onRejectMeeting;
   final Function(String meetingId)? onClearMeeting;
+  final Function(String meetingId)? onCancelMeeting;
   final String? currentUserId;
 
   const MeetingsPreview({
@@ -21,6 +22,7 @@ class MeetingsPreview extends StatelessWidget {
     this.onAcceptMeeting,
     this.onRejectMeeting,
     this.onClearMeeting,
+    this.onCancelMeeting,
     this.currentUserId,
   });
 
@@ -75,6 +77,7 @@ class MeetingsPreview extends StatelessWidget {
                   onAccept: onAcceptMeeting,
                   onReject: onRejectMeeting,
                   onClear: onClearMeeting,
+                  onCancel: onCancelMeeting,
                   currentUserId: currentUserId,
                 ),
               );
