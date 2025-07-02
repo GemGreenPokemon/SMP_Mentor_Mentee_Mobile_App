@@ -11,7 +11,7 @@ import '../screens/web/mentee/web_mentee_dashboard/web_mentee_dashboard_screen.d
 import '../screens/mobile/mentee/mentee_dashboard_screen.dart';
 import '../screens/web/mentor/web_mentor_dashboard/web_mentor_dashboard_screen.dart';
 import '../screens/mobile/mentor/mentor_dashboard_screen.dart';
-import '../screens/web/coordinator/web_coordinator_dashboard_screen.dart';
+import '../screens/web/coordinator/web_coordinator_dashboard/web_coordinator_dashboard_screen.dart';
 import '../screens/mobile/coordinator/coordinator_dashboard_screen.dart';
 import '../screens/mobile/shared/developer_home_screen.dart';
 import '../utils/responsive.dart';

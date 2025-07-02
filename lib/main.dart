@@ -12,7 +12,7 @@ import 'package:smp_mentor_mentee_mobile_app/screens/web/mentee/web_mentee_dashb
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/mentor/mentor_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/web/mentor/web_mentor_dashboard/web_mentor_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/coordinator/coordinator_dashboard_screen.dart';
-import 'package:smp_mentor_mentee_mobile_app/screens/web/coordinator/web_coordinator_dashboard_screen.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/coordinator/web_coordinator_dashboard/web_coordinator_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/coordinator/qualtrics_dashboard_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/developer_home_screen.dart';
 import 'package:smp_mentor_mentee_mobile_app/screens/mobile/shared/register_screen.dart';
