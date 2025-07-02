@@ -24,7 +24,7 @@ class DashboardSidebar extends StatelessWidget {
     
     // Handle navigation based on selection
     switch (index) {
-      case 9: // Settings
+      case 10: // Settings
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -32,7 +32,7 @@ class DashboardSidebar extends StatelessWidget {
           ),
         );
         break;
-      case 7: // Newsletter
+      case 8: // Newsletter
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -40,7 +40,7 @@ class DashboardSidebar extends StatelessWidget {
           ),
         );
         break;
-      case 6: // Announcements
+      case 7: // Announcements
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -48,7 +48,7 @@ class DashboardSidebar extends StatelessWidget {
           ),
         );
         break;
-      case 5: // Resources
+      case 6: // Resources
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -56,13 +56,16 @@ class DashboardSidebar extends StatelessWidget {
           ),
         );
         break;
-      case 4: // Reports
+      case 5: // Reports
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => const ProgressReportsScreen(),
           ),
         );
+        break;
+      case 4: // User Management
+        // Will be handled in main dashboard screen
         break;
     }
   }
@@ -114,7 +117,7 @@ class DashboardSidebar extends StatelessWidget {
               itemCount: CoordinatorDashboardStrings.sidebarItems.length,
               itemBuilder: (context, index) {
                 // Add separator before certain items
-                if (index == 4 || index == 9) {
+                if (index == 5 || index == 10) {
                   return Column(
                     children: [
                       Container(

@@ -16,6 +16,7 @@ import 'widgets/mentors_page/mentors_content.dart';
 import 'widgets/mentees_page/mentees_content.dart';
 import 'widgets/matching_page/matching_content.dart';
 import 'widgets/program_data_page/program_data_content.dart';
+import 'widgets/user_management_page/user_management_content.dart';
 import 'widgets/shared/loading_state.dart';
 import 'widgets/shared/error_state.dart';
 
@@ -139,7 +140,9 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
         return const MenteesContent();
       case 3: // Matching
         return const MatchingContent();
-      case 8: // Program Data
+      case 4: // User Management
+        return const UserManagementContent();
+      case 9: // Program Data
         return const ProgramDataContent();
       default:
         return DashboardOverview(dashboardData: _dashboardData);
