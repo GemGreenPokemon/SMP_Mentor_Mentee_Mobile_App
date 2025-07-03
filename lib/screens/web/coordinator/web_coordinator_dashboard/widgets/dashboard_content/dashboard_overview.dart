@@ -77,7 +77,7 @@ class DashboardOverview extends StatelessWidget {
           const SizedBox(height: 24),
           
           // List of Mentees Section
-          const MenteesListSection(),
+          MenteesListSection(dashboardData: dashboardData!),
         ],
       ),
     );

@@ -3,7 +3,12 @@ import 'package:smp_mentor_mentee_mobile_app/services/auth_service.dart';
 import '../../utils/dashboard_constants.dart';
 
 class SidebarProfile extends StatelessWidget {
-  const SidebarProfile({super.key});
+  final Map<String, dynamic>? coordinatorProfile;
+  
+  const SidebarProfile({
+    super.key,
+    this.coordinatorProfile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,17 +30,18 @@ class SidebarProfile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  CoordinatorDashboardStrings.defaultCoordinatorName,
-                  style: TextStyle(
+                Text(
+                  coordinatorProfile?['name'] ?? 'Coordinator',
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: CoordinatorDashboardDimensions.fontSizeLarge,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
                   CoordinatorDashboardStrings.coordinatorRole,
                   style: TextStyle(
-                    color: CoordinatorDashboardColors.textDarkGrey,
+                    color: Colors.white.withOpacity(0.7),
                     fontSize: CoordinatorDashboardDimensions.fontSizeMedium,
                   ),
                 ),
@@ -43,15 +49,31 @@ class SidebarProfile extends StatelessWidget {
             ),
           ),
           PopupMenuButton(
-            icon: const Icon(Icons.more_vert),
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.white.withOpacity(0.7),
+            ),
+            color: CoordinatorDashboardColors.primaryLight,
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'profile',
-                child: Text('Edit Profile'),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 18, color: Colors.white70),
+                    SizedBox(width: 8),
+                    Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
               ),
               const PopupMenuItem(
                 value: 'logout',
-                child: Text('Logout'),
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 18, color: Colors.white70),
+                    SizedBox(width: 8),
+                    Text('Logout', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
               ),
             ],
             onSelected: (value) async {

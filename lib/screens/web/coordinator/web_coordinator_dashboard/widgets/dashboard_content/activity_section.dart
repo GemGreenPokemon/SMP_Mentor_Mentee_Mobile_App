@@ -11,8 +11,27 @@ class ActivitySection extends StatelessWidget {
     required this.dashboardData,
   });
 
+  IconData _getIconForActivity(String? type) {
+    switch (type) {
+      case 'meeting':
+        return Icons.event_available;
+      case 'registration':
+        return Icons.person_add;
+      case 'assignment':
+        return Icons.assignment_turned_in;
+      case 'resource':
+        return Icons.upload_file;
+      case 'survey':
+        return Icons.poll;
+      default:
+        return Icons.update;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final activities = dashboardData.recentActivities ?? [];
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -50,33 +69,65 @@ class ActivitySection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            const ActivityItem(
-              title: 'New Survey Response',
-              subtitle: 'From: Dr. Smith (Mentor)',
-              time: '10 minutes ago',
-              icon: Icons.poll,
-            ),
-            const Divider(),
-            const ActivityItem(
-              title: 'Meeting Completed',
-              subtitle: 'Alice Johnson & Dr. Smith',
-              time: '1 hour ago',
-              icon: Icons.check_circle,
-            ),
-            const Divider(),
-            const ActivityItem(
-              title: 'Resource Added',
-              subtitle: 'New Mentorship Guide',
-              time: '2 hours ago',
-              icon: Icons.upload_file,
-            ),
-            const Divider(),
-            const ActivityItem(
-              title: 'New Mentor Application',
-              subtitle: 'From: Jordan Peterson',
-              time: '3 hours ago',
-              icon: Icons.person_add,
-            ),
+            if (activities.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text(
+                    'No recent activities',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...activities.take(4).map((activity) {
+                final index = activities.indexOf(activity);
+                return Column(
+                  children: [
+                    ActivityItem(
+                      title: activity['description'] ?? 'Activity',
+                      subtitle: activity['details'] ?? '',
+                      time: activity['time'] ?? 'Recently',
+                      icon: _getIconForActivity(activity['type']),
+                    ),
+                    if (index < 3 && index < activities.length - 1)
+                      const Divider(),
+                  ],
+                );
+              }).toList(),
+            // Fallback to hardcoded activities if no data
+            if (activities.isEmpty) ...[
+              const ActivityItem(
+                title: 'New Survey Response',
+                subtitle: 'From: Dr. Smith (Mentor)',
+                time: '10 minutes ago',
+                icon: Icons.poll,
+              ),
+              const Divider(),
+              const ActivityItem(
+                title: 'Meeting Completed',
+                subtitle: 'Alice Johnson & Dr. Smith',
+                time: '1 hour ago',
+                icon: Icons.check_circle,
+              ),
+              const Divider(),
+              const ActivityItem(
+                title: 'Resource Added',
+                subtitle: 'New Mentorship Guide',
+                time: '2 hours ago',
+                icon: Icons.upload_file,
+              ),
+              const Divider(),
+              const ActivityItem(
+                title: 'New Mentor Application',
+                subtitle: 'From: Jordan Peterson',
+                time: '3 hours ago',
+                icon: Icons.person_add,
+              ),
+            ],
           ],
         ),
       ),

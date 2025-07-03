@@ -12,11 +12,13 @@ import 'sidebar_menu_item.dart';
 class DashboardSidebar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
+  final Map<String, dynamic>? coordinatorProfile;
 
   const DashboardSidebar({
     super.key,
     required this.selectedIndex,
     required this.onItemSelected,
+    this.coordinatorProfile,
   });
 
   void _handleNavigation(BuildContext context, int index) {
@@ -94,7 +96,7 @@ class DashboardSidebar extends StatelessWidget {
       child: Column(
         children: [
           const SidebarHeader(),
-          const SidebarProfile(),
+          SidebarProfile(coordinatorProfile: coordinatorProfile),
           Container(
             height: 1,
             margin: const EdgeInsets.symmetric(horizontal: 20),

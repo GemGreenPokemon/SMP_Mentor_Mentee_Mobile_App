@@ -13,6 +13,15 @@ class MessagesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mentors = dashboardData.mentors.take(2).toList();
+    final mentees = dashboardData.mentees.take(2).toList();
+    
+    // Debug logging
+    print('Messages Section - Mentors: ${mentors.length}');
+    print('Messages Section - Mentees: ${mentees.length}');
+    if (mentors.isNotEmpty) print('First mentor: ${mentors[0]}');
+    if (mentees.isNotEmpty) print('First mentee: ${mentees[0]}');
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -59,17 +68,21 @@ class MessagesSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Mock list of mentors
-            const MessageListTile(
-              name: 'Sarah Martinez',
-              description: '3rd Year, Computer Science Major',
-              role: 'Mentor',
-            ),
-            const MessageListTile(
-              name: 'John Davis',
-              description: '4th Year, Biology Major',
-              role: 'Mentor',
-            ),
+            // Real mentor list
+            if (mentors.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'No mentors available',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              )
+            else
+              ...mentors.map((mentor) => MessageListTile(
+                name: mentor['name'] ?? 'Unknown Mentor',
+                description: '${mentor['year_major'] ?? ''}, ${mentor['department'] ?? 'Department'}',
+                role: 'Mentor',
+              )).toList(),
             const Divider(),
             const SizedBox(height: 8),
             const Text(
@@ -81,17 +94,21 @@ class MessagesSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Mock list of mentees
-            const MessageListTile(
-              name: 'Alice Johnson',
-              description: '1st Year, Biology Major',
-              role: 'Mentee',
-            ),
-            const MessageListTile(
-              name: 'Bob Wilson',
-              description: '2nd Year, Psychology Major',
-              role: 'Mentee',
-            ),
+            // Real mentee list
+            if (mentees.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'No mentees available',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              )
+            else
+              ...mentees.map((mentee) => MessageListTile(
+                name: mentee['name'] ?? 'Unknown Mentee',
+                description: '${mentee['year_major'] ?? ''}, ${mentee['department'] ?? 'Department'}',
+                role: 'Mentee',
+              )).toList(),
           ],
         ),
       ),

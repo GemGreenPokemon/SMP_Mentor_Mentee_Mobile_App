@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../cards/mentee_list_item.dart';
+import '../../models/coordinator_dashboard_data.dart';
 
 class MenteesListSection extends StatelessWidget {
-  const MenteesListSection({super.key});
+  final CoordinatorDashboardData dashboardData;
+  
+  const MenteesListSection({
+    super.key,
+    required this.dashboardData,
+  });
 
   Widget _buildStatusIndicator(String label, Color color) {
     return Container(
@@ -78,123 +84,154 @@ class MenteesListSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Column(
-              children: [
-                MenteeListItem(
-                  name: 'Michael Brown',
-                  program: '1st Year, Computer Science',
-                  status: 'Available',
-                  statusColor: Colors.green,
-                  onManage: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Manage Michael Brown'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Choose an option:'),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              leading: const Icon(Icons.person_off),
-                              title: const Text('Set as Inactive'),
-                              subtitle: const Text('Remove from available mentees list'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('Michael Brown set as inactive'),
-                                    action: SnackBarAction(
-                                      label: 'Undo',
-                                      onPressed: () {
-                                        // TODO: Revert status change
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                MenteeListItem(
-                  name: 'Lisa Chen',
-                  program: '2nd Year, Biology',
-                  status: 'Requested Mentor: Sarah Martinez (4th Year, Biology)',
-                  statusColor: Colors.orange,
-                  onApprove: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Approved mentor request for Lisa Chen'),
-                      ),
-                    );
-                  },
-                  onDeny: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Denied mentor request for Lisa Chen'),
-                      ),
-                    );
-                  },
-                ),
-                MenteeListItem(
-                  name: 'James Wilson',
-                  program: '1st Year, Psychology',
-                  status: 'Available',
-                  statusColor: Colors.green,
-                  onManage: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Manage James Wilson'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Choose an option:'),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              leading: const Icon(Icons.person_off),
-                              title: const Text('Set as Inactive'),
-                              subtitle: const Text('Remove from available mentees list'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('James Wilson set as inactive'),
-                                    action: SnackBarAction(
-                                      label: 'Undo',
-                                      onPressed: () {
-                                        // TODO: Revert status change
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
+              children: _buildMenteeList(context),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMenteeList(BuildContext context) {
+    final mentees = dashboardData.mentees.take(3).toList();
+    
+    // Debug logging
+    print('MenteesListSection - Total mentees: ${dashboardData.mentees.length}');
+    print('MenteesListSection - Showing: ${mentees.length}');
+    if (mentees.isNotEmpty) print('First mentee: ${mentees[0]}');
+    
+    if (mentees.isEmpty) {
+      return [
+        const Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Center(
+            child: Text(
+              'No mentees available',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    
+    // Use real mentee data
+    return mentees.map((mentee) {
+      final status = mentee['status'] ?? 'Unassigned';
+      final mentorName = mentee['mentorName'];
+      Color statusColor;
+      String displayStatus;
+      
+      if (status == 'Unassigned') {
+        statusColor = Colors.green;
+        displayStatus = 'Available';
+      } else if (status == 'Assigned' && mentorName != null && mentorName != 'Unassigned') {
+        statusColor = Colors.blue;
+        displayStatus = 'Assigned to $mentorName';
+      } else {
+        statusColor = Colors.orange;
+        displayStatus = status;
+      }
+      
+      return MenteeListItem(
+        name: mentee['name'] ?? 'Unknown Mentee',
+        program: '${mentee['year_major'] ?? ''}, ${mentee['department'] ?? ''}',
+        status: displayStatus,
+        statusColor: statusColor,
+        onManage: () {
+          _showManageDialog(context, mentee);
+        },
+      );
+    }).toList();
+  }
+  
+  List<Widget> _buildFallbackMenteeList(BuildContext context) {
+    return [
+      MenteeListItem(
+        name: 'Michael Brown',
+        program: '1st Year, Computer Science',
+        status: 'Available',
+        statusColor: Colors.green,
+        onManage: () {
+          _showManageDialog(context, {
+            'name': 'Michael Brown',
+            'program': '1st Year, Computer Science',
+          });
+        },
+      ),
+      MenteeListItem(
+        name: 'Lisa Chen',
+        program: '2nd Year, Biology',
+        status: 'Requested Mentor: Sarah Martinez (4th Year, Biology)',
+        statusColor: Colors.orange,
+        onApprove: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Approved mentor request for Lisa Chen'),
+            ),
+          );
+        },
+        onDeny: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Denied mentor request for Lisa Chen'),
+            ),
+          );
+        },
+      ),
+      MenteeListItem(
+        name: 'James Wilson',
+        program: '1st Year, Psychology',
+        status: 'Available',
+        statusColor: Colors.green,
+        onManage: () {
+          _showManageDialog(context, {
+            'name': 'James Wilson',
+            'program': '1st Year, Psychology',
+          });
+        },
+      ),
+    ];
+  }
+  
+  void _showManageDialog(BuildContext context, Map<String, dynamic> mentee) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Manage ${mentee['name'] ?? 'Mentee'}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Choose an option:'),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.person_off),
+              title: const Text('Set as Inactive'),
+              subtitle: const Text('Remove from available mentees list'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${mentee['name']} set as inactive'),
+                    action: SnackBarAction(
+                      label: 'Undo',
+                      onPressed: () {
+                        // TODO: Revert status change
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
         ],
       ),

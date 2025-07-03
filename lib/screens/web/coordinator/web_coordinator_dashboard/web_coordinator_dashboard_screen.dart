@@ -57,6 +57,7 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
         // If coordinator not found or database not connected, use mock data
         if (e.toString().contains('Coordinator not found') || 
             e.toString().contains('database')) {
+          print('Warning: ${e.toString()}. Using mock data.');
           setState(() {
             _dashboardData = _getMockDashboardData();
             _isLoading = false;
@@ -74,7 +75,15 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
   }
 
   CoordinatorDashboardData _getMockDashboardData() {
+    final authService = AuthService();
+    final currentUser = authService.currentUser;
+    
     return CoordinatorDashboardData(
+      coordinatorProfile: {
+        'name': currentUser?.displayName ?? currentUser?.email?.split('@')[0] ?? 'Coordinator',
+        'email': currentUser?.email ?? '',
+        'id': currentUser?.uid ?? '',
+      },
       stats: {
         'totalMentors': 12,
         'totalMentees': 36,
@@ -163,6 +172,7 @@ class _WebCoordinatorDashboardScreenState extends State<WebCoordinatorDashboardS
                 _selectedIndex = index;
               });
             },
+            coordinatorProfile: _dashboardData?.coordinatorProfile,
           ),
           
           // Main content area

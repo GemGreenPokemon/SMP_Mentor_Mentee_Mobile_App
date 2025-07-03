@@ -13,6 +13,8 @@ class EventsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final events = dashboardData.upcomingEvents ?? [];
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -38,26 +40,57 @@ class EventsSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const EventCard(
-              title: 'Mentor Training Workshop',
-              time: 'Tomorrow, 2:00 PM',
-              attendance: '24 Registered',
-              registrationProgress: 0.8,
-            ),
-            const SizedBox(height: 12),
-            const EventCard(
-              title: 'Group Mentoring Session',
-              time: 'Friday, 3:00 PM',
-              attendance: '18 Registered',
-              registrationProgress: 0.6,
-            ),
-            const SizedBox(height: 12),
-            const EventCard(
-              title: 'End of Year Celebration',
-              time: 'May 30, 5:00 PM',
-              attendance: '42 Registered',
-              registrationProgress: 0.7,
-            ),
+            if (events.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text(
+                    'No upcoming events scheduled',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...events.take(3).map((event) {
+                return Column(
+                  children: [
+                    EventCard(
+                      title: event['title'] ?? 'Untitled Event',
+                      time: event['time'] ?? 'TBD',
+                      attendance: '${event['attendance'] ?? 0} Registered',
+                      registrationProgress: (event['registrationProgress'] ?? 0.0).toDouble(),
+                    ),
+                    if (events.indexOf(event) < 2 && events.indexOf(event) < events.length - 1)
+                      const SizedBox(height: 12),
+                  ],
+                );
+              }).toList(),
+            // Fallback to hardcoded events if no data
+            if (events.isEmpty) ...[
+              const EventCard(
+                title: 'Mentor Training Workshop',
+                time: 'Tomorrow, 2:00 PM',
+                attendance: '24 Registered',
+                registrationProgress: 0.8,
+              ),
+              const SizedBox(height: 12),
+              const EventCard(
+                title: 'Group Mentoring Session',
+                time: 'Friday, 3:00 PM',
+                attendance: '18 Registered',
+                registrationProgress: 0.6,
+              ),
+              const SizedBox(height: 12),
+              const EventCard(
+                title: 'End of Year Celebration',
+                time: 'May 30, 5:00 PM',
+                attendance: '42 Registered',
+                registrationProgress: 0.7,
+              ),
+            ],
           ],
         ),
       ),

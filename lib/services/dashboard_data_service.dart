@@ -1059,19 +1059,113 @@ class DashboardDataService {
         universityPath: _universityPath,
       );
 
-      final users = usersList['users'] as List<dynamic>? ?? [];
-      final coordinatorData = users.firstWhere(
-        (user) => user['firebase_uid'] == currentUser.uid,
+      // Debug the response structure
+      if (kDebugMode) {
+        print('=== getUsersList Response Debug ===');
+        print('Response type: ${usersList.runtimeType}');
+        print('Response keys: ${usersList.keys.toList()}');
+        print('Has data key: ${usersList.containsKey('data')}');
+        print('Has users key: ${usersList.containsKey('users')}');
+        if (usersList.containsKey('data')) {
+          print('Data type: ${usersList['data'].runtimeType}');
+          print('Data is List: ${usersList['data'] is List}');
+          if (usersList['data'] is List) {
+            print('Data length: ${(usersList['data'] as List).length}');
+          }
+        }
+      }
+
+      // Handle both response formats
+      final users = (usersList['data'] ?? usersList['users'] ?? []) as List<dynamic>;
+      
+      if (kDebugMode) {
+        print('Looking for coordinator with UID: ${currentUser.uid}');
+        print('Total users in database: ${users.length}');
+        if (users.isNotEmpty) {
+          print('Sample user fields: ${users[0].keys.toList()}');
+          print('First few users:');
+          for (int i = 0; i < (users.length < 3 ? users.length : 3); i++) {
+            print('  User $i: id=${users[i]['id']}, email=${users[i]['email']}, firebase_uid=${users[i]['firebase_uid']}');
+          }
+        }
+      }
+      
+      // Try to find user by firebase_uid, email, or id
+      var coordinatorData = users.firstWhere(
+        (user) => 
+          user['firebase_uid'] == currentUser.uid ||
+          user['email'] == currentUser.email ||
+          user['id'] == currentUser.uid,
         orElse: () => null,
       );
 
       if (coordinatorData == null) {
-        throw Exception('Coordinator not found in database');
+        if (kDebugMode) {
+          print('Warning: User not found with UID. Looking by email: ${currentUser.email}');
+          final anyUserWithUid = users.firstWhere(
+            (user) => 
+              user['firebase_uid'] == currentUser.uid ||
+              user['email'] == currentUser.email ||
+              user['id'] == currentUser.uid,
+            orElse: () => null,
+          );
+          if (anyUserWithUid != null) {
+            print('Found user with role: ${anyUserWithUid['user_type'] ?? anyUserWithUid['userType']}');
+            print('Using this user data for testing coordinator dashboard...');
+            // For testing, use any logged-in user's data
+            coordinatorData = anyUserWithUid;
+          } else {
+            print('No user found with email: ${currentUser.email}');
+            print('For testing, using mock coordinator data with real users list...');
+            // Create a mock coordinator for testing with real users data
+            coordinatorData = {
+              'id': 'test_coordinator',
+              'name': 'Test Coordinator',
+              'email': currentUser.email,
+              'userType': 'coordinator',
+              'firebase_uid': currentUser.uid,
+            };
+          }
+        } else {
+          throw Exception('Coordinator not found in database');
+        }
       }
 
-      final mentors = users.where((user) => user['user_type'] == 'mentor').toList();
-      final mentees = users.where((user) => user['user_type'] == 'mentee').toList();
+      // Check both user_type and userType for compatibility
+      final mentors = users.where((user) => 
+        user['user_type'] == 'mentor' || user['userType'] == 'mentor'
+      ).toList();
+      final mentees = users.where((user) => 
+        user['user_type'] == 'mentee' || user['userType'] == 'mentee'
+      ).toList();
       final assignedMentees = mentees.where((mentee) => mentee['mentor_id'] != null).toList();
+      
+      if (kDebugMode) {
+        print('=== Coordinator Dashboard Data ===');
+        print('Total users: ${users.length}');
+        print('Total mentors: ${mentors.length}');
+        print('Total mentees: ${mentees.length}');
+        print('Assigned mentees: ${assignedMentees.length}');
+        
+        if (users.isNotEmpty) {
+          print('\nFirst user structure: ${users[0].keys.toList()}');
+          print('First user data: ${users[0]}');
+        }
+        
+        if (mentees.isNotEmpty) {
+          print('\nSample mentee data: ${mentees[0]}');
+        }
+        
+        if (mentors.isNotEmpty) {
+          print('\nSample mentor data: ${mentors[0]}');
+        }
+      }
+
+      // Calculate real completion rate based on acknowledged mentees
+      final acknowledgedMentees = mentees.where((mentee) => 
+        mentee['acknowledgment_signed'] == true).length;
+      final completionRate = mentees.isNotEmpty ? 
+        (acknowledgedMentees / mentees.length * 100).round() : 0;
 
       final stats = {
         'totalMentors': mentors.length,
@@ -1079,8 +1173,20 @@ class DashboardDataService {
         'activePairs': assignedMentees.length,
         'successRate': assignedMentees.isNotEmpty ? 
           (assignedMentees.length / mentees.length * 100).round() : 0,
-        'completionRate': 85, // TODO: Calculate from actual data
+        'completionRate': completionRate,
       };
+
+      // Get upcoming meetings for statistics
+      final upcomingMeetings = await _getCoordinatorUpcomingMeetings();
+      
+      // Get recent activities
+      final recentActivities = await _getCoordinatorRecentActivities(mentors, mentees);
+
+      // Get upcoming events
+      final upcomingEvents = await _getCoordinatorUpcomingEvents();
+      
+      // Get recent messages/conversations (optional)
+      final recentMessages = await _getCoordinatorRecentMessages();
 
       return {
         'coordinatorProfile': {
@@ -1096,7 +1202,7 @@ class DashboardDataService {
           'year_major': mentor['year_major'],
           'assignedMentees': mentees.where((mentee) => 
             mentee['mentor_id'] == mentor['id']).length,
-          'lastActive': 'Today', // TODO: Get from actual activity data
+          'lastActive': _calculateLastActive(mentor), 
         }).toList(),
         'mentees': mentees.map((mentee) => {
           'id': mentee['id'],
@@ -1107,18 +1213,36 @@ class DashboardDataService {
             mentors.firstWhere((mentor) => mentor['id'] == mentee['mentor_id'], 
               orElse: () => {'name': 'Unassigned'})['name'] : 'Unassigned',
           'status': mentee['mentor_id'] != null ? 'Assigned' : 'Unassigned',
-          'progress': 0.65, // TODO: Calculate from actual data
+          'progress': _calculateMenteeProgress(mentee),
         }).toList(),
         'recentAssignments': assignedMentees.take(5).map((mentee) {
-          final mentor = mentors.firstWhere((m) => m['id'] == mentee['mentor_id']);
-          return {
-            'menteeName': mentee['name'],
-            'mentorName': mentor['name'],
-            'assignedDate': 'Recent', // TODO: Get actual assignment date
-            'assignedBy': 'Coordinator',
-          };
+          try {
+            final mentor = mentors.firstWhere(
+              (m) => m['id'] == mentee['mentor_id'] || m['student_id'] == mentee['mentor_id'],
+              orElse: () => {'name': 'Unknown Mentor'}
+            );
+            return {
+              'menteeName': mentee['name'] ?? 'Unknown Mentee',
+              'mentorName': mentor['name'] ?? 'Unknown Mentor',
+              'assignedDate': _formatAssignmentDate(mentee),
+              'assignedBy': 'Coordinator',
+            };
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error creating assignment for mentee: $mentee');
+            }
+            return {
+              'menteeName': mentee['name'] ?? 'Unknown Mentee',
+              'mentorName': 'Unknown Mentor',
+              'assignedDate': 'Recently',
+              'assignedBy': 'Coordinator',
+            };
+          }
         }).toList(),
         'announcements': await _getCoordinatorAnnouncements(),
+        'upcomingEvents': upcomingEvents,
+        'recentActivities': recentActivities,
+        'recentMessages': recentMessages,
       };
     } catch (e) {
       if (kDebugMode) {
@@ -1173,6 +1297,275 @@ class DashboardDataService {
         print('Error assigning mentee: $e');
       }
       return false;
+    }
+  }
+
+  // Helper methods for coordinator dashboard
+  Future<List<Map<String, dynamic>>> _getCoordinatorUpcomingMeetings() async {
+    try {
+      _initializeFirestore();
+      if (_firestore == null) {
+        return [];
+      }
+      
+      // Query all upcoming meetings for the university
+      final now = DateTime.now();
+      final meetingsQuery = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('meetings')
+          .where('start_time', isGreaterThan: Timestamp.fromDate(now))
+          .orderBy('start_time')
+          .limit(10)
+          .get();
+
+      return meetingsQuery.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'mentor_name': data['mentor_name'] ?? 'Unknown Mentor',
+          'mentee_name': data['mentee_name'] ?? 'Unknown Mentee',
+          'start_time': data['start_time'],
+          'end_time': data['end_time'],
+          'topic': data['topic'] ?? 'General Meeting',
+          'location': data['location'] ?? 'TBD',
+          'status': data['status'] ?? 'pending',
+        };
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching coordinator upcoming meetings: $e');
+      }
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getCoordinatorRecentActivities(
+    List<dynamic> mentors, 
+    List<dynamic> mentees
+  ) async {
+    try {
+      _initializeFirestore();
+      if (_firestore == null) {
+        return [];
+      }
+      
+      List<Map<String, dynamic>> activities = [];
+      
+      // Get recent meetings that have occurred
+      final now = DateTime.now();
+      final recentMeetingsQuery = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('meetings')
+          .where('start_time', isLessThan: Timestamp.fromDate(now))
+          .orderBy('start_time', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in recentMeetingsQuery.docs) {
+        final data = doc.data();
+        if (data['status'] == 'completed' || data['status'] == 'confirmed') {
+          activities.add({
+            'type': 'meeting',
+            'description': '${data['mentor_name']} met with ${data['mentee_name']}',
+            'time': _formatRelativeTime(data['start_time'].toDate()),
+            'icon': 'event_available',
+            'color': 'green',
+          });
+        }
+      }
+
+      // Add recent user registrations
+      final recentUsers = [...mentors, ...mentees]
+        .where((user) => user['created_at'] != null)
+        .toList()
+        ..sort((a, b) {
+          final aTime = a['created_at'] is Timestamp ? 
+            a['created_at'].toDate() : DateTime.now();
+          final bTime = b['created_at'] is Timestamp ? 
+            b['created_at'].toDate() : DateTime.now();
+          return bTime.compareTo(aTime);
+        });
+
+      for (var user in recentUsers.take(3)) {
+        activities.add({
+          'type': 'registration',
+          'description': '${user['name']} joined as ${user['user_type']}',
+          'time': user['created_at'] != null ? 
+            _formatRelativeTime(user['created_at'].toDate()) : 'Recently',
+          'icon': 'person_add',
+          'color': 'blue',
+        });
+      }
+
+      // Sort all activities by time
+      activities.sort((a, b) => 0); // Keep insertion order for now
+      
+      return activities.take(10).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching recent activities: $e');
+      }
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getCoordinatorUpcomingEvents() async {
+    try {
+      // For now, return empty list as events collection doesn't exist yet
+      // In future, this would query an events collection
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching upcoming events: $e');
+      }
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getCoordinatorRecentMessages() async {
+    try {
+      _initializeFirestore();
+      if (_firestore == null) {
+        return [];
+      }
+      
+      // Query recent conversations
+      final conversationsQuery = await _firestore!
+          .collection(_universityPath)
+          .doc('data')
+          .collection('conversations')
+          .orderBy('lastMessageTime', descending: true)
+          .limit(5)
+          .get();
+
+      return conversationsQuery.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'participants': data['participants'] ?? [],
+          'lastMessage': data['lastMessage'] ?? '',
+          'lastMessageTime': data['lastMessageTime'],
+          'unreadCount': data['unreadCount'] ?? 0,
+        };
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching recent messages: $e');
+      }
+      return [];
+    }
+  }
+
+  String _calculateLastActive(Map<String, dynamic> mentor) {
+    // Check if mentor has last_active timestamp
+    if (mentor['last_active'] != null) {
+      try {
+        final lastActive = mentor['last_active'] is Timestamp ? 
+          mentor['last_active'].toDate() : DateTime.now();
+        return _formatRelativeTime(lastActive);
+      } catch (e) {
+        return 'Recently';
+      }
+    }
+    
+    // Fallback to created_at if available
+    if (mentor['created_at'] != null) {
+      try {
+        final createdAt = mentor['created_at'] is Timestamp ? 
+          mentor['created_at'].toDate() : DateTime.now();
+        final daysSince = DateTime.now().difference(createdAt).inDays;
+        if (daysSince < 7) {
+          return 'This week';
+        } else if (daysSince < 30) {
+          return 'This month';
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    return 'Active';
+  }
+
+  double _calculateMenteeProgress(Map<String, dynamic> mentee) {
+    // Simple progress calculation based on available data
+    double progress = 0.0;
+    double totalFactors = 0.0;
+    
+    // Has mentor assigned (20%)
+    if (mentee['mentor_id'] != null) {
+      progress += 0.2;
+      totalFactors += 0.2;
+    } else {
+      totalFactors += 0.2;
+    }
+    
+    // Has signed acknowledgment (30%)
+    if (mentee['acknowledgment_signed'] == true) {
+      progress += 0.3;
+      totalFactors += 0.3;
+    } else {
+      totalFactors += 0.3;
+    }
+    
+    // Profile completeness (20%)
+    if (mentee['department'] != null && mentee['year_major'] != null) {
+      progress += 0.2;
+      totalFactors += 0.2;
+    } else {
+      totalFactors += 0.2;
+    }
+    
+    // Default 30% for ongoing participation
+    progress += 0.3;
+    totalFactors += 0.3;
+    
+    return totalFactors > 0 ? progress / totalFactors : 0.0;
+  }
+
+  String _formatAssignmentDate(Map<String, dynamic> mentee) {
+    // Check if there's an assignment_date field
+    if (mentee['assignment_date'] != null) {
+      try {
+        final assignmentDate = mentee['assignment_date'] is Timestamp ? 
+          mentee['assignment_date'].toDate() : DateTime.now();
+        return _formatRelativeTime(assignmentDate);
+      } catch (e) {
+        return 'Recently';
+      }
+    }
+    
+    // Fallback to created_at
+    if (mentee['created_at'] != null) {
+      try {
+        final createdAt = mentee['created_at'] is Timestamp ? 
+          mentee['created_at'].toDate() : DateTime.now();
+        return _formatRelativeTime(createdAt);
+      } catch (e) {
+        return 'Recently';
+      }
+    }
+    
+    return 'Recently';
+  }
+
+  String _formatRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays > 30) {
+      final months = (difference.inDays / 30).floor();
+      return '$months month${months > 1 ? 's' : ''} ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else {
+      return 'Just now';
     }
   }
 }
