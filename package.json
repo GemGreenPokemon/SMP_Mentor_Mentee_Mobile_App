@@ -1,0 +1,22 @@
+{
+  "name": "smp-mentor-mentee-mobile-app",
+  "version": "1.0.0",
+  "description": "SMP Mentor Mentee Mobile Application",
+  "scripts": {
+    "remove-debug": "node remove-debug-safe.js",
+    "remove-debug:dry": "node remove-debug-safe.js --dry-run",
+    "remove-debug:verbose": "node remove-debug-safe.js --verbose",
+    "remove-debug:preview": "node remove-debug-safe.js --dry-run --verbose",
+    "remove-debug:aggressive": "node remove-debug-code.js",
+    "remove-debug:web": "node remove-debug-web-only.js",
+    "remove-debug:web-dry": "node remove-debug-web-only.js --dry-run",
+    "remove-debug:web-preview": "node remove-debug-web-only.js --dry-run --verbose",
+    "install-deps": "npm install glob"
+  },
+  "keywords": ["flutter", "mentor", "mentee", "smp"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "glob": "^8.1.0"
+  }
+}
