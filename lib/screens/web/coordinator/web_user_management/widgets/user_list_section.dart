@@ -36,10 +36,38 @@ class _UserListSectionState extends State<UserListSection> {
   String _sortBy = 'name';
   bool _ascending = true;
   bool _isGridView = false;
+  bool _tableLoaded = false; // Track if table should be shown
+  bool _isLoadingTable = false; // Track loading state for table
+  int _loadedUserCount = 20; // Start with 20 users
+  static const int _usersPerLoad = 20; // Load 20 users at a time
+  
+  // Cached values for performance
+  List<User>? _cachedFilteredUsers;
+  UserFilter? _lastFilter;
+  List<User>? _lastUsers;
+  String? _lastSortBy;
+  bool? _lastAscending;
 
   List<User> get filteredAndSortedUsers {
-    final filtered = UserManagementHelpers.filterUsers(widget.users, widget.filter);
-    return UserManagementHelpers.sortUsers(filtered, _sortBy, _ascending);
+    // Check if we need to recalculate
+    final needsRecalculation = 
+        _cachedFilteredUsers == null ||
+        _lastFilter != widget.filter ||
+        _lastUsers != widget.users ||
+        _lastSortBy != _sortBy ||
+        _lastAscending != _ascending ||
+        _lastUsers?.length != widget.users.length;
+    
+    if (needsRecalculation) {
+      final filtered = UserManagementHelpers.filterUsers(widget.users, widget.filter);
+      _cachedFilteredUsers = UserManagementHelpers.sortUsers(filtered, _sortBy, _ascending);
+      _lastFilter = widget.filter;
+      _lastUsers = widget.users;
+      _lastSortBy = _sortBy;
+      _lastAscending = _ascending;
+    }
+    
+    return _cachedFilteredUsers!;
   }
 
   void _handleAddUser() async {
@@ -78,19 +106,50 @@ class _UserListSectionState extends State<UserListSection> {
     }
   }
 
+  // Memoized statistics
+  late int _totalMentors;
+  late int _totalMentees;
+  late int _totalAcknowledged;
+  
+  void _updateStatistics() {
+    _totalMentors = widget.users.where((u) => u.userType == 'mentor').length;
+    _totalMentees = widget.users.where((u) => u.userType == 'mentee').length;
+    _totalAcknowledged = widget.users.where((u) => 
+      u.acknowledgmentSigned != 'not_applicable' && 
+      u.acknowledgmentSigned != 'No'
+    ).length;
+  }
+  
+  @override
+  void didUpdateWidget(UserListSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.users.length != widget.users.length) {
+      _updateStatistics();
+    }
+    // Reset loaded count when filter changes
+    if (oldWidget.filter != widget.filter) {
+      _loadedUserCount = 20;
+    }
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    _updateStatistics();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final displayUsers = filteredAndSortedUsers;
+    final allFilteredUsers = filteredAndSortedUsers;
+    final displayUsers = _tableLoaded 
+        ? allFilteredUsers.take(_loadedUserCount).toList() 
+        : allFilteredUsers;
+    final hasMoreToLoad = _tableLoaded && _loadedUserCount < allFilteredUsers.length;
     final isDesktop = MediaQuery.of(context).size.width > 1024;
 
     // If loading, show loading state
     if (widget.isLoading) {
       return _buildLoadingState();
-    }
-    
-    // If empty, show empty state
-    if (displayUsers.isEmpty) {
-      return _buildEmptyState();
     }
 
     return Column(
@@ -115,24 +174,21 @@ class _UserListSectionState extends State<UserListSection> {
               ),
               _buildPremiumStatCard(
                 'Mentors',
-                widget.users.where((u) => u.userType == 'mentor').length.toString(),
+                _totalMentors.toString(),
                 UserManagementConstants.mentorIcon,
                 const Color(0xFF10B981),
                 const Color(0xFF34D399),
               ),
               _buildPremiumStatCard(
                 'Mentees',
-                widget.users.where((u) => u.userType == 'mentee').length.toString(),
+                _totalMentees.toString(),
                 UserManagementConstants.menteeIcon,
                 const Color(0xFF3B82F6),
                 const Color(0xFF60A5FA),
               ),
               _buildPremiumStatCard(
                 'Acknowledged',
-                widget.users.where((u) => 
-                  u.acknowledgmentSigned != 'not_applicable' && 
-                  u.acknowledgmentSigned != 'No'
-                ).length.toString(),
+                _totalAcknowledged.toString(),
                 Icons.verified,
                 const Color(0xFFF59E0B),
                 const Color(0xFFFBBF24),
@@ -199,31 +255,60 @@ class _UserListSectionState extends State<UserListSection> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // View Toggle with better styling
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(10),
+                    // View Toggle - only show if table is loaded
+                    if (_tableLoaded) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: Row(
+                          children: [
+                            _buildViewToggleButton(
+                              Icons.list,
+                              !_isGridView,
+                              () => setState(() => _isGridView = false),
+                              'List view',
+                            ),
+                            _buildViewToggleButton(
+                              Icons.grid_view,
+                              _isGridView,
+                              () => setState(() => _isGridView = true),
+                              'Grid view',
+                            ),
+                          ],
+                        ),
                       ),
-                      padding: const EdgeInsets.all(2),
-                      child: Row(
-                        children: [
-                          _buildViewToggleButton(
-                            Icons.list,
-                            !_isGridView,
-                            () => setState(() => _isGridView = false),
-                            'List view',
-                          ),
-                          _buildViewToggleButton(
-                            Icons.grid_view,
-                            _isGridView,
-                            () => setState(() => _isGridView = true),
-                            'Grid view',
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                     const SizedBox(width: 12),
+                    // Hide/Show Table Button - only show if table is loaded
+                    if (_tableLoaded) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.visibility_off, size: 18),
+                          label: const Text('Hide Table'),
+                          onPressed: () {
+                            setState(() {
+                              _tableLoaded = false;
+                              _loadedUserCount = 20; // Reset to initial count
+                            });
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[700],
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     // Refresh Button
                     Container(
                       decoration: BoxDecoration(
@@ -237,7 +322,15 @@ class _UserListSectionState extends State<UserListSection> {
                               ? Colors.grey 
                               : const Color(0xFF6366F1),
                         ),
-                        onPressed: widget.isLoading ? null : widget.onRefresh,
+                        onPressed: widget.isLoading ? null : () {
+                          widget.onRefresh();
+                          // Also reload the table if it was loaded
+                          if (_tableLoaded) {
+                            setState(() {
+                              _cachedFilteredUsers = null; // Clear cache to force recalculation
+                            });
+                          }
+                        },
                         tooltip: 'Refresh',
                       ),
                     ),
@@ -248,7 +341,7 @@ class _UserListSectionState extends State<UserListSection> {
                   filter: widget.filter,
                   onFilterChanged: widget.onFilterChanged,
                   totalUsers: widget.users.length,
-                  filteredUsers: displayUsers.length,
+                  filteredUsers: allFilteredUsers.length,
                 ),
               ],
             ),
@@ -256,12 +349,246 @@ class _UserListSectionState extends State<UserListSection> {
         ),
         const SizedBox(height: 24),
 
-        // Users List/Grid
-        if (_isGridView)
-          _buildGridView(displayUsers)
-        else
-          _buildListView(displayUsers),
+        // Users List/Grid - Only show if table is loaded
+        if (!_tableLoaded)
+          _buildLoadTableButton()
+        else if (allFilteredUsers.isEmpty)
+          _buildEmptyState()
+        else ...[
+          if (_isGridView)
+            _buildGridView(displayUsers)
+          else
+            _buildListView(displayUsers),
+          
+          // Load More button
+          if (hasMoreToLoad)
+            _buildLoadMoreButton(allFilteredUsers.length),
+        ],
       ],
+    );
+  }
+
+  Widget _buildLoadTableButton() {
+    return Container(
+      height: 400,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF6366F1).withOpacity(0.1),
+                    const Color(0xFF8B5CF6).withOpacity(0.05),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.table_chart_outlined,
+                size: 64,
+                color: const Color(0xFF6366F1),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Ready to view users',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The user table is hidden to improve performance.\nClick below to load and display all users.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _isLoadingTable ? null : () async {
+                  setState(() {
+                    _isLoadingTable = true;
+                  });
+                  // Brief delay to show loading state
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  if (mounted) {
+                    setState(() {
+                      _tableLoaded = true;
+                      _isLoadingTable = false;
+                    });
+                  }
+                },
+                icon: _isLoadingTable 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.download, size: 20),
+                label: Text(
+                  _isLoadingTable ? 'Loading...' : 'Load User Table',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${widget.users.length} users ready to display',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Initially loads 20 users for better performance',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreButton(int totalUsers) {
+    final remainingUsers = totalUsers - _loadedUserCount;
+    final usersToLoad = remainingUsers > _usersPerLoad ? _usersPerLoad : remainingUsers;
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 24, bottom: 48),
+      child: Center(
+        child: Column(
+          children: [
+            Text(
+              'Showing $_loadedUserCount of $totalUsers users',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    setState(() {
+                      _loadedUserCount += _usersPerLoad;
+                      // Don't exceed total users
+                      if (_loadedUserCount > totalUsers) {
+                        _loadedUserCount = totalUsers;
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          color: const Color(0xFF6366F1),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Load $usersToLoad More Users',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6366F1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '$remainingUsers users remaining',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -395,55 +722,58 @@ class _UserListSectionState extends State<UserListSection> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.people_outline,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            widget.filter.hasActiveFilters
-                ? 'No users match the current filters'
-                : UserManagementConstants.noUsersMessage,
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.filter.hasActiveFilters
-                ? 'Try adjusting your filters to see more results'
-                : 'Add users by importing from Excel or creating them manually',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-          if (widget.filter.hasActiveFilters) ...[
-            const SizedBox(height: 24),
-            TextButton.icon(
-              onPressed: () => widget.onFilterChanged(UserFilter()),
-              icon: const Icon(Icons.clear),
-              label: const Text('Clear Filters'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF6366F1),
+    return Container(
+      height: 400,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.people_outline,
+                size: 64,
+                color: Colors.grey[400],
               ),
             ),
+            const SizedBox(height: 24),
+            Text(
+              widget.filter.hasActiveFilters
+                  ? 'No users match the current filters'
+                  : UserManagementConstants.noUsersMessage,
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.filter.hasActiveFilters
+                  ? 'Try adjusting your filters to see more results'
+                  : 'Add users by importing from Excel or creating them manually',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+            if (widget.filter.hasActiveFilters) ...[
+              const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: () => widget.onFilterChanged(UserFilter()),
+                icon: const Icon(Icons.clear),
+                label: const Text('Clear Filters'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF6366F1),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

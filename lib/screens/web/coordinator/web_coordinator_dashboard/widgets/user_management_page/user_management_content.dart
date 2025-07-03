@@ -6,9 +6,10 @@ class UserManagementContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Navigate directly to the new unified user management screen
+    // Navigate to the user management screen using push instead of pushReplacement
+    // This keeps the dashboard in the navigation stack
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => const WebUserManagementScreen(),
         ),

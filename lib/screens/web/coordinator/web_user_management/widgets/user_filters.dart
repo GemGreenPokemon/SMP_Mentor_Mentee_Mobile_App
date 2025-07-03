@@ -190,8 +190,7 @@ class UserFilters extends StatelessWidget {
       onTap: () {
         onFilterChanged(filter.copyWith(typeFilter: value));
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         margin: const EdgeInsets.all(2),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -240,8 +239,7 @@ class UserFilters extends StatelessWidget {
       onTap: () {
         onFilterChanged(filter.copyWith(statusFilter: value));
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         margin: const EdgeInsets.all(2),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -332,8 +330,7 @@ class UserFilters extends StatelessWidget {
   ) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? color : Colors.transparent,

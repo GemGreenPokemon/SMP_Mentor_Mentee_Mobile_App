@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/user_management_constants.dart';
 
@@ -19,6 +20,7 @@ class _UserSearchBarState extends State<UserSearchBar> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
   bool _isFocused = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -34,9 +36,20 @@ class _UserSearchBarState extends State<UserSearchBar> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+  
+  void _onSearchChanged(String value) {
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+    
+    // Start new timer with 300ms delay
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      widget.onSearchChanged(value);
+    });
   }
 
   @override
@@ -67,7 +80,7 @@ class _UserSearchBarState extends State<UserSearchBar> {
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
-        onChanged: widget.onSearchChanged,
+        onChanged: _onSearchChanged,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: 'Search by name, email, or student ID...',
@@ -87,7 +100,7 @@ class _UserSearchBarState extends State<UserSearchBar> {
                     borderRadius: BorderRadius.circular(20),
                     onTap: () {
                       _controller.clear();
-                      widget.onSearchChanged('');
+                      _onSearchChanged('');
                     },
                     child: Container(
                       padding: const EdgeInsets.all(12),

@@ -7,6 +7,7 @@ import 'package:smp_mentor_mentee_mobile_app/services/excel_parser_service.dart'
 import 'package:smp_mentor_mentee_mobile_app/services/excel_to_user_transformation_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/cloud_function_service.dart';
 import 'package:smp_mentor_mentee_mobile_app/services/real_time_user_service.dart';
+import 'package:smp_mentor_mentee_mobile_app/screens/web/coordinator/web_coordinator_dashboard/web_coordinator_dashboard_screen.dart';
 import 'models/import_preview_data.dart';
 import 'models/user_filter.dart';
 import 'models/user_import_result.dart';
@@ -23,7 +24,7 @@ class WebUserManagementScreen extends StatefulWidget {
 }
 
 class _WebUserManagementScreenState extends State<WebUserManagementScreen> 
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final RealTimeUserService _userService = RealTimeUserService();
   final CloudFunctionService _cloudFunctionService = CloudFunctionService();
@@ -41,6 +42,9 @@ class _WebUserManagementScreenState extends State<WebUserManagementScreen>
   List<User> _allUsers = [];
   UserFilter _currentFilter = UserFilter();
   StreamSubscription<List<User>>? _usersSubscription;
+  
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -317,6 +321,7 @@ class _WebUserManagementScreenState extends State<WebUserManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDesktop = MediaQuery.of(context).size.width > 1024;
     final isTablet = MediaQuery.of(context).size.width > 768;
     
@@ -353,7 +358,14 @@ class _WebUserManagementScreenState extends State<WebUserManagementScreen>
                         children: [
                           IconButton(
                             icon: const Icon(Icons.arrow_back),
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              // Navigate back to coordinator dashboard
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => const WebCoordinatorDashboardScreen(),
+                                ),
+                              );
+                            },
                             tooltip: 'Back to Dashboard',
                           ),
                           const SizedBox(width: 16),
