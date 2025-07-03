@@ -181,10 +181,10 @@ class _UserManagementViewState extends State<UserManagementView> {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentor,
   }) async {
     final universityPath = _cloudFunctions.getCurrentUniversityPath();
@@ -195,10 +195,10 @@ class _UserManagementViewState extends State<UserManagementView> {
       name: name,
       email: email,
       userType: userType,
-      studentId: studentId,
+      studentId: student_id,
       department: department,
-      yearMajor: yearMajor,
-      acknowledgmentSigned: acknowledgmentSigned,
+      yearMajor: year_major,
+      acknowledgmentSigned: acknowledgment_signed,
     );
 
     if (result['success'] != true) {
@@ -226,10 +226,10 @@ class _UserManagementViewState extends State<UserManagementView> {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentorId,
   }) async {
     final universityPath = _cloudFunctions.getCurrentUniversityPath();
@@ -239,18 +239,18 @@ class _UserManagementViewState extends State<UserManagementView> {
       'name': name,
       'email': email,
       'userType': userType,
-      'acknowledgment_signed': acknowledgmentSigned,
+      'acknowledgment_signed': acknowledgment_signed,
     };
     
     // Add optional fields only if they have values
-    if (studentId != null && studentId.isNotEmpty) {
-      updateData['student_id'] = studentId;
+    if (student_id != null && student_id.isNotEmpty) {
+      updateData['student_id'] = student_id;
     }
     if (department != null && department.isNotEmpty) {
       updateData['department'] = department;
     }
-    if (yearMajor != null && yearMajor.isNotEmpty) {
-      updateData['year_major'] = yearMajor;
+    if (year_major != null && year_major.isNotEmpty) {
+      updateData['year_major'] = year_major;
     }
     
     // Handle mentor assignment for mentees

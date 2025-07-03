@@ -105,6 +105,9 @@ class CloudFunctionService {
     String? department,
     String? yearMajor,
     String? acknowledgmentSigned,
+    String? importSource,
+    String? mentor,
+    dynamic mentee, // Can be String or List<String>
   }) async {
     try {
       print('🔍 createUserAccount: Starting request');
@@ -121,6 +124,9 @@ class CloudFunctionService {
         'department': department,
         'year_major': yearMajor,
         'acknowledgment_signed': acknowledgmentSigned,
+        'import_source': importSource,
+        'mentor': mentor,
+        'mentee': mentee,
       });
       
       print('🔍 createUserAccount: Success - received data: ${result.data}');

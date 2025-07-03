@@ -15,10 +15,10 @@ class UserManagementSectionV2 extends StatefulWidget {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentor,
   }) onCreateUser;
   final Function({
@@ -26,10 +26,10 @@ class UserManagementSectionV2 extends StatefulWidget {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentorId,
   }) onUpdateUser;
   final Function(User) onDeleteUser;
@@ -343,10 +343,10 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
               name: data['name']!,
               email: data['email']!,
               userType: data['userType']!,
-              studentId: data['studentId'],
+              student_id: data['studentId'],
               department: data['department'],
-              yearMajor: data['yearMajor'],
-              acknowledgmentSigned: data['acknowledgmentSigned']!,
+              year_major: data['yearMajor'],
+              acknowledgment_signed: data['acknowledgmentSigned']!,
               mentor: data['mentorId'],
             );
             Navigator.of(dialogContext).pop();
@@ -385,10 +385,10 @@ class _UserManagementSectionV2State extends State<UserManagementSectionV2> {
               name: data['name']!,
               email: data['email']!,
               userType: data['userType']!,
-              studentId: data['studentId'],
+              student_id: data['studentId'],
               department: data['department'],
-              yearMajor: data['yearMajor'],
-              acknowledgmentSigned: data['acknowledgmentSigned']!,
+              year_major: data['yearMajor'],
+              acknowledgment_signed: data['acknowledgmentSigned']!,
               mentorId: data['mentorId'],
             );
             Navigator.of(dialogContext).pop();

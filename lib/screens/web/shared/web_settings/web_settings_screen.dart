@@ -13,7 +13,7 @@ import 'sections/appearance_settings_section.dart';
 import 'sections/file_storage_settings_section.dart';
 import 'sections/account_settings_section.dart';
 import 'sections/excel_upload_section.dart';
-import 'sections/user_management_section.dart';
+import 'sections/user_management_section_v2.dart';
 import 'sections/database_admin_section.dart';
 import 'sections/help_support_section.dart';
 import 'sections/developer_tools_section.dart';
@@ -171,12 +171,9 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
                         // Developer-only sections
                         if (DeveloperSession.isActive) ...[
                           // User Management Section
-                          UserManagementSection(
+                          UserManagementSectionV2(
                             usersList: _usersList,
                             loadingUsers: _loadingUsers,
-                            showAddUserForm: _showAddUserForm,
-                            showEditUserForm: _showEditUserForm,
-                            editingUser: _editingUser,
                             onToggleAddUserForm: () => _toggleAddUserForm(),
                             onToggleEditUserForm: (user) => _editUser(user),
                             onCancelEdit: () => _cancelEdit(),
@@ -553,10 +550,10 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentor,
   }) async {
     final universityPath = _cloudFunctions.getCurrentUniversityPath();
@@ -567,17 +564,21 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
       name: name,
       email: email,
       userType: userType,
-      studentId: studentId,
+      studentId: student_id,
       department: department,
-      yearMajor: yearMajor,
-      acknowledgmentSigned: acknowledgmentSigned,
+      yearMajor: year_major,
+      acknowledgmentSigned: acknowledgment_signed,
+      importSource: 'manual', // Mark as manually created through UI
+      mentor: userType == 'mentee' ? mentor : null, // Pass mentor for mentees
+      mentee: userType == 'mentor' ? [] : null, // Initialize empty array for mentors
     );
 
     if (result['success'] != true) {
       throw Exception(result['message'] ?? 'Failed to create user');
     }
 
-    // If this is a mentee and mentor is assigned, create mentorship
+    // If this is a mentee and mentor is assigned, also create mentorship record
+    // This creates the relationship in the mentorships collection with metadata
     if (userType == 'mentee' && mentor != null && result['data'] != null) {
       try {
         final newUserId = result['data']['id'];
@@ -588,7 +589,7 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
         );
       } catch (e) {
         // Log the error but don't fail the user creation
-        print('Warning: Failed to assign mentor: $e');
+        print('Warning: Failed to create mentorship record: $e');
       }
     }
   }
@@ -598,10 +599,10 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
     required String name,
     required String email,
     required String userType,
-    String? studentId,
+    String? student_id,
     String? department,
-    String? yearMajor,
-    required String acknowledgmentSigned,
+    String? year_major,
+    required String acknowledgment_signed,
     String? mentorId,
   }) async {
     final universityPath = _cloudFunctions.getCurrentUniversityPath();
@@ -611,18 +612,19 @@ class _WebSettingsScreenState extends State<WebSettingsScreen> {
       'name': name,
       'email': email,
       'userType': userType,
-      'acknowledgment_signed': acknowledgmentSigned,
+      'acknowledgment_signed': acknowledgment_signed,
+      // Preserve import_source for tracking
     };
     
     // Add optional fields only if they have values
-    if (studentId != null && studentId.isNotEmpty) {
-      updateData['student_id'] = studentId;
+    if (student_id != null && student_id.isNotEmpty) {
+      updateData['student_id'] = student_id;
     }
     if (department != null && department.isNotEmpty) {
       updateData['department'] = department;
     }
-    if (yearMajor != null && yearMajor.isNotEmpty) {
-      updateData['year_major'] = yearMajor;
+    if (year_major != null && year_major.isNotEmpty) {
+      updateData['year_major'] = year_major;
     }
     
     // Handle mentor assignment for mentees
