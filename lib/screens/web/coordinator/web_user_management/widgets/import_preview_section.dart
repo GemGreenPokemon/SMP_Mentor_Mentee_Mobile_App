@@ -70,11 +70,19 @@ class _ImportPreviewSectionState extends State<ImportPreviewSection>
               ],
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Header section
+                Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                 // Premium Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -136,15 +144,23 @@ class _ImportPreviewSectionState extends State<ImportPreviewSection>
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-            
-                // Premium Statistics Grid
-                GridView.builder(
+                    ],
+                  ),
+                ),
+                // Scrollable content area
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Premium Statistics Grid
+                        GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
-                    childAspectRatio: 2.2,
+                    childAspectRatio: 2.5,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
@@ -172,13 +188,32 @@ class _ImportPreviewSectionState extends State<ImportPreviewSection>
                   _buildWarningSection(context),
                 ],
 
-                // Sample Users Preview
-                const SizedBox(height: 32),
-                _buildUsersPreview(context),
-
-                // Premium Action Buttons
-                const SizedBox(height: 36),
-                Row(
+                        // Sample Users Preview
+                        const SizedBox(height: 32),
+                        _buildUsersPreview(context),
+                        const SizedBox(height: 36),
+                      ],
+                    ),
+                  ),
+                ),
+                // Premium Action Buttons (outside scrollable area)
+                Container(
+                  padding: const EdgeInsets.all(32.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
@@ -242,6 +277,7 @@ class _ImportPreviewSectionState extends State<ImportPreviewSection>
                       ),
                     ),
                   ],
+                ),
                 ),
               ],
             ),

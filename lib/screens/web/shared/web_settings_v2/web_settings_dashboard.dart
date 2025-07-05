@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 import 'controllers/settings_controller.dart';
 import 'widgets/navigation/settings_sidebar.dart';
 import 'utils/settings_constants.dart';
@@ -234,22 +235,41 @@ class _WebSettingsDashboardState extends State<WebSettingsDashboard>
   }
 
   String _getPageTitle(SettingsController controller) {
-    final currentItem = controller.navigationItems.firstWhere(
-      (item) => item.route == controller.currentRoute && item.isClickable,
-      orElse: () => controller.navigationItems.first,
-    );
-    return currentItem.label;
+    try {
+      final currentItem = controller.navigationItems.firstWhere(
+        (item) => item.route == controller.currentRoute && item.isClickable,
+      );
+      return currentItem.label;
+    } catch (e) {
+      // If no exact match found, try to find by route only
+      try {
+        final currentItem = controller.navigationItems.firstWhere(
+          (item) => item.route == controller.currentRoute,
+        );
+        return currentItem.label;
+      } catch (e) {
+        // Fallback to first clickable item or first item
+        final firstClickable = controller.navigationItems.firstWhereOrNull(
+          (item) => item.isClickable,
+        );
+        return firstClickable?.label ?? controller.navigationItems.firstOrNull?.label ?? 'Settings';
+      }
+    }
   }
 
   Widget _buildContent(SettingsController controller) {
-    // Get current navigation item
-    final currentItem = controller.navigationItems.firstWhere(
+    // Get current navigation item with better error handling
+    final currentItem = controller.navigationItems.firstWhereOrNull(
       (item) => item.route == controller.currentRoute && item.isClickable,
-      orElse: () => controller.navigationItems.first,
-    );
+    ) ?? controller.navigationItems.firstWhereOrNull(
+      (item) => item.route == controller.currentRoute,
+    ) ?? controller.navigationItems.firstWhereOrNull(
+      (item) => item.isClickable,
+    ) ?? controller.navigationItems.firstOrNull;
     
     // Return appropriate view based on current route
-    switch (currentItem.id) {
+    final itemId = currentItem?.id ?? 'overview';
+    switch (itemId) {
       case 'overview':
         return OverviewView(key: const ValueKey('overview'));
       case 'account':
